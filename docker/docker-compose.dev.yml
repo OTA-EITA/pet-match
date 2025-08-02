@@ -1,0 +1,38 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: petmatch-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass petmatch123
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=petmatch123
+
+  pet-service:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+      args:
+        SERVICE_NAME: pet-service
+    container_name: petmatch-pet-service
+    ports:
+      - "8083:8080"
+    environment:
+      - PORT=8080
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=petmatch123
+      - REDIS_DB=0
+      - JWT_ACCESS_SECRET=dev-access-secret-key
+      - JWT_REFRESH_SECRET=dev-refresh-secret-key
+    depends_on:
+      - redis
+    volumes:
+      - ..:/app
+    command: ["./main"]
+
+volumes:
+  redis_data:
