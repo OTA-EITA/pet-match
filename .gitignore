@@ -1,3 +1,4 @@
+# ===== Go =====
 # Binaries for programs and plugins
 *.exe
 *.exe~
@@ -6,6 +7,8 @@
 *.dylib
 /services/*/main
 /services/*/*.exe
+/services/*/bin/*
+/bin/*
 
 # Test binary, built with `go test -c`
 *.test
@@ -17,21 +20,60 @@
 go.work
 go.work.sum
 
-# Dependency directories (remove the comment below to include it)
+# Dependency directories
 vendor/
 
-# Build artifacts
-dist/
-build/
+# Go mod cache
+go.sum.backup
 
-# IDE files
+# ===== React Native / Node.js =====
+# Dependencies
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+yarn.lock
+package-lock.json.backup
+
+# Expo
+.expo/
+.expo-shared/
+expo-env.d.ts
+
+# Metro bundler
+.metro-health-check*
+metro-cache/
+
+# React Native
+ios/
+android/
+.buckconfig
+.flowconfig
+.watchmanconfig
+
+# Web
+web-build/
+dist/
+
+# ===== Build artifacts =====
+build/
+dist/
+out/
+lib/
+coverage/
+
+# ===== IDE files =====
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
+.project
+.classpath
+.settings/
 
-# OS generated files
+# ===== OS generated files =====
 .DS_Store
 .DS_Store?
 ._*
@@ -40,49 +82,93 @@ build/
 ehthumbs.db
 Thumbs.db
 
-# Environment files
+# ===== Environment files =====
 .env
 .env.local
 .env.development
 .env.test
 .env.production
+.env.*
+!.env.example
 
-# Logs
+# ===== Logs =====
 logs/
 *.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+lerna-debug.log*
+.npm
 
-# Runtime data
+# ===== Runtime data =====
 pids/
 *.pid
 *.seed
 *.pid.lock
 
-# Coverage directory used by tools like istanbul
-coverage/
-
-# Temporary directories
+# ===== Temporary directories =====
 tmp/
 temp/
+.tmp/
 
-# Docker
+# ===== Docker =====
 docker-compose.override.yml
+Dockerfile.local
 
-# Kubernetes secrets (keep templates but not actual secrets)
+# ===== Kubernetes =====
+# Keep templates but not actual secrets
 k8s/**/secrets.yaml
+k8s/**/secrets-*.yaml
 !k8s/**/secrets-template.yaml
+!k8s/**/secrets-example.yaml
 
-# Local development
-.env.local
+# Local development overrides
+k8s/local/
+k8s/dev-override/
+
+# ===== Local development data =====
 redis-data/
 minio-data/
 postgres-data/
+mysql-data/
+mongodb-data/
+data/
+volumes/
 
-# Generated files
+# ===== Generated files =====
 *.pb.go
 *.swagger.json
+*.generated.go
+*_generated.go
 
-# Cache
+# ===== Cache directories =====
 .cache/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+
+# ===== Testing =====
+coverage/
+.nyc_output/
+test-results/
+junit.xml
+
+# ===== Package managers =====
+.pnpm-store/
+.yarn/
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+
+# ===== Misc =====
+.envrc
+.direnv/
+.terraform/
+*.backup
+*.orig
+
+# ===== Project specific =====
+# PetMatch specific ignores
+/services/**/debug
+/services/**/debug.exe
+/frontend/web-build/
+/scripts/local/
+/docs/generated/
