@@ -97,7 +97,17 @@ func fetchPetFromRedis(key string) (models.Pet, error) {
 
 	var pet models.Pet
 	err = json.Unmarshal([]byte(petJSON), &pet)
-	return pet, err
+	if err != nil {
+		return models.Pet{}, err
+	}
+	
+	// マイグレーション: 既存データのage_infoを補完
+	pet.MigrateAgeInfo()
+	
+	// マイグレーション後のデータを保存して永続化
+	saveMigratedPetToRedis(&pet, key)
+	
+	return pet, nil
 }
 
 func matchesSearchCriteria(pet models.Pet, params petSearchParams) bool {
@@ -113,10 +123,10 @@ func matchesSearchCriteria(pet models.Pet, params petSearchParams) bool {
 	if params.Size != "" && pet.Size != params.Size {
 		return false
 	}
-	if params.AgeMin > 0 && pet.Age < params.AgeMin {
+	if params.AgeMin > 0 && pet.AgeInfo.Years < params.AgeMin {
 		return false
 	}
-	if params.AgeMax > 0 && pet.Age > params.AgeMax {
+	if params.AgeMax > 0 && pet.AgeInfo.Years > params.AgeMax {
 		return false
 	}
 	return true
@@ -183,15 +193,7 @@ func createPet(c *gin.Context) {
 }
 
 func createNewPetFromRequest(req models.PetCreateRequest, userID string) *models.Pet {
-	pet := models.NewPet(req.Name, req.Species, req.Breed, req.Age, userID)
-	pet.Gender = req.Gender
-	pet.Size = req.Size
-	pet.Color = req.Color
-	pet.Personality = req.Personality
-	pet.MedicalInfo = req.MedicalInfo
-	pet.Location = req.Location
-	pet.Description = req.Description
-	return pet
+	return models.NewPetFromRequest(req, userID)
 }
 
 func savePetToRedis(pet *models.Pet) error {
@@ -202,6 +204,18 @@ func savePetToRedis(pet *models.Pet) error {
 
 	key := utils.GetRedisKey("pet", pet.ID)
 	return utils.RedisClient.Set(ctx, key, petJSON, 0).Err()
+}
+
+// saveMigratedPetToRedis saves migrated pet data back to Redis (async, best effort)
+func saveMigratedPetToRedis(pet *models.Pet, key string) {
+	// 非同期でマイグレーション後のデータを保存
+	go func() {
+		petJSON, err := json.Marshal(pet)
+		if err != nil {
+			return // Silent fail for migration saves
+		}
+		utils.RedisClient.Set(ctx, key, petJSON, 0)
+	}()
 }
 
 // updatePet handles PUT /pets/:id
@@ -251,6 +265,12 @@ func getPetByID(petID string) (*models.Pet, error) {
 	if err := json.Unmarshal([]byte(petJSON), &pet); err != nil {
 		return nil, err
 	}
+	
+	// マイグレーション: 既存データのage_infoを補完
+	pet.MigrateAgeInfo()
+	
+	// マイグレーション後のデータを保存して永続化
+	saveMigratedPetToRedis(&pet, key)
 
 	return &pet, nil
 }
@@ -259,7 +279,7 @@ func updatePetFromRequest(pet *models.Pet, req models.PetCreateRequest) {
 	pet.Name = req.Name
 	pet.Species = req.Species
 	pet.Breed = req.Breed
-	pet.Age = req.Age
+	pet.AgeInfo = models.CalculateAgeInfo(req.AgeYears, req.AgeMonths, req.IsEstimated)
 	pet.Gender = req.Gender
 	pet.Size = req.Size
 	pet.Color = req.Color
@@ -323,5 +343,57 @@ func uploadPetImage(c *gin.Context) {
 		"pet_id":   petID,
 		"owner_id": userID,
 		"note":     "File service integration pending",
+	})
+}
+
+// migrateAllPets handles POST /pets/migrate - migrates all existing pets
+func migrateAllPets(c *gin.Context) {
+	// Get all pet keys from Redis
+	keys, err := utils.RedisClient.Keys(ctx, "pet:*").Result()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch pet keys"})
+		return
+	}
+
+	migratedCount := 0
+	errorCount := 0
+
+	for _, key := range keys {
+		petJSON, err := utils.RedisClient.Get(ctx, key).Result()
+		if err != nil {
+			errorCount++
+			continue
+		}
+
+		var pet models.Pet
+		if err := json.Unmarshal([]byte(petJSON), &pet); err != nil {
+			errorCount++
+			continue
+		}
+
+		// Apply migration
+		oldTotalMonths := pet.AgeInfo.TotalMonths
+		pet.MigrateAgeInfo()
+
+		// Save if migration was applied
+		if pet.AgeInfo.TotalMonths != oldTotalMonths || pet.AgeInfo.AgeText == "" {
+			migratedJSON, err := json.Marshal(pet)
+			if err != nil {
+				errorCount++
+				continue
+			}
+			if err := utils.RedisClient.Set(ctx, key, migratedJSON, 0).Err(); err != nil {
+				errorCount++
+				continue
+			}
+			migratedCount++
+		}
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Migration completed",
+		"total_pets": len(keys),
+		"migrated": migratedCount,
+		"errors": errorCount,
 	})
 }

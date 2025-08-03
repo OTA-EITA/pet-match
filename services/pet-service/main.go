@@ -78,6 +78,9 @@ func setupPetRoutes(r *gin.Engine, cfg *config.Config) {
 	{
 		petRoutes.GET("", getPets)
 		petRoutes.GET("/:id", getPet)
+		
+		// Migration endpoint (for development/admin use)
+		petRoutes.POST("/migrate", migrateAllPets)
 
 		// Protected routes
 		protected := petRoutes.Group("")
