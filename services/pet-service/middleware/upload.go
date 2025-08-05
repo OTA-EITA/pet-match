@@ -15,7 +15,7 @@ const (
 func FileUploadMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Set maximum multipart form memory
-		c.Request.ParseMultipartForm(MaxUploadSize)
+		_ = c.Request.ParseMultipartForm(MaxUploadSize)
 		
 		// Check content type for multipart forms
 		contentType := c.GetHeader("Content-Type")
@@ -38,7 +38,7 @@ func isMultipartForm(contentType string) bool {
 func ImageUploadMiddleware() gin.HandlerFunc {
 	return gin.HandlerFunc(func(c *gin.Context) {
 		// Set max multipart memory for image uploads
-		c.Request.ParseMultipartForm(MaxUploadSize)
+		_ = c.Request.ParseMultipartForm(MaxUploadSize)
 		
 		// Add headers for file upload responses
 		c.Header("Access-Control-Allow-Origin", "*")

@@ -98,7 +98,9 @@ func (h *ImageHandler) UploadPetImage(c *gin.Context) {
 	// Save image record to Redis
 	if err := h.saveImageToRedis(image); err != nil {
 		// Clean up uploaded files
-		h.imageService.DeleteImage(petID, image.FileName)
+		if err := h.imageService.DeleteImage(petID, image.FileName); err != nil {
+			fmt.Printf("Warning: Failed to clean up uploaded files: %v\n", err)
+		}
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save image record"})
 		return
 	}

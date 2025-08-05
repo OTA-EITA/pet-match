@@ -91,7 +91,9 @@ func (s *ImageService) SaveImage(petID string, fileHeader *multipart.FileHeader,
 	defer originalFile.Close()
 
 	// Reset file reader
-	file.Seek(0, 0)
+	if _, err := file.Seek(0, 0); err != nil {
+		return "", "", 0, 0, fmt.Errorf("failed to reset file reader: %v", err)
+	}
 	
 	// Copy original file
 	if _, err := io.Copy(originalFile, file); err != nil {
