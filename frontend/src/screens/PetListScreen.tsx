@@ -10,11 +10,15 @@ import {
   SafeAreaView,
   StatusBar,
 } from 'react-native';
+import { StackScreenProps } from '@react-navigation/stack';
+import { RootStackParamList } from '../types/navigation';
 import { Pet } from '../types/Pet';
 import { petApi } from '../api/petApi';
 import PetCard from '../components/PetCard';
 
-const PetListScreen: React.FC = () => {
+type Props = StackScreenProps<RootStackParamList, 'PetList'>;
+
+const PetListScreen: React.FC<Props> = ({ navigation }) => {
   const [pets, setPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -63,14 +67,8 @@ const PetListScreen: React.FC = () => {
   };
 
   const onPetPress = (pet: Pet) => {
-    Alert.alert(
-      pet.name,
-      `${pet.breed}\\n${pet.age_info.age_text}\\n\\n${pet.description}`,
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        { text: '詳細を見る', onPress: () => console.log('Navigate to detail:', pet.id) }
-      ]
-    );
+    // Navigate to pet detail screen
+    navigation.navigate('PetDetail', { petId: pet.id });
   };
 
   const checkApiHealth = async () => {

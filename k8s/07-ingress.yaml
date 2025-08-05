@@ -1,0 +1,64 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: petmatch-ingress
+  namespace: petmatch
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  rules:
+  - host: petmatch.local
+    http:
+      paths:
+      # Web App (Frontend)
+      - path: /(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: web-app
+            port:
+              number: 3000
+      # API Gateway (Backend APIs)
+      - path: /api/(.*)
+        pathType: Prefix
+        backend:
+          service:
+            name: api-gateway
+            port:
+              number: 8080
+
+---
+# Alternative: NodePort services for easy local access
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-nodeport
+  namespace: petmatch
+  labels:
+    app: web-app
+spec:
+  selector:
+    app: web-app
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 30000
+  type: NodePort
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway-nodeport
+  namespace: petmatch
+  labels:
+    app: api-gateway
+spec:
+  selector:
+    app: api-gateway
+  ports:
+  - port: 8080
+    targetPort: 8080
+    nodePort: 30080
+  type: NodePort

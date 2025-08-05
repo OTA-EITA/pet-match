@@ -6,8 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/petmatch/app/services/pet-service/handlers"
+	"github.com/petmatch/app/services/pet-service/middleware"
 	"github.com/petmatch/app/shared/config"
-	"github.com/petmatch/app/shared/middleware"
+	sharedMiddleware "github.com/petmatch/app/shared/middleware"
 	"github.com/petmatch/app/shared/utils"
 )
 
@@ -60,36 +62,54 @@ func setupRouter(cfg *config.Config) *gin.Engine {
 }
 
 func applyMiddleware(r *gin.Engine) {
-	r.Use(middleware.LoggingMiddleware())
-	r.Use(middleware.ErrorHandlingMiddleware())
-	r.Use(middleware.CORSMiddleware())
+	r.Use(sharedMiddleware.LoggingMiddleware())
+	r.Use(sharedMiddleware.ErrorHandlingMiddleware())
+	r.Use(sharedMiddleware.CORSMiddleware())
+	r.Use(middleware.FileUploadMiddleware())
 }
 
 func setupRoutes(r *gin.Engine, cfg *config.Config) {
 	// Health check
 	r.GET("/health", healthCheckHandler)
 
+	// Static file serving for uploaded images
+	r.Static("/uploads", "./uploads")
+
 	// Pet routes
 	setupPetRoutes(r, cfg)
 }
 
 func setupPetRoutes(r *gin.Engine, cfg *config.Config) {
+	// Initialize handlers
+	petHandler := handlers.NewPetHandler()
+	imageHandler := handlers.NewImageHandler("./uploads")
+
 	petRoutes := r.Group("/pets")
 	{
-		petRoutes.GET("", getPets)
-		petRoutes.GET("/:id", getPet)
+		// Public routes
+		petRoutes.GET("", petHandler.GetPets)
+		petRoutes.GET("/:id", petHandler.GetPet)
+		petRoutes.GET("/:id/images", imageHandler.GetPetImages)
+		
+		// Image upload operations (temporarily public for development)
+		imageRoutes := petRoutes.Group("/:id/images")
+		imageRoutes.Use(middleware.ImageUploadMiddleware())
+		{
+			imageRoutes.POST("", imageHandler.UploadPetImage)
+			imageRoutes.DELETE("/:image_id", imageHandler.DeletePetImage)
+		}
 		
 		// Migration endpoint (for development/admin use)
-		petRoutes.POST("/migrate", migrateAllPets)
+		petRoutes.POST("/migrate", petHandler.MigrateAllPets)
 
-		// Protected routes
+		// Protected routes (require authentication)
 		protected := petRoutes.Group("")
-		protected.Use(middleware.AuthMiddleware(cfg))
+		protected.Use(sharedMiddleware.AuthMiddleware(cfg))
 		{
-			protected.POST("", createPet)
-			protected.PUT("/:id", updatePet)
-			protected.DELETE("/:id", deletePet)
-			protected.POST("/:id/images", uploadPetImage)
+			// Pet CRUD operations
+			protected.POST("", petHandler.CreatePet)
+			protected.PUT("/:id", petHandler.UpdatePet)
+			protected.DELETE("/:id", petHandler.DeletePet)
 		}
 	}
 }
@@ -107,5 +127,10 @@ func healthCheckHandler(c *gin.Context) {
 		"status":  "healthy",
 		"service": "pet-service",
 		"version": "1.0.0",
+		"features": []string{
+			"pet-crud",
+			"image-upload",
+			"search-filter",
+		},
 	})
 }
