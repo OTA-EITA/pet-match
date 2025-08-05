@@ -85,7 +85,7 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
           💉 {pet.medical_info.vaccinated ? 'ワクチン済' : '未接種'}
         </Text>
         <Text style={styles.medicalText}>
-          ⚕️ {pet.medical_info.neutered ? '去勢・避妊済' : '未手術'}
+          ⚕️ {(pet.medical_info.spayed_neutered || pet.medical_info.neutered) ? '去勢・避妊済' : '未手術'}
         </Text>
       </View>
     </TouchableOpacity>

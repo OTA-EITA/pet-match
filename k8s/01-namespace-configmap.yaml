@@ -1,0 +1,41 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: petmatch
+  labels:
+    name: petmatch
+    app: petmatch
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: petmatch-config
+  namespace: petmatch
+data:
+  # Redis Configuration
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  REDIS_DB: "0"
+  
+  # Service Discovery
+  API_GATEWAY_URL: "http://api-gateway:8080"
+  AUTH_SERVICE_URL: "http://auth-service:8081"
+  USER_SERVICE_URL: "http://user-service:8082"
+  PET_SERVICE_URL: "http://pet-service:8083"
+  MATCH_SERVICE_URL: "http://match-service:8084"
+  CHAT_SERVICE_URL: "http://chat-service:8085"
+  
+  # External Services
+  MINIO_ENDPOINT: "minio-service:9000"
+  FCM_ENDPOINT: "https://fcm.googleapis.com"
+  
+  # App Configuration
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  MAX_FILE_SIZE: "10MB"
+  MATCH_RADIUS_KM: "50"
+  
+  # Web App Configuration
+  API_URL: "http://api-gateway:8080"
+  NEXT_PUBLIC_API_URL: "http://localhost:8080"

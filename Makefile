@@ -1,117 +1,231 @@
-.PHONY: help build test lint clean dev-setup docker-build
+# PetMatch Kubernetes Development Makefile
 
-# PetMatch Makefile
+.PHONY: help start stop health build-all build-api build-pet build-web deploy-all logs clean lint lint-fast lint-fix
 
-# Check if golangci-lint is in PATH, otherwise use GOPATH
-GOLANGCI_LINT := $(shell which golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint")
+# Default target
+help:
+	@echo "🐾 PetMatch Kubernetes 開発コマンド"
+	@echo "=================================="
+	@echo ""
+	@echo " 開発環境:"
+	@echo "  make start     - ポートフォワード起動 (API Gateway + Pet Service)"
+	@echo "  make stop      - ポートフォワード停止"
+	@echo "  make health    - システムヘルスチェック"
+	@echo ""
+	@echo " ビルド・デプロイ:"
+	@echo "  make build-all - 全サービスをビルド"
+	@echo "  make build-api - API Gatewayをビルド"
+	@echo "  make build-pet - Pet Serviceをビルド"
+	@echo "  make build-web - Web Appをビルド"
+	@echo "  make deploy    - 全サービスを再デプロイ"
+	@echo ""
+	@echo " 監視・ログ:"
+	@echo "  make logs      - 全サービスのログ表示"
+	@echo "  make logs-api  - API Gatewayログ"
+	@echo "  make logs-pet  - Pet Serviceログ"
+	@echo "  make logs-web  - Web Appログ"
+	@echo ""
+	@echo " コード品質:"
+	@echo "  make lint      - golangci-lintでコード検査"
+	@echo "  make lint-fast - 高速検査（errcheckのみ）"
+	@echo "  make lint-fix  - 自動修正可能な問題を修正"
+	@echo ""
+	@echo " クリーンアップ:"
+	@echo "  make clean     - 不要なリソースを削除"
 
-help: ## Show help message
-	@echo "Available commands:"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
-
-dev-setup: ## Setup development environment
-	@./scripts/dev-setup.sh
-
-build: ## Build all services
-	@echo "Building Pet Service..."
-	@cd services/pet-service && go build -o ../../bin/pet-service .
-	@echo "Building API Gateway..."
-	@cd services/api-gateway && go build -o ../../bin/api-gateway .
-
-test: ## Run tests
-	@go test ./... -v
-
-lint: ## Run golangci-lint
-	@$(GOLANGCI_LINT) run ./...
-
-lint-fix: ## Run golangci-lint with auto-fix
-	@$(GOLANGCI_LINT) run --fix ./...
-
-clean: ## Clean build artifacts
-	@rm -rf bin/
-	@docker-compose -f docker/docker-compose.dev.yml down -v || true
-
-docker-build: ## Build Docker images
-	@./scripts/build.sh pet-service
-	@echo "Building API Gateway Docker image..."
-	@cd services/api-gateway && docker build -t petmatch/api-gateway:latest .
-
-sample-data: ## Generate sample data
-	@./scripts/generate-sample-data.sh
-
-run: ## Run pet service locally
-	@cd services/pet-service && go run .
-
-run-gateway: ## Run API Gateway locally
-	@cd services/api-gateway && go run .
-
-run-all: ## Run all services locally (requires tmux)
-	@echo "Starting Pet Service and API Gateway..."
-	@tmux new-session -d -s petmatch-dev 'cd services/pet-service && go run .' \; \
-		split-window -h 'cd services/api-gateway && go run .' \; \
-		select-layout even-horizontal \; \
-		attach-session -t petmatch-dev
-
-# Kubernetes
-k8s-deploy: docker-build ## Build and deploy to Kubernetes
-	@echo "Deploying to Kubernetes..."
-	@kubectl apply -f k8s/namespace.yaml
-	@kubectl apply -f k8s/configmap.yaml
-	@kubectl apply -f k8s/secrets.yaml
-	@kubectl apply -f k8s/redis/
-	@kubectl apply -f k8s/services/
-	@echo "Waiting for deployments..."
-	@kubectl rollout status deployment/pet-service -n petmatch --timeout=60s
-	@kubectl rollout status deployment/api-gateway -n petmatch --timeout=60s
-
-k8s-status: ## Check Kubernetes status
-	@echo "=== Kubernetes Status ==="
+# ポートフォワード起動
+start:
+	@echo " PetMatch ポートフォワード起動中..."
+	@if ! minikube status > /dev/null 2>&1; then \
+		echo "Minikubeが起動していません"; \
+		echo "起動コマンド: minikube start"; \
+		exit 1; \
+	fi
+	@echo "Pod状況確認中..."
 	@kubectl get pods -n petmatch
 	@echo ""
+	@echo "ポートフォワード開始..."
+	@echo "API Gateway (18081:8080) 起動中..."
+	@kubectl port-forward service/api-gateway 18081:8080 -n petmatch > /dev/null 2>&1 & \
+	echo $$! > .api-gateway.pid
+	@echo "Pet Service (8083:8083) 起動中..."
+	@kubectl port-forward service/pet-service 8083:8083 -n petmatch > /dev/null 2>&1 & \
+	echo $$! > .pet-service.pid
+	@sleep 3
+	@echo ""
+	@echo "ヘルスチェック..."
+	@curl -s -o /dev/null -w "API Gateway: %{http_code}\n" "http://localhost:18081/health" || echo "API Gateway: 失敗"
+	@curl -s -o /dev/null -w "Pet Service: %{http_code}\n" "http://localhost:8083/health" || echo "Pet Service: 失敗"
+	@echo ""
+	@echo " ポートフォワード起動完了"
+	@echo "アクセスURL:"
+	@echo "Web App: $$(minikube service web-app-nodeport -n petmatch --url 2>/dev/null)"
+	@echo "API Gateway: http://localhost:18081"
+	@echo "Pet Service: http://localhost:8083"
+	@echo ""
+	@echo "停止方法: make stop"
+
+# ポートフォワード停止
+stop:
+	@echo "PetMatch ポートフォワード停止中..."
+	@if [ -f .api-gateway.pid ]; then \
+		kill $$(cat .api-gateway.pid) 2>/dev/null && echo " API Gateway ポートフォワード停止"; \
+		rm -f .api-gateway.pid; \
+	fi
+	@if [ -f .pet-service.pid ]; then \
+		kill $$(cat .pet-service.pid) 2>/dev/null && echo " Pet Service ポートフォワード停止"; \
+		rm -f .pet-service.pid; \
+	fi
+	@pkill -f "kubectl port-forward.*api-gateway.*18081" 2>/dev/null || true
+	@pkill -f "kubectl port-forward.*pet-service.*8083" 2>/dev/null || true
+	@echo "全てのポートフォワードを停止しました"
+
+# ヘルスチェック
+health:
+	@echo "PetMatch システム ヘルスチェック"
+	@echo "=================================="
+	@echo ""
+	@echo "Minikube状況:"
+	@minikube status || echo "Minikube停止中"
+	@echo ""
+	@echo "Kubernetes Pod状況:"
+	@kubectl get pods -n petmatch
+	@echo ""
+	@echo "サービス状況:"
 	@kubectl get services -n petmatch
 	@echo ""
-	@kubectl get ingress -n petmatch
+	@echo "ポートフォワード確認:"
+	@WEB_URL=$$(minikube service web-app-nodeport -n petmatch --url 2>/dev/null); \
+	if [ ! -z "$$WEB_URL" ]; then \
+		echo "Web App: $$WEB_URL"; \
+		curl -s -o /dev/null -w "Status: %{http_code} " "$$WEB_URL" 2>/dev/null && echo "" || echo "❌"; \
+	else \
+		echo "Web App: URL取得失敗"; \
+	fi
+	@printf "API Gateway: http://localhost:18081 - "
+	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:18081/health" 2>/dev/null && echo "" || echo "❌"
+	@printf "Pet Service: http://localhost:8083 - "
+	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:8083/health" 2>/dev/null && echo "" || echo "❌"
+	@echo ""
+	@echo "Redis接続確認:"
+	@kubectl exec deployment/redis -n petmatch -- redis-cli -a petmatch123 ping 2>/dev/null | grep -q PONG && echo " Redis接続OK" || echo "Redis接続失敗"
+	@echo ""
+	@echo "画像アップロード機能確認:"
+	@IMAGE_COUNT=$$(kubectl exec deployment/redis -n petmatch -- redis-cli -a petmatch123 KEYS "pet_image:*" 2>/dev/null | wc -l); \
+	echo "アップロード済み画像: $$IMAGE_COUNT 件"
 
-k8s-logs: ## Show API Gateway logs
-	@kubectl logs -l app=api-gateway -n petmatch --tail=50 -f
+# Docker環境設定
+docker-env:
+	@eval $$(minikube docker-env)
 
-# Testing
-test-gateway: ## Test API Gateway
-	@chmod +x test-complete.sh && ./test-complete.sh
+# 全サービスビルド
+build-all: docker-env build-api build-pet build-web
 
-test-all: build test-gateway ## Build and test all components
+# API Gatewayビルド
+build-api:
+	@echo " API Gateway ビルド中..."
+	@eval $$(minikube docker-env) && \
+	docker build -t petmatch/api-gateway:latest -f services/api-gateway/Dockerfile .
 
-dev: ## Start development environment
-	@echo "Starting development environment..."
-	@echo "Use Ctrl+C to stop all services"
-	@make run-all
+# Pet Serviceビルド
+build-pet:
+	@echo " Pet Service ビルド中..."
+	@eval $$(minikube docker-env) && \
+	docker build -t petmatch/pet-service:latest -f services/pet-service/Dockerfile .
 
-# React Native
-frontend-install: ## Install React Native dependencies
-	@cd frontend && npm install
+# Web Appビルド
+build-web:
+	@echo " Web App ビルド中..."
+	@eval $$(minikube docker-env) && \
+	docker build -t petmatch/web-app:latest -f web-app/Dockerfile ./web-app
 
-frontend-start: ## Start React Native development server
-	@cd frontend && npm start
+# 全サービス再デプロイ
+deploy: deploy-api deploy-pet deploy-web
 
-frontend-ios: ## Start iOS simulator
-	@cd frontend && npm run ios
+# API Gateway再デプロイ
+deploy-api:
+	@echo " API Gateway 再デプロイ中..."
+	@kubectl rollout restart deployment/api-gateway -n petmatch
+	@kubectl rollout status deployment/api-gateway -n petmatch
 
-frontend-android: ## Start Android emulator
-	@cd frontend && npm run android
+# Pet Service再デプロイ
+deploy-pet:
+	@echo " Pet Service 再デプロイ中..."
+	@kubectl rollout restart deployment/pet-service -n petmatch
+	@kubectl rollout status deployment/pet-service -n petmatch
 
-frontend-web: ## Start web browser
-	@cd frontend && npm run web
+# Web App再デプロイ
+deploy-web:
+	@echo " Web App 再デプロイ中..."
+	@kubectl rollout restart deployment/web-app -n petmatch
+	@kubectl rollout status deployment/web-app -n petmatch
 
-# Development Environment
-dev-full: ## Start full development environment
-	@echo "Starting full PetMatch development environment..."
-	@echo "1. API Gateway: http://localhost:8080"
-	@echo "2. React Native: http://localhost:19006"
-	@tmux new-session -d -s petmatch-full \
-		'kubectl port-forward service/api-gateway 8080:8080 -n petmatch' \; \
-		split-window -h 'cd frontend && npm start' \; \
-		select-layout even-horizontal \; \
-		attach-session -t petmatch-full
+# ログ表示
+logs:
+	@echo "全サービスログ監視中... (Ctrl+C で停止)"
+	@kubectl logs -f deployment/api-gateway -n petmatch --prefix=true &
+	@kubectl logs -f deployment/pet-service -n petmatch --prefix=true &
+	@kubectl logs -f deployment/web-app -n petmatch --prefix=true &
+	@wait
 
-# Quality checks
-check: lint test ## Run all quality checks
+# API Gatewayログ
+logs-api:
+	@kubectl logs -f deployment/api-gateway -n petmatch
+
+# Pet Serviceログ
+logs-pet:
+	@kubectl logs -f deployment/pet-service -n petmatch
+
+# Web Appログ
+logs-web:
+	@kubectl logs -f deployment/web-app -n petmatch
+
+# Redis CLI
+redis-cli:
+	@kubectl exec -it deployment/redis -n petmatch -- redis-cli -a petmatch123
+
+# Lint - golangci-lintでコード検査
+lint:
+	@echo " golangci-lint コード検査実行中..."
+	@golangci-lint run ./services/...
+	@echo " コード検査完了"
+
+# Lint Fast - 高速チェック（errcheckのみ）
+lint-fast:
+	@echo " golangci-lint 高速検査実行中..."
+	@golangci-lint run --disable-all --enable=errcheck ./services/...
+	@echo " 高速検査完了"
+
+# Lint Fix - 自動修正可能な問題を修正
+lint-fix:
+	@echo "golangci-lint 自動修正実行中..."
+	@golangci-lint run --fix --timeout=5m ./services/...
+	@echo " 自動修正完了"
+
+# クリーンアップ
+clean:
+	@echo " クリーンアップ中..."
+	@rm -f .api-gateway.pid .pet-service.pid
+	@docker image prune -f
+	@echo " クリーンアップ完了"
+
+# 開発環境セットアップ
+setup:
+	@echo "PetMatch 開発環境セットアップ"
+	@echo "1. Minikube起動中..."
+	@minikube start
+	@echo "2. 必要なリソース適用中..."
+	@kubectl apply -f k8s/ -R
+	@echo "3. Pod起動待機中..."
+	@kubectl wait --for=condition=ready pod --all -n petmatch --timeout=300s
+	@echo " セットアップ完了! 'make start' でポートフォワードを開始してください"
+
+# 開発環境の完全リセット
+reset:
+	@echo " 開発環境を完全リセットします"
+	@read -p "続行しますか? [y/N]: " confirm && [ "$$confirm" = "y" ]
+	@make stop
+	@kubectl delete namespace petmatch --ignore-not-found=true
+	@minikube stop
+	@minikube delete
+	@echo "リセット完了! 'make setup' で再セットアップしてください"
