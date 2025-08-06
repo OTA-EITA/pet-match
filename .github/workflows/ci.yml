@@ -92,16 +92,113 @@ jobs:
         name: petmatch-binaries
         path: bin/
 
+  # Web App lint and test
+  web-app-test:
+    name: Web App Test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: web-app/package-lock.json
+
+    - name: Install dependencies
+      working-directory: web-app
+      run: npm ci
+
+    - name: Run TypeScript check
+      working-directory: web-app
+      run: npx tsc --noEmit
+
+    - name: Run lint
+      working-directory: web-app
+      run: npm run lint
+
+    - name: Build check
+      working-directory: web-app
+      run: npm run build
+
   docker:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test, web-app-test]
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - pet-service
+          - auth-service
+          - user-service
+          - api-gateway
+          - web-app
+    
     steps:
     - uses: actions/checkout@v4
     
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
-    - name: Build Docker image
+      with:
+        driver-opts: |
+          network=host
+    
+    # CI環境での競合問題対策
+    - name: Setup build environment
       run: |
-        docker build -f docker/Dockerfile --build-arg SERVICE_NAME=pet-service -t petmatch/pet-service:${{ github.sha }} .
+        # ユニークなビルドIDを生成（CI競合回避）
+        echo "BUILD_ID=${{ github.run_id }}-${{ github.run_attempt }}-${{ strategy.job-index }}" >> $GITHUB_ENV
+        echo "DOCKER_BUILDKIT=1" >> $GITHUB_ENV
+        
+        # Docker環境のクリーンアップ
+        docker system prune -f || true
+        docker builder prune -f || true
+
+    - name: Build Go services
+      if: matrix.service != 'web-app'
+      run: |
+        docker build \
+          --no-cache \
+          --progress=plain \
+          --build-arg BUILD_ID=${{ env.BUILD_ID }} \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          -f services/${{ matrix.service }}/Dockerfile \
+          -t petmatch/${{ matrix.service }}:${{ github.sha }} \
+          .
+
+    - name: Build Web App
+      if: matrix.service == 'web-app'
+      run: |
+        docker build \
+          --no-cache \
+          --progress=plain \
+          --build-arg BUILD_ID=${{ env.BUILD_ID }} \
+          --build-arg BUILDKIT_INLINE_CACHE=1 \
+          -f web-app/Dockerfile \
+          -t petmatch/web-app:${{ github.sha }} \
+          ./web-app
+
+    # ビルド後のクリーンアップ（競合回避）
+    - name: Cleanup build environment
+      if: always()
+      run: |
+        docker system prune -f || true
+        docker builder prune -f || true
+
+  # 統合テスト（オプション）
+  integration-test:
+    name: Integration Test
+    runs-on: ubuntu-latest
+    needs: [docker]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup test environment
+      run: |
+        # Kubernetesテスト環境のセットアップ
+        # または Docker Composeでの統合テスト
+        echo "Integration tests would run here"

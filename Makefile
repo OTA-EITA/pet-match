@@ -176,8 +176,14 @@ build-user:
 # Web Appビルド
 build-web:
 	@echo "🔨 Web App ビルド中..."
-	@eval $$(minikube docker-env) && \
-	docker build -t petmatch/web-app:latest -f web-app/Dockerfile ./web-app
+	@BUILD_ID=$(date +%s)-$RANDOM; \
+	eval $(minikube docker-env) && \
+	DOCKER_BUILDKIT=1 docker build \
+		--no-cache \
+		--progress=plain \
+		--build-arg BUILD_ID=$BUILD_ID \
+		-t petmatch/web-app:latest \
+		-f web-app/Dockerfile ./web-app
 
 # 全サービス再デプロイ
 deploy: deploy-api deploy-pet deploy-auth deploy-user deploy-web
@@ -279,11 +285,20 @@ lint-fix:
 	@golangci-lint run --fix --timeout=5m ./services/...
 	@echo "✅ 自動修正完了"
 
+# CI用クリーンアップ
+clean-ci:
+	@echo "🧽 CI環境クリーンアップ中..."
+	@eval $(minikube docker-env) && \
+	docker system prune -a -f && \
+	docker builder prune -a -f && \
+	docker volume prune -f || true
+	@echo "✅ CIクリーンアップ完了"
+
 # クリーンアップ
 clean:
 	@echo "🧹 クリーンアップ中..."
 	@rm -f .api-gateway.pid .pet-service.pid .auth-service.pid .user-service.pid
-	@docker image prune -f
+	@eval $(minikube docker-env) && docker image prune -f || true
 	@echo "✅ クリーンアップ完了"
 
 # 開発環境セットアップ
