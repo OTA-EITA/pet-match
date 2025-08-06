@@ -113,10 +113,6 @@ jobs:
     - name: Run TypeScript check
       working-directory: web-app
       run: |
-        # パス解決の確認
-        ls -la lib/
-        echo "Checking TypeScript configuration..."
-        npx tsc --showConfig
         echo "Running TypeScript check..."
         npx tsc --noEmit
 

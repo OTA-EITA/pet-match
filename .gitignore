@@ -60,7 +60,8 @@ dist/
 build/
 dist/
 out/
-lib/
+# web-app/lib は保持、Goのビルド成果のみ除外
+/services/*/lib/
 coverage/
 
 # ===== IDE files =====
