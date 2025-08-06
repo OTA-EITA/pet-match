@@ -62,7 +62,8 @@ const LoginForm = () => {
     try {
       await login(formData.email, formData.password);
       router.push('/pets'); // Redirect to pets page after login
-    } catch (error) {
+    } catch (error: unknown) {
+      console.error('Login error:', error);
       if (error instanceof AuthError) {
         setAuthError(error.message);
       } else {

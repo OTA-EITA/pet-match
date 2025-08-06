@@ -88,7 +88,7 @@ const RegisterForm = () => {
     try {
       await register(formData.email, formData.password, formData.name, formData.type);
       router.push('/pets');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Registration error:', error);
       if (error instanceof AuthError) {
         setAuthError(error.message);
