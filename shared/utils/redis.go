@@ -90,6 +90,25 @@ func SetupRedisIndexes() error {
 	return nil
 }
 
+// NewRedisClient creates a new Redis client with the provided configuration
+func NewRedisClient(cfg *config.Config) *redis.Client {
+	client := redis.NewClient(&redis.Options{
+		Addr:     fmt.Sprintf("%s:%s", cfg.RedisHost, cfg.RedisPort),
+		Password: cfg.RedisPassword,
+		DB:       cfg.RedisDB,
+	})
+
+	// Test connection
+	pong, err := client.Ping(ctx).Result()
+	if err != nil {
+		log.Printf("Warning: Failed to connect to Redis: %v", err)
+	} else {
+		log.Printf("Redis connected successfully: %s", pong)
+	}
+
+	return client
+}
+
 // HealthCheck checks if Redis is responding
 func HealthCheck() error {
 	_, err := RedisClient.Ping(ctx).Result()

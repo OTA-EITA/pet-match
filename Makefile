@@ -1,6 +1,6 @@
 # PetMatch Kubernetes Development Makefile
 
-.PHONY: help start stop health build-all build-api build-pet build-web deploy-all logs clean lint lint-fast lint-fix
+.PHONY: help start stop health build-all build-api build-pet build-auth build-user build-web deploy-all logs clean lint lint-fast lint-fix
 
 # Default target
 help:
@@ -8,7 +8,7 @@ help:
 	@echo "=================================="
 	@echo ""
 	@echo " 開発環境:"
-	@echo "  make start     - ポートフォワード起動 (API Gateway + Pet Service)"
+	@echo "  make start     - ポートフォワード起動 (全サービス)"
 	@echo "  make stop      - ポートフォワード停止"
 	@echo "  make health    - システムヘルスチェック"
 	@echo ""
@@ -16,6 +16,8 @@ help:
 	@echo "  make build-all - 全サービスをビルド"
 	@echo "  make build-api - API Gatewayをビルド"
 	@echo "  make build-pet - Pet Serviceをビルド"
+	@echo "  make build-auth - Auth Serviceをビルド"
+	@echo "  make build-user - User Serviceをビルド"
 	@echo "  make build-web - Web Appをビルド"
 	@echo "  make deploy    - 全サービスを再デプロイ"
 	@echo ""
@@ -23,6 +25,8 @@ help:
 	@echo "  make logs      - 全サービスのログ表示"
 	@echo "  make logs-api  - API Gatewayログ"
 	@echo "  make logs-pet  - Pet Serviceログ"
+	@echo "  make logs-auth - Auth Serviceログ"
+	@echo "  make logs-user - User Serviceログ"
 	@echo "  make logs-web  - Web Appログ"
 	@echo ""
 	@echo " コード品質:"
@@ -35,7 +39,7 @@ help:
 
 # ポートフォワード起動
 start:
-	@echo " PetMatch ポートフォワード起動中..."
+	@echo "🐾 PetMatch ポートフォワード起動中..."
 	@if ! minikube status > /dev/null 2>&1; then \
 		echo "Minikubeが起動していません"; \
 		echo "起動コマンド: minikube start"; \
@@ -51,17 +55,27 @@ start:
 	@echo "Pet Service (8083:8083) 起動中..."
 	@kubectl port-forward service/pet-service 8083:8083 -n petmatch > /dev/null 2>&1 & \
 	echo $$! > .pet-service.pid
+	@echo "Auth Service (8091:8081) 起動中..."
+	@kubectl port-forward service/auth-service 8091:8081 -n petmatch > /dev/null 2>&1 & \
+	echo $! > .auth-service.pid
+	@echo "User Service (8082:8082) 起動中..."
+	@kubectl port-forward service/user-service 8082:8082 -n petmatch > /dev/null 2>&1 & \
+	echo $$! > .user-service.pid
 	@sleep 3
 	@echo ""
 	@echo "ヘルスチェック..."
 	@curl -s -o /dev/null -w "API Gateway: %{http_code}\n" "http://localhost:18081/health" || echo "API Gateway: 失敗"
 	@curl -s -o /dev/null -w "Pet Service: %{http_code}\n" "http://localhost:8083/health" || echo "Pet Service: 失敗"
+	@curl -s -o /dev/null -w "Auth Service: %{http_code}\n" "http://localhost:8091/health" || echo "Auth Service: 失敗"
+	@curl -s -o /dev/null -w "User Service: %{http_code}\n" "http://localhost:8082/health" || echo "User Service: 失敗"
 	@echo ""
-	@echo " ポートフォワード起動完了"
+	@echo "✅ ポートフォワード起動完了"
 	@echo "アクセスURL:"
 	@echo "Web App: $$(minikube service web-app-nodeport -n petmatch --url 2>/dev/null)"
 	@echo "API Gateway: http://localhost:18081"
 	@echo "Pet Service: http://localhost:8083"
+	@echo "Auth Service: http://localhost:8091"
+	@echo "User Service: http://localhost:8082"
 	@echo ""
 	@echo "停止方法: make stop"
 
@@ -69,15 +83,25 @@ start:
 stop:
 	@echo "PetMatch ポートフォワード停止中..."
 	@if [ -f .api-gateway.pid ]; then \
-		kill $$(cat .api-gateway.pid) 2>/dev/null && echo " API Gateway ポートフォワード停止"; \
+		kill $$(cat .api-gateway.pid) 2>/dev/null && echo "✅ API Gateway ポートフォワード停止"; \
 		rm -f .api-gateway.pid; \
 	fi
 	@if [ -f .pet-service.pid ]; then \
-		kill $$(cat .pet-service.pid) 2>/dev/null && echo " Pet Service ポートフォワード停止"; \
+		kill $$(cat .pet-service.pid) 2>/dev/null && echo "✅ Pet Service ポートフォワード停止"; \
 		rm -f .pet-service.pid; \
+	fi
+	@if [ -f .auth-service.pid ]; then \
+		kill $$(cat .auth-service.pid) 2>/dev/null && echo "✅ Auth Service ポートフォワード停止"; \
+		rm -f .auth-service.pid; \
+	fi
+	@if [ -f .user-service.pid ]; then \
+		kill $$(cat .user-service.pid) 2>/dev/null && echo "✅ User Service ポートフォワード停止"; \
+		rm -f .user-service.pid; \
 	fi
 	@pkill -f "kubectl port-forward.*api-gateway.*18081" 2>/dev/null || true
 	@pkill -f "kubectl port-forward.*pet-service.*8083" 2>/dev/null || true
+	@pkill -f "kubectl port-forward.*auth-service.*8081" 2>/dev/null || true
+	@pkill -f "kubectl port-forward.*user-service.*8082" 2>/dev/null || true
 	@echo "全てのポートフォワードを停止しました"
 
 # ヘルスチェック
@@ -106,9 +130,13 @@ health:
 	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:18081/health" 2>/dev/null && echo "" || echo "❌"
 	@printf "Pet Service: http://localhost:8083 - "
 	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:8083/health" 2>/dev/null && echo "" || echo "❌"
+	@printf "Auth Service: http://localhost:8091 - "
+	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:8091/health" 2>/dev/null && echo "" || echo "❌"
+	@printf "User Service: http://localhost:8082 - "
+	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:8082/health" 2>/dev/null && echo "" || echo "❌"
 	@echo ""
 	@echo "Redis接続確認:"
-	@kubectl exec deployment/redis -n petmatch -- redis-cli -a petmatch123 ping 2>/dev/null | grep -q PONG && echo " Redis接続OK" || echo "Redis接続失敗"
+	@kubectl exec deployment/redis -n petmatch -- redis-cli -a petmatch123 ping 2>/dev/null | grep -q PONG && echo "✅ Redis接続OK" || echo "❌ Redis接続失敗"
 	@echo ""
 	@echo "画像アップロード機能確認:"
 	@IMAGE_COUNT=$$(kubectl exec deployment/redis -n petmatch -- redis-cli -a petmatch123 KEYS "pet_image:*" 2>/dev/null | wc -l); \
@@ -119,44 +147,68 @@ docker-env:
 	@eval $$(minikube docker-env)
 
 # 全サービスビルド
-build-all: docker-env build-api build-pet build-web
+build-all: docker-env build-api build-pet build-auth build-user build-web
 
 # API Gatewayビルド
 build-api:
-	@echo " API Gateway ビルド中..."
+	@echo "🔨 API Gateway ビルド中..."
 	@eval $$(minikube docker-env) && \
 	docker build -t petmatch/api-gateway:latest -f services/api-gateway/Dockerfile .
 
 # Pet Serviceビルド
 build-pet:
-	@echo " Pet Service ビルド中..."
+	@echo "🔨 Pet Service ビルド中..."
 	@eval $$(minikube docker-env) && \
 	docker build -t petmatch/pet-service:latest -f services/pet-service/Dockerfile .
 
+# Auth Serviceビルド
+build-auth:
+	@echo "🔨 Auth Service ビルド中..."
+	@eval $$(minikube docker-env) && \
+	docker build -t petmatch/auth-service:latest -f services/auth-service/Dockerfile .
+
+# User Serviceビルド
+build-user:
+	@echo "🔨 User Service ビルド中..."
+	@eval $$(minikube docker-env) && \
+	docker build -t petmatch/user-service:latest -f services/user-service/Dockerfile .
+
 # Web Appビルド
 build-web:
-	@echo " Web App ビルド中..."
+	@echo "🔨 Web App ビルド中..."
 	@eval $$(minikube docker-env) && \
 	docker build -t petmatch/web-app:latest -f web-app/Dockerfile ./web-app
 
 # 全サービス再デプロイ
-deploy: deploy-api deploy-pet deploy-web
+deploy: deploy-api deploy-pet deploy-auth deploy-user deploy-web
 
 # API Gateway再デプロイ
 deploy-api:
-	@echo " API Gateway 再デプロイ中..."
+	@echo "🚀 API Gateway 再デプロイ中..."
 	@kubectl rollout restart deployment/api-gateway -n petmatch
 	@kubectl rollout status deployment/api-gateway -n petmatch
 
 # Pet Service再デプロイ
 deploy-pet:
-	@echo " Pet Service 再デプロイ中..."
+	@echo "🚀 Pet Service 再デプロイ中..."
 	@kubectl rollout restart deployment/pet-service -n petmatch
 	@kubectl rollout status deployment/pet-service -n petmatch
 
+# Auth Service再デプロイ
+deploy-auth:
+	@echo "🚀 Auth Service 再デプロイ中..."
+	@kubectl rollout restart deployment/auth-service -n petmatch
+	@kubectl rollout status deployment/auth-service -n petmatch
+
+# User Service再デプロイ
+deploy-user:
+	@echo "🚀 User Service 再デプロイ中..."
+	@kubectl rollout restart deployment/user-service -n petmatch
+	@kubectl rollout status deployment/user-service -n petmatch
+
 # Web App再デプロイ
 deploy-web:
-	@echo " Web App 再デプロイ中..."
+	@echo "🚀 Web App 再デプロイ中..."
 	@kubectl rollout restart deployment/web-app -n petmatch
 	@kubectl rollout status deployment/web-app -n petmatch
 
@@ -165,6 +217,8 @@ logs:
 	@echo "全サービスログ監視中... (Ctrl+C で停止)"
 	@kubectl logs -f deployment/api-gateway -n petmatch --prefix=true &
 	@kubectl logs -f deployment/pet-service -n petmatch --prefix=true &
+	@kubectl logs -f deployment/auth-service -n petmatch --prefix=true &
+	@kubectl logs -f deployment/user-service -n petmatch --prefix=true &
 	@kubectl logs -f deployment/web-app -n petmatch --prefix=true &
 	@wait
 
@@ -176,6 +230,14 @@ logs-api:
 logs-pet:
 	@kubectl logs -f deployment/pet-service -n petmatch
 
+# Auth Serviceログ
+logs-auth:
+	@kubectl logs -f deployment/auth-service -n petmatch
+
+# User Serviceログ
+logs-user:
+	@kubectl logs -f deployment/user-service -n petmatch
+
 # Web Appログ
 logs-web:
 	@kubectl logs -f deployment/web-app -n petmatch
@@ -184,48 +246,63 @@ logs-web:
 redis-cli:
 	@kubectl exec -it deployment/redis -n petmatch -- redis-cli -a petmatch123
 
+# 認証システムテスト
+test-auth:
+	@echo "🧪 認証システムテスト実行中..."
+	@echo "1. ユーザー登録テスト"
+	@curl -s -X POST http://localhost:8091/auth/register \
+		-H "Content-Type: application/json" \
+		-d '{"email":"test@example.com","password":"password123","name":"Test User","type":"adopter"}' \
+		| jq . || echo "登録失敗"
+	@echo ""
+	@echo "2. ログインテスト"
+	@curl -s -X POST http://localhost:8091/auth/login \
+		-H "Content-Type: application/json" \
+		-d '{"email":"test@example.com","password":"password123"}' \
+		| jq . || echo "ログイン失敗"
+
 # Lint - golangci-lintでコード検査
 lint:
-	@echo " golangci-lint コード検査実行中..."
+	@echo "🔍 golangci-lint コード検査実行中..."
 	@golangci-lint run ./services/...
-	@echo " コード検査完了"
+	@echo "✅ コード検査完了"
 
 # Lint Fast - 高速チェック（errcheckのみ）
 lint-fast:
-	@echo " golangci-lint 高速検査実行中..."
+	@echo "🔍 golangci-lint 高速検査実行中..."
 	@golangci-lint run --disable-all --enable=errcheck ./services/...
-	@echo " 高速検査完了"
+	@echo "✅ 高速検査完了"
 
 # Lint Fix - 自動修正可能な問題を修正
 lint-fix:
-	@echo "golangci-lint 自動修正実行中..."
+	@echo "🔧 golangci-lint 自動修正実行中..."
 	@golangci-lint run --fix --timeout=5m ./services/...
-	@echo " 自動修正完了"
+	@echo "✅ 自動修正完了"
 
 # クリーンアップ
 clean:
-	@echo " クリーンアップ中..."
-	@rm -f .api-gateway.pid .pet-service.pid
+	@echo "🧹 クリーンアップ中..."
+	@rm -f .api-gateway.pid .pet-service.pid .auth-service.pid .user-service.pid
 	@docker image prune -f
-	@echo " クリーンアップ完了"
+	@echo "✅ クリーンアップ完了"
 
 # 開発環境セットアップ
 setup:
-	@echo "PetMatch 開発環境セットアップ"
+	@echo "🚀 PetMatch 開発環境セットアップ"
 	@echo "1. Minikube起動中..."
 	@minikube start
 	@echo "2. 必要なリソース適用中..."
 	@kubectl apply -f k8s/ -R
 	@echo "3. Pod起動待機中..."
 	@kubectl wait --for=condition=ready pod --all -n petmatch --timeout=300s
-	@echo " セットアップ完了! 'make start' でポートフォワードを開始してください"
+	@echo "✅ セットアップ完了! 'make start' でポートフォワードを開始してください"
 
 # 開発環境の完全リセット
 reset:
-	@echo " 開発環境を完全リセットします"
+	@echo "⚠️  開発環境を完全リセットします"
 	@read -p "続行しますか? [y/N]: " confirm && [ "$$confirm" = "y" ]
 	@make stop
 	@kubectl delete namespace petmatch --ignore-not-found=true
 	@minikube stop
 	@minikube delete
-	@echo "リセット完了! 'make setup' で再セットアップしてください"
+	@echo "✅ リセット完了! 'make setup' で再セットアップしてください"
