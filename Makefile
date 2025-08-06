@@ -55,8 +55,8 @@ start:
 	@echo "Pet Service (8083:8083) 起動中..."
 	@kubectl port-forward service/pet-service 8083:8083 -n petmatch > /dev/null 2>&1 & \
 	echo $$! > .pet-service.pid
-	@echo "Auth Service (8091:8081) 起動中..."
-	@kubectl port-forward service/auth-service 8091:8081 -n petmatch > /dev/null 2>&1 & \
+	@echo "Auth Service (18091:8081) 起動中..."
+	@kubectl port-forward service/auth-service 18091:8081 -n petmatch > /dev/null 2>&1 & \
 	echo $! > .auth-service.pid
 	@echo "User Service (8082:8082) 起動中..."
 	@kubectl port-forward service/user-service 8082:8082 -n petmatch > /dev/null 2>&1 & \
@@ -66,7 +66,7 @@ start:
 	@echo "ヘルスチェック..."
 	@curl -s -o /dev/null -w "API Gateway: %{http_code}\n" "http://localhost:18081/health" || echo "API Gateway: 失敗"
 	@curl -s -o /dev/null -w "Pet Service: %{http_code}\n" "http://localhost:8083/health" || echo "Pet Service: 失敗"
-	@curl -s -o /dev/null -w "Auth Service: %{http_code}\n" "http://localhost:8091/health" || echo "Auth Service: 失敗"
+	@curl -s -o /dev/null -w "Auth Service: %{http_code}\n" "http://localhost:18091/health" || echo "Auth Service: 失敗"
 	@curl -s -o /dev/null -w "User Service: %{http_code}\n" "http://localhost:8082/health" || echo "User Service: 失敗"
 	@echo ""
 	@echo "✅ ポートフォワード起動完了"
@@ -74,7 +74,7 @@ start:
 	@echo "Web App: $$(minikube service web-app-nodeport -n petmatch --url 2>/dev/null)"
 	@echo "API Gateway: http://localhost:18081"
 	@echo "Pet Service: http://localhost:8083"
-	@echo "Auth Service: http://localhost:8091"
+	@echo "Auth Service: http://localhost:18091"
 	@echo "User Service: http://localhost:8082"
 	@echo ""
 	@echo "停止方法: make stop"
@@ -130,8 +130,8 @@ health:
 	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:18081/health" 2>/dev/null && echo "" || echo "❌"
 	@printf "Pet Service: http://localhost:8083 - "
 	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:8083/health" 2>/dev/null && echo "" || echo "❌"
-	@printf "Auth Service: http://localhost:8091 - "
-	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:8091/health" 2>/dev/null && echo "" || echo "❌"
+	@printf "Auth Service: http://localhost:18091 - "
+	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:18091/health" 2>/dev/null && echo "" || echo "❌"
 	@printf "User Service: http://localhost:8082 - "
 	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:8082/health" 2>/dev/null && echo "" || echo "❌"
 	@echo ""
@@ -250,13 +250,13 @@ redis-cli:
 test-auth:
 	@echo "🧪 認証システムテスト実行中..."
 	@echo "1. ユーザー登録テスト"
-	@curl -s -X POST http://localhost:8091/auth/register \
+	@curl -s -X POST http://localhost:18091/auth/register \
 		-H "Content-Type: application/json" \
 		-d '{"email":"test@example.com","password":"password123","name":"Test User","type":"adopter"}' \
 		| jq . || echo "登録失敗"
 	@echo ""
 	@echo "2. ログインテスト"
-	@curl -s -X POST http://localhost:8091/auth/login \
+	@curl -s -X POST http://localhost:18091/auth/login \
 		-H "Content-Type: application/json" \
 		-d '{"email":"test@example.com","password":"password123"}' \
 		| jq . || echo "ログイン失敗"
