@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: petmatch/api-gateway:latest
+        image: petmatch/api-gateway:jwt-auth
         imagePullPolicy: Never
         ports:
         - containerPort: 8080
@@ -32,6 +32,31 @@ spec:
         env:
         - name: PORT
           value: "8080"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: petmatch-secrets
+              key: JWT_SECRET
+        - name: APP_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: petmatch-config
+              key: APP_ENV
+        - name: JWT_EXPIRATION_HOURS
+          valueFrom:
+            configMapKeyRef:
+              name: petmatch-config
+              key: JWT_EXPIRATION_HOURS
+        - name: JWT_REFRESH_HOURS
+          valueFrom:
+            configMapKeyRef:
+              name: petmatch-config
+              key: JWT_REFRESH_HOURS
+        - name: CORS_ALLOWED_ORIGINS
+          valueFrom:
+            configMapKeyRef:
+              name: petmatch-config
+              key: CORS_ALLOWED_ORIGINS
         - name: PET_SERVICE_URL
           value: "http://pet-service:8083"
         - name: USER_SERVICE_URL

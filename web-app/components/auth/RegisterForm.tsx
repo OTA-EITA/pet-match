@@ -79,21 +79,32 @@ const RegisterForm = () => {
       return;
     }
 
-    console.log('Attempting registration with:', {
+    console.log('🚀 Registration form submitted:', {
       email: formData.email,
       name: formData.name,
-      type: formData.type
+      type: formData.type,
+      passwordLength: formData.password.length
     });
 
     try {
       await register(formData.email, formData.password, formData.name, formData.type);
+      console.log('✅ Registration successful, redirecting to /pets');
       router.push('/pets');
     } catch (error: unknown) {
-      console.error('Registration error:', error);
+      console.error('❌ Registration error in form:', {
+        error,
+        errorType: error?.constructor?.name,
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorDetails: error instanceof AuthError ? {
+          statusCode: error.statusCode,
+          path: error.path
+        } : null
+      });
+      
       if (error instanceof AuthError) {
         setAuthError(error.message);
       } else {
-        setAuthError('Cannot connect to authentication service. Please check if the service is running.');
+        setAuthError('Registration failed. Please check your connection and try again.');
       }
     }
   };
@@ -134,6 +145,7 @@ const RegisterForm = () => {
                 </div>
               </div>
             )}
+            
             
             <form className="space-y-6" onSubmit={handleSubmit}>
               {/* Email */}

@@ -6,10 +6,14 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "env:k8s": "./configure-env.sh k8s",
+    "env:mock": "./configure-env.sh mock",
+    "env:show": "./configure-env.sh show",
+    "env:reset": "./configure-env.sh reset"
   },
   "dependencies": {
-    "next": "14.0.0",
+    "next": "^15.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "axios": "^1.7.0",

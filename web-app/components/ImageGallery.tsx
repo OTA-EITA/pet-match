@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { UploadedImage } from './ImageUpload'
+import { petApi } from '@/lib/api'
+import { API_CONFIG } from '@/lib/config'
 
 interface ImageGalleryProps {
   petId: string
@@ -30,18 +32,12 @@ export default function ImageGallery({
     setDeleting(imageId)
 
     try {
-      const response = await fetch(`http://localhost:18081/pets/${petId}/images/${imageId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': 'Bearer mock-jwt-token', // Mock token for development
-        },
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || '削除に失敗しました')
-      }
-
+      console.log('Deleting image:', imageId, 'for pet:', petId);
+      
+      // Use petApi instead of direct fetch
+      await petApi.images.deletePetImage(petId, imageId);
+      
+      console.log('Delete successful');
       onImageDeleted(imageId)
     } catch (error) {
       console.error('Delete error:', error)
@@ -88,7 +84,7 @@ export default function ImageGallery({
             onClick={() => setSelectedImage(image)}
           >
             <Image
-              src={`http://localhost:8083${image.thumbnail_url}`}
+              src={API_CONFIG.buildThumbnailUrl(image.thumbnail_url)}
               alt={image.file_name}
               fill
               className="object-cover"
@@ -151,7 +147,7 @@ export default function ImageGallery({
             {/* Image */}
             <div className="relative">
               <Image
-                src={`http://localhost:8083${selectedImage.original_url}`}
+                src={API_CONFIG.buildImageUrl(selectedImage.original_url)}
                 alt={selectedImage.file_name}
                 width={selectedImage.width}
                 height={selectedImage.height}

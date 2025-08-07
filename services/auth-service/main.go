@@ -52,6 +52,7 @@ func main() {
 		authGroup.POST("/refresh", authHandler.RefreshToken)
 		authGroup.POST("/logout", middleware.AuthMiddleware(cfg), authHandler.Logout)
 		authGroup.GET("/profile", middleware.AuthMiddleware(cfg), authHandler.GetProfile)
+		authGroup.GET("/verify", middleware.AuthMiddleware(cfg), authHandler.VerifyToken) // トークン検証エンドポイントを追加
 	}
 
 	// Start server

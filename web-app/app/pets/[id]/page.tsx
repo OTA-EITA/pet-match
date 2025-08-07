@@ -43,14 +43,16 @@ export default function PetDetailPage() {
   const fetchPetImages = async () => {
     try {
       setLoadingImages(true);
-      const response = await fetch(`http://localhost:18081/pets/${petId}/images`);
+      console.log(`Fetching images for pet ID: ${petId}`);
       
-      if (response.ok) {
-        const data = await response.json();
-        setUploadedImages(data.images || []);
-      }
+      const response = await petApi.images.getPetImages(petId);
+      console.log('Pet images response:', response);
+      
+      setUploadedImages(response.images || []);
     } catch (error) {
       console.error('Failed to fetch pet images:', error);
+      // Set empty array instead of erroring out
+      setUploadedImages([]);
     } finally {
       setLoadingImages(false);
     }

@@ -1,221 +1,165 @@
 package main
 
 import (
+	"fmt"
 	"log"
-	"net/http"
-	"net/http/httputil"
-	"net/url"
-	"os"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/petmatch/app/services/api-gateway/config"
+	"github.com/petmatch/app/services/api-gateway/handlers"
+	"github.com/petmatch/app/services/api-gateway/middleware"
+	"github.com/petmatch/app/services/api-gateway/routes"
 )
 
-type ServiceConfig struct {
-	PetServiceURL  string
-	UserServiceURL string
-	AuthServiceURL string
-	ChatServiceURL string
-}
-
-var services ServiceConfig
-
-func init() {
-	services = ServiceConfig{
-		PetServiceURL:  getEnv("PET_SERVICE_URL", "http://localhost:8083"),
-		UserServiceURL: getEnv("USER_SERVICE_URL", "http://localhost:8082"),
-		AuthServiceURL: getEnv("AUTH_SERVICE_URL", "http://localhost:8081"),
-		ChatServiceURL: getEnv("CHAT_SERVICE_URL", "http://localhost:8085"),
-	}
-}
-
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
-
 func main() {
+	// 設定の読み込み
+	cfg := config.LoadConfig()
+
+	// Gin モードの設定
+	if cfg.IsProduction() {
+		gin.SetMode(gin.ReleaseMode)
+	}
+
+	// Gin エンジンの初期化
 	r := gin.Default()
 
-	// CORS設定 - 開発用に全て許可
-	r.Use(func(c *gin.Context) {
+	// CORS ミドルウェアの設定（最初に設定）
+	r.Use(corsMiddleware(cfg))
+
+	// リカバリーミドルウェア
+	r.Use(gin.Recovery())
+
+	// リクエストログミドルウェア
+	r.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
+		return fmt.Sprintf("%s - [%s] \"%s %s %s %d %s \"%s\" %s\"\n",
+			param.ClientIP,
+			param.TimeStamp.Format(time.RFC1123),
+			param.Method,
+			param.Path,
+			param.Request.Proto,
+			param.StatusCode,
+			param.Latency,
+			param.Request.UserAgent(),
+			param.ErrorMessage,
+		)
+	}))
+
+	// サービスプロキシの初期化
+	authProxy := handlers.NewAuthProxy(cfg.AuthServiceURL)
+	petProxy := handlers.NewPetProxy(cfg.PetServiceURL)
+
+	// 認証ミドルウェアの初期化
+	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
+
+	// ルートの設定
+	setupRoutes(r, cfg, authProxy, petProxy, authMiddleware)
+
+	// サーバー起動
+	log.Printf("🚀 API Gateway starting on port %s", cfg.Port)
+	log.Printf("📊 Environment: %s", cfg.AppEnv)
+	log.Printf("🔗 Auth Service: %s", cfg.AuthServiceURL)
+	log.Printf("🐾 Pet Service: %s", cfg.PetServiceURL)
+
+	if err := r.Run(":" + cfg.Port); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
+}
+
+func setupRoutes(
+	r *gin.Engine,
+	cfg *config.Config,
+	authProxy *handlers.AuthProxy,
+	petProxy *handlers.PetProxy,
+	authMiddleware *middleware.AuthMiddleware,
+) {
+	// ヘルスチェックルート
+	routes.SetupHealthRoutes(r, authProxy)
+
+	// 認証ルート
+	routes.SetupAuthRoutes(r, authProxy, authMiddleware)
+
+	// Pet Service ルート
+	routes.SetupPetRoutes(r, petProxy, authMiddleware)
+
+	// 開発環境でのテストエンドポイント
+	if cfg.IsDevelopment() {
+		setupDevelopmentRoutes(r, authMiddleware)
+	}
+
+	// 404 ハンドリング
+	r.NoRoute(func(c *gin.Context) {
+		c.JSON(404, gin.H{
+			"error":   "not_found",
+			"message": "The requested endpoint does not exist",
+			"path":    c.Request.URL.Path,
+		})
+	})
+}
+
+func setupDevelopmentRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddleware) {
+	dev := r.Group("/dev")
+	{
+		// 開発用認証テスト
+		dev.GET("/auth/test", authMiddleware.RequireAuth(), func(c *gin.Context) {
+			userID, userType, email, _ := middleware.GetCurrentUser(c)
+			c.JSON(200, gin.H{
+				"message":   "Authentication successful",
+				"user_id":   userID,
+				"user_type": userType,
+				"email":     email,
+			})
+		})
+
+		// 開発用Shelter権限テスト
+		dev.GET("/auth/shelter-test",
+			authMiddleware.RequireAuth(),
+			authMiddleware.RequireRole("shelter"),
+			func(c *gin.Context) {
+				c.JSON(200, gin.H{
+					"message": "Shelter role access successful",
+				})
+			},
+		)
+
+		// トークン情報表示
+		dev.GET("/token/info", authMiddleware.OptionalAuth(), func(c *gin.Context) {
+			userID, userType, email, authenticated := middleware.GetCurrentUser(c)
+			c.JSON(200, gin.H{
+				"authenticated": authenticated,
+				"user_id":       userID,
+				"user_type":     userType,
+				"email":         email,
+			})
+		})
+	}
+
+	log.Println("🔧 Development routes enabled at /dev/*")
+}
+
+func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
+	return gin.HandlerFunc(func(c *gin.Context) {
+		// 開発環境では常に全てのOriginを許可
 		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE")
+		c.Writer.Header().Set("Access-Control-Max-Age", "86400")
 
+		// デバッグログ
+		if cfg.IsDevelopment() {
+			log.Printf("CORS: %s %s from %s", c.Request.Method, c.Request.URL.Path, c.Request.Header.Get("Origin"))
+		}
+
+		// プリフライトリクエストの処理
 		if c.Request.Method == "OPTIONS" {
+			if cfg.IsDevelopment() {
+				log.Printf("CORS Preflight: %s", c.Request.URL.Path)
+			}
 			c.AbortWithStatus(204)
 			return
 		}
 
 		c.Next()
 	})
-
-	// ヘルスチェック
-	r.GET("/health", healthHandler)
-	r.GET("/ready", readyHandler)
-
-	// API routes
-	api := r.Group("/api/v1")
-	{
-		// Pet Service routes (パブリック)
-		api.GET("/pets", proxyToPetService)
-		api.GET("/pets/:id", proxyToPetService)
-
-		// Pet Service routes (認証が必要)
-		authenticated := api.Group("")
-		authenticated.Use(authMiddleware())
-		{
-			authenticated.POST("/pets", proxyToPetService)
-			authenticated.PUT("/pets/:id", proxyToPetService)
-			authenticated.DELETE("/pets/:id", proxyToPetService)
-			authenticated.POST("/pets/migrate", proxyToPetService)
-		}
-
-		// 今後追加予定のルート
-		// api.POST("/auth/login", proxyToAuthService)
-		// api.POST("/auth/register", proxyToAuthService)
-		// api.GET("/users/profile", authMiddleware(), proxyToUserService)
-	}
-
-	// 直接Pet Serviceへのアクセス（開発時用）
-	r.Any("/pets", proxyToPetService)
-	r.Any("/pets/*path", proxyToPetService)
-
-	port := getEnv("PORT", "8080")
-	log.Printf("API Gateway starting on port %s", port)
-	log.Printf("Pet Service URL: %s", services.PetServiceURL)
-	
-	r.Run(":" + port)
-}
-
-func healthHandler(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"status":    "healthy",
-		"service":   "api-gateway",
-		"timestamp": time.Now().Unix(),
-		"version":   "1.0.0",
-	})
-}
-
-func readyHandler(c *gin.Context) {
-	// Pet Serviceのヘルスチェック
-	petServiceHealth := checkServiceHealth(services.PetServiceURL + "/health")
-	
-	if petServiceHealth {
-		c.JSON(http.StatusOK, gin.H{
-			"status": "ready",
-			"services": gin.H{
-				"pet-service": "healthy",
-			},
-		})
-	} else {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status": "not ready",
-			"services": gin.H{
-				"pet-service": "unhealthy",
-			},
-		})
-	}
-}
-
-func checkServiceHealth(healthURL string) bool {
-	client := http.Client{Timeout: 5 * time.Second}
-	resp, err := client.Get(healthURL)
-	if err != nil {
-		log.Printf("Health check failed for %s: %v", healthURL, err)
-		return false
-	}
-	defer resp.Body.Close()
-	return resp.StatusCode == http.StatusOK
-}
-
-func proxyToPetService(c *gin.Context) {
-	proxyToService(c, services.PetServiceURL, "/pets")
-}
-
-func proxyToService(c *gin.Context, serviceURL, pathPrefix string) {
-	target, err := url.Parse(serviceURL)
-	if err != nil {
-		log.Printf("Failed to parse service URL %s: %v", serviceURL, err)
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Service unavailable"})
-		return
-	}
-
-	proxy := httputil.NewSingleHostReverseProxy(target)
-	
-	// リクエストの修正
-	originalDirector := proxy.Director
-	proxy.Director = func(req *http.Request) {
-		originalDirector(req)
-		
-		// パスの修正
-		if pathPrefix != "" && strings.HasPrefix(c.Request.URL.Path, "/api/v1") {
-			// /api/v1/pets → /pets
-			req.URL.Path = strings.Replace(c.Request.URL.Path, "/api/v1", "", 1)
-		}
-		
-		req.Host = target.Host
-		req.Header.Set("X-Forwarded-For", c.ClientIP())
-		req.Header.Set("X-Forwarded-Proto", "http")
-		req.Header.Set("X-Gateway", "petmatch-api-gateway")
-		
-		log.Printf("Proxying %s %s -> %s%s", req.Method, c.Request.URL.Path, target.String(), req.URL.Path)
-	}
-
-	// レスポンス修正: CORS ヘッダーの重複を防ぐ
-	proxy.ModifyResponse = func(resp *http.Response) error {
-		// プロキシ先からのCORSヘッダーを削除（Gateway側で処理済み）
-		resp.Header.Del("Access-Control-Allow-Origin")
-		resp.Header.Del("Access-Control-Allow-Methods")
-		resp.Header.Del("Access-Control-Allow-Headers")
-		resp.Header.Del("Access-Control-Allow-Credentials")
-		return nil
-	}
-
-	// エラーハンドリング
-	proxy.ErrorHandler = func(rw http.ResponseWriter, req *http.Request, err error) {
-		log.Printf("Proxy error: %v", err)
-		rw.WriteHeader(http.StatusBadGateway)
-		rw.Write([]byte(`{"error": "Service temporarily unavailable"}`))
-	}
-
-	proxy.ServeHTTP(c.Writer, c.Request)
-}
-
-func authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		// 基本的な認証チェック（開発時用）
-		authHeader := c.GetHeader("Authorization")
-		
-		if authHeader == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
-			c.Abort()
-			return
-		}
-
-		// Bearer tokenの検証（実装は後で追加）
-		if !strings.HasPrefix(authHeader, "Bearer ") {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid authorization format"})
-			c.Abort()
-			return
-		}
-
-		// 開発時はDEV_TOKENを許可
-		token := strings.TrimPrefix(authHeader, "Bearer ")
-		if token == "DEV_TOKEN" {
-			c.Set("user_id", "dev-user")
-			c.Next()
-			return
-		}
-
-		// TODO: JWT検証の実装
-		log.Printf("Token validation not implemented yet: %s", token)
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Token validation not implemented"})
-		c.Abort()
-	}
 }

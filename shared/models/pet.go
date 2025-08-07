@@ -149,7 +149,7 @@ type PetCreateRequest struct {
 	AgeMonths   int         `json:"age_months" binding:"min=0,max=11"`   // 追加月数 (0-11)
 	IsEstimated bool        `json:"is_estimated"`                        // 推定年齢フラグ
 	Gender      string      `json:"gender" binding:"oneof=male female unknown"`
-	Size        string      `json:"size" binding:"oneof=small medium large"`
+	Size        string      `json:"size" binding:"oneof=small medium large extra_large"`
 	Color       string      `json:"color"`
 	Personality []string    `json:"personality"`
 	MedicalInfo MedicalInfo `json:"medical_info"`
