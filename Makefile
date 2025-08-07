@@ -1,323 +1,497 @@
-# PetMatch Kubernetes Development Makefile
+# PetMatch Development Makefile
+# 完全版 - すべての開発・運用機能を含む
 
-.PHONY: help start stop health build-all build-api build-pet build-auth build-user build-web deploy-all logs clean lint lint-fast lint-fix
+.PHONY: help start stop restart status health build-all build-pet build-auth build-user build-gateway build-web deploy-all deploy-pet deploy-auth deploy-user deploy-gateway deploy-web logs logs-pet logs-auth logs-user logs-gateway logs-web test test-unit test-integration test-jwt test-redis lint lint-go lint-js fix setup reset clean clean-pods clean-images clean-all k8s-apply k8s-delete port-check pid-cleanup
+
+# Color codes for output
+RED=\033[0;31m
+GREEN=\033[0;32m
+YELLOW=\033[1;33m
+BLUE=\033[0;34m
+PURPLE=\033[0;35m
+CYAN=\033[0;36m
+WHITE=\033[1;37m
+NC=\033[0m # No Color
 
 # Default target
 help:
-	@echo "🐾 PetMatch Kubernetes 開発コマンド"
-	@echo "=================================="
+	@echo "$(CYAN)PetMatch 完全開発環境$(NC)"
+	@echo "$(WHITE)========================$(NC)"
 	@echo ""
-	@echo " 開発環境:"
-	@echo "  make start     - ポートフォワード起動 (全サービス)"
-	@echo "  make stop      - ポートフォワード停止"
-	@echo "  make health    - システムヘルスチェック"
+	@echo "$(GREEN) 基本操作:$(NC)"
+	@echo "  make start          - 開発環境起動 (ポートフォワード)"
+	@echo "  make start-local-gateway - ローカルAPI Gateway + K8sバックエンド"
+	@echo "  make stop           - 開発環境停止"
+	@echo "  make restart        - 開発環境再起動"
+	@echo "  make status         - システム状況確認"
+	@echo "  make health         - 詳細ヘルスチェック"
 	@echo ""
-	@echo " ビルド・デプロイ:"
-	@echo "  make build-all - 全サービスをビルド"
-	@echo "  make build-api - API Gatewayをビルド"
-	@echo "  make build-pet - Pet Serviceをビルド"
-	@echo "  make build-auth - Auth Serviceをビルド"
-	@echo "  make build-user - User Serviceをビルド"
-	@echo "  make build-web - Web Appをビルド"
-	@echo "  make deploy    - 全サービスを再デプロイ"
+	@echo "$(BLUE) ビルド:$(NC)"
+	@echo "  make build-all      - 全サービスビルド"
+	@echo "  make build-pet      - Pet Service ビルド"
+	@echo "  make build-auth     - Auth Service ビルド"
+	@echo "  make build-user     - User Service ビルド"
+	@echo "  make build-gateway  - API Gateway ビルド"
+	@echo "  make build-web      - Web App ビルド"
 	@echo ""
-	@echo " 監視・ログ:"
-	@echo "  make logs      - 全サービスのログ表示"
-	@echo "  make logs-api  - API Gatewayログ"
-	@echo "  make logs-pet  - Pet Serviceログ"
-	@echo "  make logs-auth - Auth Serviceログ"
-	@echo "  make logs-user - User Serviceログ"
-	@echo "  make logs-web  - Web Appログ"
+	@echo "$(PURPLE) デプロイ:$(NC)"
+	@echo "  make deploy-all     - 全サービス再デプロイ"
+	@echo "  make deploy-pet     - Pet Service 再デプロイ"
+	@echo "  make deploy-auth    - Auth Service 再デプロイ"
+	@echo "  make deploy-user    - User Service 再デプロイ"
+	@echo "  make deploy-gateway - API Gateway 再デプロイ"
+	@echo "  make deploy-web     - Web App 再デプロイ"
 	@echo ""
-	@echo " コード品質:"
-	@echo "  make lint      - golangci-lintでコード検査"
-	@echo "  make lint-fast - 高速検査（errcheckのみ）"
-	@echo "  make lint-fix  - 自動修正可能な問題を修正"
+	@echo "$(YELLOW) 監視・ログ:$(NC)"
+	@echo "  make logs           - Pet Service ログ表示"
+	@echo "  make logs-pet       - Pet Service ログ"
+	@echo "  make logs-auth      - Auth Service ログ"
+	@echo "  make logs-user      - User Service ログ"
+	@echo "  make logs-gateway   - API Gateway ログ"
+	@echo "  make logs-web       - Web App ログ"
 	@echo ""
-	@echo " クリーンアップ:"
-	@echo "  make clean     - 不要なリソースを削除"
+	@echo "$(GREEN) テスト:$(NC)"
+	@echo "  make test           - 全テスト実行"
+	@echo "  make test-unit      - ユニットテスト"
+	@echo "  make test-integration - 統合テスト"
+	@echo "  make test-jwt       - JWT認証テスト"
+	@echo "  make test-redis     - Redis接続テスト"
+	@echo ""
+	@echo "$(CYAN) 品質管理:$(NC)"
+	@echo "  make lint           - 全コードリント"
+	@echo "  make lint-go        - Go コードリント"
+	@echo "  make lint-js        - JavaScript コードリント"
+	@echo "  make fix            - 自動修正"
+	@echo ""
+	@echo "$(BLUE) 環境管理:$(NC)"
+	@echo "  make setup          - 初期環境セットアップ"
+	@echo "  make reset          - 環境完全リセット"
+	@echo "  make k8s-apply      - Kubernetes マニフェスト適用"
+	@echo "  make k8s-delete     - Kubernetes リソース削除"
+	@echo ""
+	@echo "$(RED) クリーンアップ:$(NC)"
+	@echo "  make clean          - 基本クリーンアップ"
+	@echo "  make clean-pods     - Pod強制削除"
+	@echo "  make clean-images   - Docker Image削除"
+	@echo "  make clean-all      - 完全クリーンアップ"
+	@echo ""
+	@echo "$(WHITE) ユーティリティ:$(NC)"
+	@echo "  make port-check     - ポート使用状況確認"
+	@echo "  make pid-cleanup    - PIDファイルクリーンアップ"
 
-# ポートフォワード起動
+# 基本操作
 start:
-	@echo "🐾 PetMatch ポートフォワード起動中..."
-	@if ! minikube status > /dev/null 2>&1; then \
-		echo "Minikubeが起動していません"; \
-		echo "起動コマンド: minikube start"; \
-		exit 1; \
-	fi
-	@echo "Pod状況確認中..."
-	@kubectl get pods -n petmatch
+	@echo "$(CYAN)PetMatch 開発環境起動中...$(NC)"
+	@$(MAKE) --no-print-directory _check-minikube
+	@$(MAKE) --no-print-directory _check-pods
+	@$(MAKE) --no-print-directory _start-port-forwards
 	@echo ""
-	@echo "ポートフォワード開始..."
-	@echo "API Gateway (18081:8080) 起動中..."
-	@kubectl port-forward service/api-gateway 18081:8080 -n petmatch > /dev/null 2>&1 & \
-	echo $$! > .api-gateway.pid
-	@echo "Pet Service (8083:8083) 起動中..."
-	@kubectl port-forward service/pet-service 8083:8083 -n petmatch > /dev/null 2>&1 & \
-	echo $$! > .pet-service.pid
-	@echo "Auth Service (18091:8081) 起動中..."
-	@kubectl port-forward service/auth-service 18091:8081 -n petmatch > /dev/null 2>&1 & \
-	echo $! > .auth-service.pid
-	@echo "User Service (8082:8082) 起動中..."
-	@kubectl port-forward service/user-service 8082:8082 -n petmatch > /dev/null 2>&1 & \
-	echo $$! > .user-service.pid
-	@sleep 3
-	@echo ""
-	@echo "ヘルスチェック..."
-	@curl -s -o /dev/null -w "API Gateway: %{http_code}\n" "http://localhost:18081/health" || echo "API Gateway: 失敗"
-	@curl -s -o /dev/null -w "Pet Service: %{http_code}\n" "http://localhost:8083/health" || echo "Pet Service: 失敗"
-	@curl -s -o /dev/null -w "Auth Service: %{http_code}\n" "http://localhost:18091/health" || echo "Auth Service: 失敗"
-	@curl -s -o /dev/null -w "User Service: %{http_code}\n" "http://localhost:8082/health" || echo "User Service: 失敗"
-	@echo ""
-	@echo "✅ ポートフォワード起動完了"
-	@echo "アクセスURL:"
-	@echo "Web App: $$(minikube service web-app-nodeport -n petmatch --url 2>/dev/null)"
-	@echo "API Gateway: http://localhost:18081"
-	@echo "Pet Service: http://localhost:8083"
-	@echo "Auth Service: http://localhost:18091"
-	@echo "User Service: http://localhost:8082"
-	@echo ""
-	@echo "停止方法: make stop"
+	@$(MAKE) --no-print-directory _health-check-services
+	@$(MAKE) --no-print-directory _show-access-info
+	@echo "$(GREEN)開発環境起動完了$(NC)"
 
-# ポートフォワード停止
+start-local-gateway:
+	@echo "$(CYAN)ローカルAPI Gateway + K8s Services起動中...$(NC)"
+	@$(MAKE) --no-print-directory _check-minikube
+	@$(MAKE) --no-print-directory _check-pods
+	@$(MAKE) --no-print-directory _start-port-forwards-backend-only
+	@$(MAKE) --no-print-directory _start-local-api-gateway
+	@echo ""
+	@$(MAKE) --no-print-directory _health-check-all
+	@echo "$(GREEN)ハイブリッド環境起動完了$(NC)"
+
 stop:
-	@echo "PetMatch ポートフォワード停止中..."
-	@if [ -f .api-gateway.pid ]; then \
-		kill $$(cat .api-gateway.pid) 2>/dev/null && echo "✅ API Gateway ポートフォワード停止"; \
-		rm -f .api-gateway.pid; \
-	fi
-	@if [ -f .pet-service.pid ]; then \
-		kill $$(cat .pet-service.pid) 2>/dev/null && echo "✅ Pet Service ポートフォワード停止"; \
-		rm -f .pet-service.pid; \
-	fi
-	@if [ -f .auth-service.pid ]; then \
-		kill $$(cat .auth-service.pid) 2>/dev/null && echo "✅ Auth Service ポートフォワード停止"; \
-		rm -f .auth-service.pid; \
-	fi
-	@if [ -f .user-service.pid ]; then \
-		kill $$(cat .user-service.pid) 2>/dev/null && echo "✅ User Service ポートフォワード停止"; \
-		rm -f .user-service.pid; \
-	fi
-	@pkill -f "kubectl port-forward.*api-gateway.*18081" 2>/dev/null || true
-	@pkill -f "kubectl port-forward.*pet-service.*8083" 2>/dev/null || true
-	@pkill -f "kubectl port-forward.*auth-service.*8081" 2>/dev/null || true
-	@pkill -f "kubectl port-forward.*user-service.*8082" 2>/dev/null || true
-	@echo "全てのポートフォワードを停止しました"
+	@echo "$(YELLOW)PetMatch 開発環境停止中...$(NC)"
+	@$(MAKE) --no-print-directory _stop-port-forwards
+	@$(MAKE) --no-print-directory pid-cleanup
+	@echo "$(GREEN)開発環境停止完了$(NC)"
 
-# ヘルスチェック
+restart: stop start
+
+status:
+	@echo "$(BLUE)PetMatch システム状況$(NC)"
+	@echo "$(WHITE)========================$(NC)"
+	@echo ""
+	@echo "$(CYAN)Minikube:$(NC)"
+	@minikube status || echo "$(RED)X Minikube 停止中$(NC)"
+	@echo ""
+	@echo "$(CYAN)Kubernetes Pods:$(NC)"
+	@kubectl get pods -n petmatch 2>/dev/null || echo "$(RED)X Namespace 'petmatch' が存在しません$(NC)"
+	@echo ""
+	@echo "$(CYAN)Services:$(NC)"
+	@kubectl get services -n petmatch 2>/dev/null || echo "$(RED)X Services が見つかりません$(NC)"
+	@echo ""
+	@echo "$(CYAN)Port Forwards (Active):$(NC)"
+	@ps aux | grep -E "kubectl port-forward.*petmatch" | grep -v grep || echo "$(YELLOW)アクティブなポートフォワードなし$(NC)"
+
 health:
-	@echo "PetMatch システム ヘルスチェック"
-	@echo "=================================="
+	@echo "$(GREEN)PetMatch ヘルスチェック$(NC)"
+	@echo "$(WHITE)=============================$(NC)"
 	@echo ""
-	@echo "Minikube状況:"
-	@minikube status || echo "Minikube停止中"
+	@$(MAKE) --no-print-directory _check-minikube
+	@$(MAKE) --no-print-directory _check-pods
 	@echo ""
-	@echo "Kubernetes Pod状況:"
-	@kubectl get pods -n petmatch
+	@echo "$(CYAN)Service Health Checks:$(NC)"
+	@$(MAKE) --no-print-directory _health-check-services
 	@echo ""
-	@echo "サービス状況:"
-	@kubectl get services -n petmatch
-	@echo ""
-	@echo "ポートフォワード確認:"
-	@WEB_URL=$$(minikube service web-app-nodeport -n petmatch --url 2>/dev/null); \
-	if [ ! -z "$$WEB_URL" ]; then \
-		echo "Web App: $$WEB_URL"; \
-		curl -s -o /dev/null -w "Status: %{http_code} " "$$WEB_URL" 2>/dev/null && echo "" || echo "❌"; \
-	else \
-		echo "Web App: URL取得失敗"; \
-	fi
-	@printf "API Gateway: http://localhost:18081 - "
-	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:18081/health" 2>/dev/null && echo "" || echo "❌"
-	@printf "Pet Service: http://localhost:8083 - "
-	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:8083/health" 2>/dev/null && echo "" || echo "❌"
-	@printf "Auth Service: http://localhost:18091 - "
-	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:18091/health" 2>/dev/null && echo "" || echo "❌"
-	@printf "User Service: http://localhost:8082 - "
-	@curl -s -o /dev/null -w "Status: %{http_code} " "http://localhost:8082/health" 2>/dev/null && echo "" || echo "❌"
-	@echo ""
-	@echo "Redis接続確認:"
-	@kubectl exec deployment/redis -n petmatch -- redis-cli -a petmatch123 ping 2>/dev/null | grep -q PONG && echo "✅ Redis接続OK" || echo "❌ Redis接続失敗"
-	@echo ""
-	@echo "画像アップロード機能確認:"
-	@IMAGE_COUNT=$$(kubectl exec deployment/redis -n petmatch -- redis-cli -a petmatch123 KEYS "pet_image:*" 2>/dev/null | wc -l); \
-	echo "アップロード済み画像: $$IMAGE_COUNT 件"
+	@echo "$(CYAN)External Dependencies:$(NC)"
+	@$(MAKE) --no-print-directory _health-check-external
 
-# Docker環境設定
-docker-env:
-	@eval $$(minikube docker-env)
+# ビルド
+build-all:
+	@echo "$(BLUE)全サービスビルド中...$(NC)"
+	@$(MAKE) --no-print-directory build-pet
+	@$(MAKE) --no-print-directory build-auth
+	@$(MAKE) --no-print-directory build-user
+	@$(MAKE) --no-print-directory build-gateway
+	@$(MAKE) --no-print-directory build-web
+	@echo "$(GREEN)全サービスビルド完了$(NC)"
 
-# 全サービスビルド
-build-all: docker-env build-api build-pet build-auth build-user build-web
-
-# API Gatewayビルド
-build-api:
-	@echo "🔨 API Gateway ビルド中..."
-	@eval $$(minikube docker-env) && \
-	docker build -t petmatch/api-gateway:latest -f services/api-gateway/Dockerfile .
-
-# Pet Serviceビルド
 build-pet:
-	@echo "🔨 Pet Service ビルド中..."
+	@echo "$(BLUE)Pet Service ビルド中...$(NC)"
 	@eval $$(minikube docker-env) && \
-	docker build -t petmatch/pet-service:latest -f services/pet-service/Dockerfile .
+	docker build -t petmatch/pet-service:latest -f services/pet-service/Dockerfile . && \
+	echo "$(GREEN)Pet Service ビルド完了$(NC)"
 
-# Auth Serviceビルド
 build-auth:
-	@echo "🔨 Auth Service ビルド中..."
+	@echo "$(BLUE)Auth Service ビルド中...$(NC)"
 	@eval $$(minikube docker-env) && \
-	docker build -t petmatch/auth-service:latest -f services/auth-service/Dockerfile .
+	docker build -t petmatch/auth-service:latest -f services/auth-service/Dockerfile . && \
+	echo "$(GREEN)Auth Service ビルド完了$(NC)"
 
-# User Serviceビルド
 build-user:
-	@echo "🔨 User Service ビルド中..."
+	@echo "$(BLUE)User Service ビルド中...$(NC)"
 	@eval $$(minikube docker-env) && \
-	docker build -t petmatch/user-service:latest -f services/user-service/Dockerfile .
+	docker build -t petmatch/user-service:latest -f services/user-service/Dockerfile . && \
+	echo "$(GREEN)User Service ビルド完了$(NC)"
 
-# Web Appビルド
+build-gateway:
+	@echo "$(BLUE)API Gateway ビルド中...$(NC)"
+	@eval $(minikube docker-env) && \
+	docker build -t petmatch/api-gateway:latest -f services/api-gateway/Dockerfile . && \
+	echo "$(GREEN)API Gateway ビルド完了$(NC)"
+
 build-web:
-	@echo "🔨 Web App ビルド中..."
-	@BUILD_ID=$(date +%s)-$RANDOM; \
-	eval $(minikube docker-env) && \
-	DOCKER_BUILDKIT=1 docker build \
-		--no-cache \
-		--progress=plain \
-		--build-arg BUILD_ID=$BUILD_ID \
-		-t petmatch/web-app:latest \
-		-f web-app/Dockerfile ./web-app
+	@echo "$(BLUE)Web App ビルド中...$(NC)"
+	@eval $$(minikube docker-env) && \
+	docker build -t petmatch/web-app:latest -f web-app/Dockerfile ./web-app && \
+	echo "$(GREEN)Web App ビルド完了$(NC)"
 
-# 全サービス再デプロイ
-deploy: deploy-api deploy-pet deploy-auth deploy-user deploy-web
+# デプロイ
+deploy-all:
+	@echo "$(PURPLE)全サービス再デプロイ中...$(NC)"
+	@$(MAKE) --no-print-directory deploy-pet
+	@$(MAKE) --no-print-directory deploy-auth
+	@$(MAKE) --no-print-directory deploy-user
+	@$(MAKE) --no-print-directory deploy-gateway
+	@$(MAKE) --no-print-directory deploy-web
+	@echo "$(GREEN)全サービス再デプロイ完了$(NC)"
 
-# API Gateway再デプロイ
-deploy-api:
-	@echo "🚀 API Gateway 再デプロイ中..."
-	@kubectl rollout restart deployment/api-gateway -n petmatch
-	@kubectl rollout status deployment/api-gateway -n petmatch
-
-# Pet Service再デプロイ
 deploy-pet:
-	@echo "🚀 Pet Service 再デプロイ中..."
+	@echo "$(PURPLE)Pet Service 再デプロイ中...$(NC)"
 	@kubectl rollout restart deployment/pet-service -n petmatch
-	@kubectl rollout status deployment/pet-service -n petmatch
+	@kubectl rollout status deployment/pet-service -n petmatch --timeout=120s
+	@echo "$(GREEN)Pet Service 再デプロイ完了$(NC)"
 
-# Auth Service再デプロイ
 deploy-auth:
-	@echo "🚀 Auth Service 再デプロイ中..."
+	@echo "$(PURPLE)Auth Service 再デプロイ中...$(NC)"
 	@kubectl rollout restart deployment/auth-service -n petmatch
-	@kubectl rollout status deployment/auth-service -n petmatch
+	@kubectl rollout status deployment/auth-service -n petmatch --timeout=120s
+	@echo "$(GREEN)Auth Service 再デプロイ完了$(NC)"
 
-# User Service再デプロイ
 deploy-user:
-	@echo "🚀 User Service 再デプロイ中..."
+	@echo "$(PURPLE)User Service 再デプロイ中...$(NC)"
 	@kubectl rollout restart deployment/user-service -n petmatch
-	@kubectl rollout status deployment/user-service -n petmatch
+	@kubectl rollout status deployment/user-service -n petmatch --timeout=120s
+	@echo "$(GREEN)User Service 再デプロイ完了$(NC)"
 
-# Web App再デプロイ
+deploy-gateway:
+	@echo "$(PURPLE)API Gateway 再デプロイ中...$(NC)"
+	@kubectl rollout restart deployment/api-gateway -n petmatch
+	@kubectl rollout status deployment/api-gateway -n petmatch --timeout=120s
+	@echo "$(GREEN)API Gateway 再デプロイ完了$(NC)"
+
 deploy-web:
-	@echo "🚀 Web App 再デプロイ中..."
+	@echo "$(PURPLE)Web App 再デプロイ中...$(NC)"
 	@kubectl rollout restart deployment/web-app -n petmatch
-	@kubectl rollout status deployment/web-app -n petmatch
+	@kubectl rollout status deployment/web-app -n petmatch --timeout=120s
+	@echo "$(GREEN)Web App 再デプロイ完了$(NC)"
 
-# ログ表示
-logs:
-	@echo "全サービスログ監視中... (Ctrl+C で停止)"
-	@kubectl logs -f deployment/api-gateway -n petmatch --prefix=true &
-	@kubectl logs -f deployment/pet-service -n petmatch --prefix=true &
-	@kubectl logs -f deployment/auth-service -n petmatch --prefix=true &
-	@kubectl logs -f deployment/user-service -n petmatch --prefix=true &
-	@kubectl logs -f deployment/web-app -n petmatch --prefix=true &
-	@wait
+# ログ
+logs: logs-pet
 
-# API Gatewayログ
-logs-api:
-	@kubectl logs -f deployment/api-gateway -n petmatch
-
-# Pet Serviceログ
 logs-pet:
+	@echo "$(YELLOW)Pet Service ログ$(NC)"
 	@kubectl logs -f deployment/pet-service -n petmatch
 
-# Auth Serviceログ
 logs-auth:
+	@echo "$(YELLOW)Auth Service ログ$(NC)"
 	@kubectl logs -f deployment/auth-service -n petmatch
 
-# User Serviceログ
 logs-user:
+	@echo "$(YELLOW)User Service ログ$(NC)"
 	@kubectl logs -f deployment/user-service -n petmatch
 
-# Web Appログ
+logs-gateway:
+	@echo "$(YELLOW)API Gateway ログ$(NC)"
+	@kubectl logs -f deployment/api-gateway -n petmatch
+
 logs-web:
+	@echo "$(YELLOW)Web App ログ$(NC)"
 	@kubectl logs -f deployment/web-app -n petmatch
 
-# Redis CLI
-redis-cli:
-	@kubectl exec -it deployment/redis -n petmatch -- redis-cli -a petmatch123
+# テスト
+test:
+	@echo "$(GREEN)全テスト実行中...$(NC)"
+	@$(MAKE) --no-print-directory test-unit
+	@$(MAKE) --no-print-directory test-integration
+	@$(MAKE) --no-print-directory test-jwt
+	@$(MAKE) --no-print-directory test-redis
+	@echo "$(GREEN)全テスト完了$(NC)"
 
-# 認証システムテスト
-test-auth:
-	@echo "🧪 認証システムテスト実行中..."
-	@echo "1. ユーザー登録テスト"
-	@curl -s -X POST http://localhost:18091/auth/register \
-		-H "Content-Type: application/json" \
-		-d '{"email":"test@example.com","password":"password123","name":"Test User","type":"adopter"}' \
-		| jq . || echo "登録失敗"
-	@echo ""
-	@echo "2. ログインテスト"
-	@curl -s -X POST http://localhost:18091/auth/login \
-		-H "Content-Type: application/json" \
-		-d '{"email":"test@example.com","password":"password123"}' \
-		| jq . || echo "ログイン失敗"
+test-unit:
+	@echo "$(GREEN)ユニットテスト実行中...$(NC)"
+	@cd services/pet-service && go test ./... -v
+	@cd services/auth-service && go test ./... -v
+	@cd services/user-service && go test ./... -v
+	@cd services/api-gateway && go test ./... -v
+	@echo "$(GREEN)ユニットテスト完了$(NC)"
 
-# Lint - golangci-lintでコード検査
+test-integration:
+	@echo "$(GREEN)統合テスト実行中...$(NC)"
+	@if [ -d "test-integration" ]; then \
+		cd test-integration && go test ./... -v; \
+	else \
+		echo "$(YELLOW)統合テストディレクトリが見つかりません$(NC)"; \
+	fi
+
+test-jwt:
+	@echo "$(GREEN)JWT認証テスト実行中...$(NC)"
+	@if [ -f "test-jwt-fixed.make" ]; then \
+		make -f test-jwt-fixed.make; \
+	else \
+		echo "$(RED)JWT テストファイルが見つかりません$(NC)"; \
+	fi
+
+test-redis:
+	@echo "$(GREEN)Redis接続テスト実行中...$(NC)"
+	@if [ -f "test-redis.sh" ]; then \
+		chmod +x test-redis.sh && ./test-redis.sh; \
+	else \
+		echo "$(RED)Redis テストスクリプトが見つかりません$(NC)"; \
+	fi
+
+# 品質管理
 lint:
-	@echo "🔍 golangci-lint コード検査実行中..."
-	@golangci-lint run ./services/...
-	@echo "✅ コード検査完了"
+	@echo "$(CYAN)全コードリント実行中...$(NC)"
+	@$(MAKE) --no-print-directory lint-go
+	@$(MAKE) --no-print-directory lint-js
+	@echo "$(GREEN)全コードリント完了$(NC)"
 
-# Lint Fast - 高速チェック（errcheckのみ）
-lint-fast:
-	@echo "🔍 golangci-lint 高速検査実行中..."
-	@golangci-lint run --disable-all --enable=errcheck ./services/...
-	@echo "✅ 高速検査完了"
+lint-go:
+	@echo "$(CYAN)Go コードリント実行中...$(NC)"
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run ./services/...; \
+	else \
+		echo "$(YELLOW)golangci-lint がインストールされていません$(NC)"; \
+		echo "インストール: go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest"; \
+	fi
 
-# Lint Fix - 自動修正可能な問題を修正
-lint-fix:
-	@echo "🔧 golangci-lint 自動修正実行中..."
-	@golangci-lint run --fix --timeout=5m ./services/...
-	@echo "✅ 自動修正完了"
+lint-js:
+	@echo "$(CYAN)JavaScript コードリント実行中...$(NC)"
+	@if [ -d "web-app" ] && [ -f "web-app/package.json" ]; then \
+		cd web-app && npm run lint 2>/dev/null || echo "$(YELLOW)lint script が設定されていません$(NC)"; \
+	else \
+		echo "$(YELLOW)Web App ディレクトリまたは package.json が見つかりません$(NC)"; \
+	fi
 
-# CI用クリーンアップ
-clean-ci:
-	@echo "🧽 CI環境クリーンアップ中..."
-	@eval $(minikube docker-env) && \
-	docker system prune -a -f && \
-	docker builder prune -a -f && \
-	docker volume prune -f || true
-	@echo "✅ CIクリーンアップ完了"
+fix:
+	@echo "$(CYAN)自動修正実行中...$(NC)"
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run --fix ./services/...; \
+	fi
+	@if [ -d "web-app" ] && [ -f "web-app/package.json" ]; then \
+		cd web-app && npm run lint:fix 2>/dev/null || echo "$(YELLOW)lint:fix script が設定されていません$(NC)"; \
+	fi
+	@echo "$(GREEN)自動修正完了$(NC)"
+
+# 環境管理
+setup:
+	@echo "$(BLUE)初期環境セットアップ中...$(NC)"
+	@echo "$(YELLOW)この操作は環境を変更します。続行しますか? [y/N]$(NC)"
+	@read -p "" confirm && [ "$$confirm" = "y" ] || ( echo "$(RED)セットアップをキャンセルしました$(NC)" && exit 1 )
+	@$(MAKE) --no-print-directory _setup-minikube
+	@$(MAKE) --no-print-directory k8s-apply
+	@$(MAKE) --no-print-directory build-all
+	@$(MAKE) --no-print-directory deploy-all
+	@echo "$(GREEN)初期環境セットアップ完了$(NC)"
+
+reset:
+	@echo "$(RED)環境完全リセット中...$(NC)"
+	@echo "$(RED)警告: この操作は全てのリソースを削除します。本当に続行しますか? [y/N]$(NC)"
+	@read -p "" confirm && [ "$$confirm" = "y" ] || ( echo "$(YELLOW)リセットをキャンセルしました$(NC)" && exit 1 )
+	@$(MAKE) --no-print-directory stop
+	@$(MAKE) --no-print-directory k8s-delete
+	@$(MAKE) --no-print-directory clean-all
+	@echo "$(GREEN)環境完全リセット完了$(NC)"
+
+k8s-apply:
+	@echo "$(BLUE)Kubernetes マニフェスト適用中...$(NC)"
+	@kubectl apply -f k8s/namespace.yaml 2>/dev/null || true
+	@kubectl apply -f k8s/configmap.yaml 2>/dev/null || true
+	@kubectl apply -f k8s/secrets.yaml 2>/dev/null || true
+	@kubectl apply -f k8s/redis/ 2>/dev/null || true
+	@kubectl apply -f k8s/services/ 2>/dev/null || true
+	@echo "$(GREEN)Kubernetes マニフェスト適用完了$(NC)"
+
+k8s-delete:
+	@echo "$(RED)Kubernetes リソース削除中...$(NC)"
+	@kubectl delete namespace petmatch --ignore-not-found=true
+	@echo "$(GREEN)Kubernetes リソース削除完了$(NC)"
 
 # クリーンアップ
 clean:
-	@echo "🧹 クリーンアップ中..."
-	@rm -f .api-gateway.pid .pet-service.pid .auth-service.pid .user-service.pid
-	@eval $(minikube docker-env) && docker image prune -f || true
-	@echo "✅ クリーンアップ完了"
+	@echo "$(YELLOW)基本クリーンアップ中...$(NC)"
+	@$(MAKE) --no-print-directory pid-cleanup
+	@eval $$(minikube docker-env) && docker image prune -f 2>/dev/null || true
+	@echo "$(GREEN)基本クリーンアップ完了$(NC)"
 
-# 開発環境セットアップ
-setup:
-	@echo "🚀 PetMatch 開発環境セットアップ"
-	@echo "1. Minikube起動中..."
-	@minikube start
-	@echo "2. 必要なリソース適用中..."
-	@kubectl apply -f k8s/ -R
-	@echo "3. Pod起動待機中..."
-	@kubectl wait --for=condition=ready pod --all -n petmatch --timeout=300s
-	@echo "✅ セットアップ完了! 'make start' でポートフォワードを開始してください"
+clean-pods:
+	@echo "$(RED)Pod強制削除中...$(NC)"
+	@kubectl delete pods --all -n petmatch --force --grace-period=0 2>/dev/null || true
+	@echo "$(GREEN)Pod強制削除完了$(NC)"
 
-# 開発環境の完全リセット
-reset:
-	@echo "⚠️  開発環境を完全リセットします"
-	@read -p "続行しますか? [y/N]: " confirm && [ "$$confirm" = "y" ]
-	@make stop
-	@kubectl delete namespace petmatch --ignore-not-found=true
-	@minikube stop
-	@minikube delete
-	@echo "✅ リセット完了! 'make setup' で再セットアップしてください"
+clean-images:
+	@echo "$(RED)Docker Image削除中...$(NC)"
+	@eval $$(minikube docker-env) && docker rmi $$(docker images -q petmatch/*) 2>/dev/null || true
+	@eval $$(minikube docker-env) && docker image prune -a -f 2>/dev/null || true
+	@echo "$(GREEN)Docker Image削除完了$(NC)"
+
+clean-all:
+	@echo "$(RED)完全クリーンアップ中...$(NC)"
+	@$(MAKE) --no-print-directory clean
+	@$(MAKE) --no-print-directory clean-pods
+	@$(MAKE) --no-print-directory clean-images
+	@echo "$(GREEN)完全クリーンアップ完了$(NC)"
+
+# ユーティリティ
+port-check:
+	@echo "$(BLUE)ポート使用状況確認$(NC)"
+	@echo "$(WHITE)=====================$(NC)"
+	@echo ""
+	@echo "$(CYAN)Listen ポート:$(NC)"
+	@netstat -tlnp 2>/dev/null | grep -E ':80(80|83|81|82|84|85|86|87|88|90|91)' || echo "$(GREEN)対象ポートは空いています$(NC)"
+	@echo ""
+	@echo "$(CYAN)kubectl port-forward プロセス:$(NC)"
+	@ps aux | grep -E "kubectl port-forward" | grep -v grep || echo "$(YELLOW)アクティブなport-forwardプロセスなし$(NC)"
+
+pid-cleanup:
+	@echo "$(YELLOW)PIDファイルクリーンアップ中...$(NC)"
+	@rm -f .pet-service.pid .auth-service.pid .user-service.pid .api-gateway.pid 2>/dev/null || true
+	@echo "$(GREEN)PIDファイルクリーンアップ完了$(NC)"
+
+# 内部ヘルパー関数
+_check-minikube:
+	@if ! minikube status >/dev/null 2>&1; then \
+		echo "$(RED)Minikube が起動していません$(NC)"; \
+		echo "$(YELLOW)起動コマンド: minikube start$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Minikube 起動中$(NC)"
+
+_check-pods:
+	@echo "$(CYAN)Pod状況確認中...$(NC)"
+	@kubectl get pods -n petmatch 2>/dev/null || echo "$(YELLOW)Namespace 'petmatch' が見つかりません$(NC)"
+
+_start-port-forwards:
+	@echo "$(CYAN)ポートフォワード開始中...$(NC)"
+	@$(MAKE) --no-print-directory pid-cleanup
+	@kubectl port-forward service/pet-service 8083:8083 -n petmatch >/dev/null 2>&1 & \
+	echo $! > .pet-service.pid && echo "  Pet Service: 8083"
+	@kubectl port-forward service/auth-service 18091:8081 -n petmatch >/dev/null 2>&1 & \
+	echo $! > .auth-service.pid && echo "  Auth Service: 18091"
+	@kubectl port-forward service/user-service 18092:8082 -n petmatch >/dev/null 2>&1 & \
+	echo $! > .user-service.pid && echo "  User Service: 18092"
+	@kubectl port-forward service/api-gateway 8080:8080 -n petmatch >/dev/null 2>&1 & \
+	echo $! > .api-gateway.pid && echo "  API Gateway: 8080"
+	@sleep 3
+
+_stop-port-forwards:
+	@if [ -f .pet-service.pid ]; then \
+		kill $$(cat .pet-service.pid) 2>/dev/null && echo "$(GREEN)Pet Service ポートフォワード停止$(NC)"; \
+	fi
+	@if [ -f .auth-service.pid ]; then \
+		kill $$(cat .auth-service.pid) 2>/dev/null && echo "$(GREEN)Auth Service ポートフォワード停止$(NC)"; \
+	fi
+	@if [ -f .user-service.pid ]; then \
+		kill $$(cat .user-service.pid) 2>/dev/null && echo "$(GREEN)User Service ポートフォワード停止$(NC)"; \
+	fi
+	@if [ -f .api-gateway.pid ]; then \
+		kill $$(cat .api-gateway.pid) 2>/dev/null && echo "$(GREEN)API Gateway ポートフォワード停止$(NC)"; \
+	fi
+	@pkill -f "kubectl port-forward.*petmatch" 2>/dev/null || true
+
+_health-check-services:
+	@printf "Pet Service (8083): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8083/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+	@printf "Auth Service (18091): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:18091/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+	@printf "User Service (18092): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:18092/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+	@printf "API Gateway (8080): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8080/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+
+_health-check-external:
+	@printf "Redis: "
+	@kubectl exec -n petmatch deployment/redis -- redis-cli ping 2>/dev/null | grep -q PONG && echo "$(GREEN)OK$(NC)" || echo "$(RED)FAIL$(NC)"
+
+_show-access-info:
+	@echo ""
+	@echo "$(WHITE)アクセス情報:$(NC)"
+	@echo "Pet Service: http://localhost:8083"
+	@echo "Auth Service: http://localhost:18091"
+	@echo "User Service: http://localhost:18092"
+	@echo "API Gateway: http://localhost:8080"
+	@echo "Web App: $(minikube service web-app-nodeport -n petmatch --url 2>/dev/null || echo 'N/A')"
+	@echo ""
+	@echo "停止方法: make stop"
+
+_start-port-forwards-backend-only:
+	@echo "$(CYAN)バックエンドサービスポートフォワード開始中...$(NC)"
+	@$(MAKE) --no-print-directory pid-cleanup
+	@kubectl port-forward service/pet-service 8083:8083 -n petmatch >/dev/null 2>&1 & \
+	echo $! > .pet-service.pid && echo "  Pet Service: 8083"
+	@kubectl port-forward service/auth-service 18091:8081 -n petmatch >/dev/null 2>&1 & \
+	echo $! > .auth-service.pid && echo "  Auth Service: 18091"
+	@kubectl port-forward service/user-service 18092:8082 -n petmatch >/dev/null 2>&1 & \
+	echo $! > .user-service.pid && echo "  User Service: 18092"
+	@sleep 3
+
+_start-local-api-gateway:
+	@echo "$(CYAN)ローカルAPI Gateway起動中...$(NC)"
+	@pkill -f "api-gateway" 2>/dev/null || true
+	@cd services/api-gateway && go build -o ../../bin/api-gateway . >/dev/null 2>&1
+	@echo "  API Gateway ビルド完了"
+	@export $(grep -v '^#' .env | xargs) && ./bin/api-gateway > logs/api-gateway.log 2>&1 &
+	@echo $! > .api-gateway.pid
+	@echo "  API Gateway 起動 (PID: $(cat .api-gateway.pid))"
+	@sleep 3
+
+_health-check-all:
+	@echo "$(CYAN)Service Health Checks:$(NC)"
+	@printf "Pet Service (8083): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8083/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+	@printf "Auth Service (18091): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:18091/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+	@printf "User Service (18092): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:18092/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+	@printf "API Gateway (8080 - Local): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8080/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+	@echo ""
+	@echo "$(CYAN)API Tests:$(NC)"
+	@printf "Auth Verify Endpoint: "
+	@AUTH_TEST=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/api/auth/verify 2>/dev/null) && \
+	if [ "$AUTH_TEST" = "401" ]; then echo "$(GREEN)OK (401)$(NC)"; else echo "$(YELLOW)Status: $AUTH_TEST$(NC)"; fi
+	@printf "Pets Endpoint: "
+	@PETS_TEST=$(curl -s http://localhost:8080/api/pets?limit=1 2>/dev/null) && \
+	if echo "$PETS_TEST" | grep -q "pets"; then echo "$(GREEN)OK$(NC)"; else echo "$(YELLOW)Empty or Error$(NC)"; fi

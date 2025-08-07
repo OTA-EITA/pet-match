@@ -1,10 +1,9 @@
 import axios from 'axios';
-
-const AUTH_BASE_URL = process.env.NEXT_PUBLIC_AUTH_URL || 'http://localhost:18091';
+import { API_CONFIG } from '@/lib/config';
 
 const authClient = axios.create({
-  baseURL: AUTH_BASE_URL,
-  timeout: 10000,
+  baseURL: API_CONFIG.AUTH_URL,
+  timeout: API_CONFIG.TIMEOUT,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -27,7 +26,13 @@ authClient.interceptors.response.use(
     return response;
   },
   (error) => {
-    console.error('Auth Response Error:', error.response?.data || error.message);
+    // Only log errors in production or if not a network error
+    if (process.env.NODE_ENV !== 'development' || error.response) {
+      console.error('Auth Response Error:', error.response?.data || error.message);
+    } else {
+      // In development with network errors, just log a simple message
+      console.warn('🔧 Auth service unavailable (development mode)');
+    }
     return Promise.reject(error);
   }
 );
@@ -83,75 +88,134 @@ export interface User {
 }
 
 export class AuthError extends Error {
-  constructor(message: string, public statusCode?: number) {
+  constructor(message: string, public statusCode?: number, public path?: string) {
     super(message);
     this.name = 'AuthError';
   }
 }
 
+// API Gateway unified error response interface
+export interface APIErrorResponse {
+  error: string;
+  message: string;
+  path?: string;
+  timestamp?: string;
+}
+
 export const authApi = {
   register: async (data: RegisterRequest): Promise<AuthResponse> => {
     try {
-      const response = await authClient.post('/auth/register', data);
+      console.log('🔍 Registration attempt:', {
+        email: data.email,
+        name: data.name,
+        type: data.type,
+        url: `${API_CONFIG.AUTH_URL}${API_CONFIG.ENDPOINTS.AUTH.REGISTER}`
+      });
+      
+      const response = await authClient.post(API_CONFIG.ENDPOINTS.AUTH.REGISTER, data);
+      console.log('✅ Registration successful:', response.data);
       return response.data;
     } catch (error: any) {
+      console.error('❌ Registration failed:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method
+      });
+      
+      const errorData: APIErrorResponse = error.response?.data;
       throw new AuthError(
-        error.response?.data?.message || 'Registration failed',
-        error.response?.status
+        errorData?.message || 'Registration failed',
+        error.response?.status,
+        errorData?.path
       );
     }
   },
 
   login: async (data: LoginRequest): Promise<AuthResponse> => {
     try {
-      const response = await authClient.post('/auth/login', data);
+      const response = await authClient.post(API_CONFIG.ENDPOINTS.AUTH.LOGIN, data);
       return response.data;
     } catch (error: any) {
+      const errorData: APIErrorResponse = error.response?.data;
       throw new AuthError(
-        error.response?.data?.message || 'Login failed',
-        error.response?.status
+        errorData?.message || 'Login failed',
+        error.response?.status,
+        errorData?.path
       );
     }
   },
 
   refreshToken: async (refreshToken: string): Promise<RefreshTokenResponse> => {
     try {
-      const response = await authClient.post('/auth/refresh', {
+      const response = await authClient.post(API_CONFIG.ENDPOINTS.AUTH.REFRESH, {
         refresh_token: refreshToken,
       });
       return response.data;
     } catch (error: any) {
+      const errorData: APIErrorResponse = error.response?.data;
       throw new AuthError(
-        error.response?.data?.message || 'Token refresh failed',
-        error.response?.status
+        errorData?.message || 'Token refresh failed',
+        error.response?.status,
+        errorData?.path
       );
     }
   },
 
   verifyToken: async (accessToken: string): Promise<User> => {
     try {
-      const response = await authClient.get('/auth/verify', {
+      const response = await authClient.get(API_CONFIG.ENDPOINTS.AUTH.VERIFY, {
         headers: {
           'Authorization': `Bearer ${accessToken}`,
         },
       });
       return response.data.user;
     } catch (error: any) {
+      const errorData: APIErrorResponse = error.response?.data;
       throw new AuthError(
-        error.response?.data?.message || 'Token verification failed',
-        error.response?.status
+        errorData?.message || 'Token verification failed',
+        error.response?.status,
+        errorData?.path
       );
     }
   },
 
   healthCheck: async () => {
     try {
-      const response = await authClient.get('/health');
+      const response = await authClient.get(API_CONFIG.ENDPOINTS.AUTH.HEALTH);
       return response.data;
     } catch (error: any) {
       throw new AuthError('Auth service unavailable');
     }
   },
+};
+
+// Development token utilities
+export const devTokenUtils = {
+  // For development testing, use API Gateway's DEV_TOKEN
+  setDevToken: () => {
+    if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      localStorage.setItem('access_token', 'DEV_TOKEN');
+      console.log('🔧 Development token set for testing');
+    }
+  },
+
+  clearDevToken: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      console.log('🔧 Development tokens cleared');
+    }
+  },
+
+  isUsingDevToken: (): boolean => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('access_token') === 'DEV_TOKEN';
+    }
+    return false;
+  }
 };
 
 // Token storage utilities

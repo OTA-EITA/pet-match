@@ -1,29 +1,27 @@
-'use client';
+'use client'
 
-import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
-import { useState } from 'react';
+import { useState } from 'react'
+import Link from 'next/link'
+import { useAuth } from '@/hooks/useAuth'
 
-const Header = () => {
-  const { user, logout, isAuthenticated } = useAuth();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+export default function Navbar() {
+  const { user, logout, isAuthenticated } = useAuth()
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
   return (
-    <header className="bg-white shadow-sm border-b border-gray-200">
+    <nav className="bg-white shadow-lg border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <div className="flex items-center">
-            <Link href="/pets" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-lg">🐾</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">PetMatch</span>
-            </Link>
-          </div>
+          <Link href="/pets" className="flex items-center space-x-2">
+            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
+              <span className="text-white font-bold text-lg">🐾</span>
+            </div>
+            <span className="text-xl font-bold text-gray-900">PetMatch</span>
+          </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          {/* Desktop Menu */}
+          <div className="hidden md:flex items-center space-x-8">
             {isAuthenticated ? (
               <>
                 {/* Common Navigation */}
@@ -45,12 +43,9 @@ const Header = () => {
                     </Link>
                     <Link 
                       href="/pets/new"
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center space-x-1"
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      <span>ペット登録</span>
+                      + ペット登録
                     </Link>
                   </>
                 )}
@@ -60,21 +55,15 @@ const Header = () => {
                   <>
                     <Link 
                       href="/favorites"
-                      className="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center space-x-1"
+                      className="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                      </svg>
-                      <span>お気に入り</span>
+                      お気に入り
                     </Link>
                     <Link 
                       href="/applications"
-                      className="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors inline-flex items-center space-x-1"
+                      className="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                     >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                      </svg>
-                      <span>応募状況</span>
+                      応募状況
                     </Link>
                   </>
                 )}
@@ -82,28 +71,20 @@ const Header = () => {
                 {/* User Menu */}
                 <div className="flex items-center space-x-4">
                   <div className="flex items-center space-x-2">
-                    <div className="flex flex-col text-right">
-                      <span className="text-sm font-medium text-gray-900">
-                        {user?.name}
-                      </span>
-                      <span className={`text-xs px-2 py-1 rounded-full font-medium ${
-                        user?.type === 'shelter' 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-blue-100 text-blue-800'
-                      }`}>
-                        {user?.type === 'shelter' ? '保護団体' : '里親希望'}
-                      </span>
-                    </div>
-                    <div className="h-8 w-8 bg-blue-600 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-white">
-                        {user?.name?.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    <span className="text-sm text-gray-700">
+                      {user?.name}
+                    </span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      user?.type === 'shelter' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {user?.type === 'shelter' ? '保護団体' : '里親希望'}
+                    </span>
                   </div>
-                  
                   <button
                     onClick={logout}
-                    className="text-gray-500 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
+                    className="text-gray-600 hover:text-red-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     ログアウト
                   </button>
@@ -111,13 +92,13 @@ const Header = () => {
               </>
             ) : (
               <div className="flex items-center space-x-4">
-                <Link
+                <Link 
                   href="/auth/login"
                   className="text-gray-600 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium transition-colors"
                 >
                   ログイン
                 </Link>
-                <Link
+                <Link 
                   href="/auth/register"
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                 >
@@ -125,7 +106,7 @@ const Header = () => {
                 </Link>
               </div>
             )}
-          </nav>
+          </div>
 
           {/* Mobile menu button */}
           <div className="md:hidden">
@@ -162,7 +143,7 @@ const Header = () => {
                     </Link>
                     <Link 
                       href="/pets/new"
-                      className="block bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-md text-sm font-medium"
+                      className="block bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-md text-sm font-medium"
                     >
                       + ペット登録
                     </Link>
@@ -217,8 +198,6 @@ const Header = () => {
           </div>
         )}
       </div>
-    </header>
-  );
-};
-
-export default Header;
+    </nav>
+  )
+}

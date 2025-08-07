@@ -86,8 +86,8 @@ func setupPetRoutes(r *gin.Engine, cfg *config.Config) {
 
 	petRoutes := r.Group("/pets")
 	{
-		// Public routes
-		petRoutes.GET("", petHandler.GetPets)
+		// Public routes with optional auth (to support owner=me filtering)
+		petRoutes.GET("", sharedMiddleware.OptionalAuthMiddleware(cfg), petHandler.GetPets)
 		petRoutes.GET("/:id", petHandler.GetPet)
 		petRoutes.GET("/:id/images", imageHandler.GetPetImages)
 		

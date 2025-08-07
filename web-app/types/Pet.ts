@@ -23,7 +23,7 @@ export interface Pet {
   breed: string;
   age_info: AgeInfo;
   gender: 'male' | 'female';
-  size: 'small' | 'medium' | 'large';
+  size: 'small' | 'medium' | 'large' | 'extra_large';
   color: string;
   personality: string[];
   medical_info: MedicalInfo;

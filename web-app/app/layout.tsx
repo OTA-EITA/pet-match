@@ -2,6 +2,8 @@ import './globals.css'
 import { Inter } from 'next/font/google'
 import AuthProvider from '@/contexts/AuthContext'
 import Header from '@/components/layout/Header'
+import DevAuthPanel from '@/components/dev/DevAuthPanel'
+import DevStatusPanel from '@/components/dev/DevStatusPanel'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -32,6 +34,10 @@ export default function RootLayout({
               </div>
             </div>
           </footer>
+          
+          {/* Development Panels */}
+          <DevAuthPanel />
+          <DevStatusPanel />
         </AuthProvider>
       </body>
     </html>

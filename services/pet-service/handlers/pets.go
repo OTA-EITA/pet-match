@@ -53,6 +53,7 @@ type petSearchParams struct {
 	AgeMax  int
 	Gender  string
 	Size    string
+	OwnerID string  // For filtering by owner
 	Limit   int
 	Offset  int
 }
@@ -63,6 +64,16 @@ func parsePetSearchParams(c *gin.Context) petSearchParams {
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "20"))
 	offset, _ := strconv.Atoi(c.DefaultQuery("offset", "0"))
 
+	// Handle "owner=me" parameter - extract current user ID
+	var ownerID string
+	if c.Query("owner") == "me" {
+		if userID, exists := c.Get("user_id"); exists {
+			ownerID = userID.(string)
+		}
+	} else {
+		ownerID = c.Query("owner_id") // Direct owner ID
+	}
+
 	return petSearchParams{
 		Species: c.Query("species"),
 		Breed:   c.Query("breed"),
@@ -70,6 +81,7 @@ func parsePetSearchParams(c *gin.Context) petSearchParams {
 		AgeMax:  ageMax,
 		Gender:  c.Query("gender"),
 		Size:    c.Query("size"),
+		OwnerID: ownerID,
 		Limit:   limit,
 		Offset:  offset,
 	}
@@ -135,6 +147,10 @@ func matchesSearchCriteria(pet models.Pet, params petSearchParams) bool {
 		return false
 	}
 	if params.AgeMax > 0 && pet.AgeInfo.Years > params.AgeMax {
+		return false
+	}
+	// Owner filtering
+	if params.OwnerID != "" && pet.OwnerID != params.OwnerID {
 		return false
 	}
 	return true

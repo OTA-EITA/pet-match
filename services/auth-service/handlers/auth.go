@@ -153,3 +153,27 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 		"user": user,
 	})
 }
+
+// VerifyToken verifies the current token and returns user info
+func (h *AuthHandler) VerifyToken(c *gin.Context) {
+	userID := c.GetString("user_id")
+	userType := c.GetString("user_type")
+	email := c.GetString("email")
+
+	if userID == "" {
+		c.JSON(http.StatusUnauthorized, gin.H{
+			"error": "User not authenticated",
+		})
+		return
+	}
+
+	// Token is valid (we reached this point through auth middleware)
+	c.JSON(http.StatusOK, gin.H{
+		"valid": true,
+		"user": gin.H{
+			"id":    userID,
+			"type":  userType,
+			"email": email,
+		},
+	})
+}

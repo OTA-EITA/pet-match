@@ -61,13 +61,13 @@ const LoginForm = () => {
 
     try {
       await login(formData.email, formData.password);
-      router.push('/pets'); // Redirect to pets page after login
+      router.push('/pets');
     } catch (error: unknown) {
       console.error('Login error:', error);
       if (error instanceof AuthError) {
         setAuthError(error.message);
       } else {
-        setAuthError('An unexpected error occurred. Please try again.');
+        setAuthError('Login failed. Please check your connection and try again.');
       }
     }
   };
@@ -90,9 +90,15 @@ const LoginForm = () => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           {authError && (
             <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{authError}</div>
+              <div className="flex items-center">
+                <svg className="w-5 h-5 text-red-500 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div className="text-sm text-red-700">{authError}</div>
+              </div>
             </div>
           )}
+          
           
           <div className="rounded-md shadow-sm -space-y-px">
             <div>

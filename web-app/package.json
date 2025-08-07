@@ -6,10 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint --fix",
+    "lint:check": "next lint",
+    "type-check": "tsc --noEmit",
+    "env:k8s": "./configure-env.sh k8s",
+    "env:mock": "./configure-env.sh mock",
+    "env:show": "./configure-env.sh show",
+    "env:reset": "./configure-env.sh reset"
   },
   "dependencies": {
-    "next": "14.0.0",
+    "next": "^15.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "axios": "^1.7.0",
@@ -22,6 +28,8 @@
     "@types/node": "^20.0.0",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
     "eslint": "^8.0.0",
     "eslint-config-next": "14.0.0",
     "typescript": "^5.0.0"

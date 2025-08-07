@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useRef } from 'react'
+import { petApi } from '@/lib/api'
 
 export interface UploadedImage {
   id: string
@@ -28,32 +29,6 @@ export default function ImageUpload({ petId, onImageUploaded, onError, disabled 
   const [dragActive, setDragActive] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const handleDrag = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    if (e.type === 'dragenter' || e.type === 'dragover') {
-      setDragActive(true)
-    } else if (e.type === 'dragleave') {
-      setDragActive(false)
-    }
-  }, [])
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setDragActive(false)
-
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      handleFile(e.dataTransfer.files[0])
-    }
-  }, [])
-
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      handleFile(e.target.files[0])
-    }
-  }, [])
-
   const handleFile = useCallback(async (file: File) => {
     // Validate file type
     if (!file.type.startsWith('image/')) {
@@ -77,30 +52,24 @@ export default function ImageUpload({ petId, onImageUploaded, onError, disabled 
     setUploading(true)
 
     try {
-      const formData = new FormData()
-      formData.append('image', file)
-      formData.append('is_main', 'false')
-
-      const response = await fetch(`http://localhost:18081/pets/${petId}/images`, {
-        method: 'POST',
-        headers: {
-          // Don't set Content-Type for FormData, let browser set it
-          'Authorization': 'Bearer DEV_TOKEN', // Fixed: Use DEV_TOKEN instead of mock-jwt-token
-        },
-        body: formData,
-      })
-
-      if (!response.ok) {
-        const errorData = await response.json()
-        throw new Error(errorData.error || 'アップロードに失敗しました')
+      console.log('Starting image upload for petId:', petId);
+      
+      // Use petApi instead of direct fetch
+      const result = await petApi.images.uploadPetImage(petId, file);
+      
+      console.log('Upload successful:', result);
+      
+      // Handle different response formats
+      const imageData = result.image || result;
+      if (imageData && imageData.id) {
+        onImageUploaded(imageData);
+      } else {
+        throw new Error('画像データの取得に失敗しました');
       }
-
-      const result = await response.json()
-      onImageUploaded(result.image)
       
       // Reset file input
       if (fileInputRef.current) {
-        fileInputRef.current.value = ''
+        fileInputRef.current.value = '';
       }
     } catch (error) {
       console.error('Upload error:', error)
@@ -109,6 +78,32 @@ export default function ImageUpload({ petId, onImageUploaded, onError, disabled 
       setUploading(false)
     }
   }, [petId, onImageUploaded, onError])
+
+  const handleDrag = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true)
+    } else if (e.type === 'dragleave') {
+      setDragActive(false)
+    }
+  }, [])
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    setDragActive(false)
+
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      handleFile(e.dataTransfer.files[0])
+    }
+  }, [handleFile])
+
+  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      handleFile(e.target.files[0])
+    }
+  }, [handleFile])
 
   const openFileDialog = useCallback(() => {
     if (fileInputRef.current) {
