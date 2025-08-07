@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
@@ -13,14 +13,7 @@ export default function MyPetsPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Fetch user's pets on component mount
-  useEffect(() => {
-    if (user && user.type === 'shelter') {
-      loadMyPets()
-    }
-  }, [user])
-
-  const loadMyPets = async () => {
+  const loadMyPets = useCallback(async () => {
     try {
       setLoading(true)
       setError(null)
@@ -42,7 +35,14 @@ export default function MyPetsPage() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [user?.id])
+
+  // Fetch user's pets on component mount
+  useEffect(() => {
+    if (user && user.type === 'shelter') {
+      loadMyPets()
+    }
+  }, [user, loadMyPets])
 
   const handleDeletePet = async (petId: string, petName: string) => {
     if (!confirm(`${petName}を削除してもよろしいですか？この操作は取り消せません。`)) {

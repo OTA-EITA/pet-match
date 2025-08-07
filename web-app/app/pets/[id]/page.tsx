@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { petApi } from '@/lib/api';
@@ -22,7 +22,7 @@ export default function PetDetailPage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState(false); // For demo purposes, allow editing
 
-  const fetchPetDetail = async () => {
+  const fetchPetDetail = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -38,9 +38,9 @@ export default function PetDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [petId]);
 
-  const fetchPetImages = async () => {
+  const fetchPetImages = useCallback(async () => {
     try {
       setLoadingImages(true);
       console.log(`Fetching images for pet ID: ${petId}`);
@@ -56,14 +56,14 @@ export default function PetDetailPage() {
     } finally {
       setLoadingImages(false);
     }
-  };
+  }, [petId]);
 
   useEffect(() => {
     if (petId) {
       fetchPetDetail();
       fetchPetImages();
     }
-  }, [petId]);
+  }, [petId, fetchPetDetail, fetchPetImages]);
 
   const handleContactPress = () => {
     alert('お問い合わせ機能は認証システムの実装後に利用可能になります。');
