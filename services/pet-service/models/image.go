@@ -11,8 +11,6 @@ type PetImage struct {
 	ID           string    `json:"id"`
 	PetID        string    `json:"pet_id"`
 	FileName     string    `json:"file_name"`
-	OriginalPath string    `json:"original_path"`
-	ThumbnailPath string   `json:"thumbnail_path"`
 	OriginalURL  string    `json:"original_url"`
 	ThumbnailURL string    `json:"thumbnail_url"`
 	FileSize     int64     `json:"file_size"`
@@ -23,22 +21,37 @@ type PetImage struct {
 	UploadedAt   time.Time `json:"uploaded_at"`
 }
 
-// NewPetImage creates a new pet image instance
+// NewPetImageWithMinIO creates a new pet image instance for MinIO storage
+func NewPetImageWithMinIO(petID, fileName, originalURL, thumbnailURL string, fileSize int64, mimeType string, width, height int) *PetImage {
+	return &PetImage{
+		ID:           uuid.New().String(),
+		PetID:        petID,
+		FileName:     fileName,
+		OriginalURL:  originalURL,
+		ThumbnailURL: thumbnailURL,
+		FileSize:     fileSize,
+		MimeType:     mimeType,
+		Width:        width,
+		Height:       height,
+		IsMain:       false,
+		UploadedAt:   time.Now(),
+	}
+}
+
+// NewPetImage creates a new pet image instance (legacy for local storage)
 func NewPetImage(petID, fileName, originalPath, thumbnailPath string, fileSize int64, mimeType string, width, height int) *PetImage {
 	return &PetImage{
-		ID:            uuid.New().String(),
-		PetID:         petID,
-		FileName:      fileName,
-		OriginalPath:  originalPath,
-		ThumbnailPath: thumbnailPath,
-		OriginalURL:   "/uploads/pets/" + petID + "/original/" + fileName,
-		ThumbnailURL:  "/uploads/pets/" + petID + "/thumbnails/" + fileName,
-		FileSize:      fileSize,
-		MimeType:      mimeType,
-		Width:         width,
-		Height:        height,
-		IsMain:        false,
-		UploadedAt:    time.Now(),
+		ID:           uuid.New().String(),
+		PetID:        petID,
+		FileName:     fileName,
+		OriginalURL:  "/uploads/pets/" + petID + "/original/" + fileName,
+		ThumbnailURL: "/uploads/pets/" + petID + "/thumbnails/" + fileName,
+		FileSize:     fileSize,
+		MimeType:     mimeType,
+		Width:        width,
+		Height:       height,
+		IsMain:       false,
+		UploadedAt:   time.Now(),
 	}
 }
 

@@ -1,7 +1,7 @@
 # PetMatch Development Makefile
 # 完全版 - すべての開発・運用機能を含む
 
-.PHONY: help start stop restart status health build-all build-pet build-auth build-user build-gateway build-web deploy-all deploy-pet deploy-auth deploy-user deploy-gateway deploy-web logs logs-pet logs-auth logs-user logs-gateway logs-web test test-unit test-integration test-jwt test-redis lint lint-go lint-js fix setup reset clean clean-pods clean-images clean-all k8s-apply k8s-delete port-check pid-cleanup
+.PHONY: help start stop restart status health build-all build-pet build-auth build-user build-gateway build-web deploy-all deploy-pet deploy-auth deploy-user deploy-gateway deploy-web logs logs-pet logs-auth logs-user logs-gateway logs-web test test-unit test-integration test-jwt test-redis lint lint-go lint-js fix setup reset clean clean-pods clean-images clean-all k8s-apply k8s-delete port-check pid-cleanup sample-data sample-data-quick sample-data-full sample-data-status sample-data-clean demo-ready
 
 # Color codes for output
 RED=\033[0;31m
@@ -64,7 +64,9 @@ help:
 	@echo "  make fix            - 自動修正"
 	@echo ""
 	@echo "$(BLUE) 環境管理:$(NC)"
-	@echo "  make setup          - 初期環境セットアップ"
+	@echo "  make setup          - 初期環境セットアップ（手動確認あり）"
+	@echo "  make setup-auto     - 完全自動セットアップ（起動まで）"
+	@echo "  make fix-gateway    - API Gateway修復"
 	@echo "  make reset          - 環境完全リセット"
 	@echo "  make k8s-apply      - Kubernetes マニフェスト適用"
 	@echo "  make k8s-delete     - Kubernetes リソース削除"
@@ -74,6 +76,18 @@ help:
 	@echo "  make clean-pods     - Pod強制削除"
 	@echo "  make clean-images   - Docker Image削除"
 	@echo "  make clean-all      - 完全クリーンアップ"
+	@echo ""
+	@echo "$(WHITE) サンプルデータ:$(NC)"
+	@echo "  make sample-data        - サンプルデータ生成 (30匹)"
+	@echo "  make sample-data-quick  - 少量サンプルデータ (10匹)"
+	@echo "  make sample-data-full   - 大量サンプルデータ (100匹)"
+	@echo "  make sample-data-status - サンプルデータ確認"
+	@echo "  make sample-data-debug  - 認証デバッグテスト"
+	@echo "  make sample-data-clean  - サンプルデータ削除"
+	@echo "  make minio-deploy       - MinIOデプロイ"
+	@echo "  make minio-setup        - MinIOセットアップ"
+	@echo "  make minio-console      - MinIOコンソールアクセス"
+	@echo "  make demo-ready         - デモ用完全セットアップ"
 	@echo ""
 	@echo "$(WHITE) ユーティリティ:$(NC)"
 	@echo "  make port-check     - ポート使用状況確認"
@@ -317,14 +331,22 @@ fix:
 
 # 環境管理
 setup:
-	@echo "$(BLUE)初期環境セットアップ中...$(NC)"
-	@echo "$(YELLOW)この操作は環境を変更します。続行しますか? [y/N]$(NC)"
-	@read -p "" confirm && [ "$$confirm" = "y" ] || ( echo "$(RED)セットアップをキャンセルしました$(NC)" && exit 1 )
+	@echo "$(BLUE)PetMatch 完全セットアップ開始$(NC)"
 	@$(MAKE) --no-print-directory _setup-minikube
-	@$(MAKE) --no-print-directory k8s-apply
-	@$(MAKE) --no-print-directory build-all
-	@$(MAKE) --no-print-directory deploy-all
-	@echo "$(GREEN)初期環境セットアップ完了$(NC)"
+	@$(MAKE) --no-print-directory _full-k8s-setup
+	@$(MAKE) --no-print-directory _build-and-deploy-all
+	@$(MAKE) --no-print-directory _wait-for-ready
+	@echo "$(GREEN)SUCCESS セットアップ完了！make start で起動してください$(NC)"
+
+# 一発セットアップ（確認なし）
+setup-auto:
+	@echo "$(BLUE)PetMatch 自動セットアップ開始$(NC)"
+	@$(MAKE) --no-print-directory _setup-minikube
+	@$(MAKE) --no-print-directory _full-k8s-setup
+	@$(MAKE) --no-print-directory _build-and-deploy-all
+	@$(MAKE) --no-print-directory _wait-for-ready
+	@$(MAKE) --no-print-directory start
+	@echo "$(GREEN)LAUNCH 全システム起動完了！$(NC)"
 
 reset:
 	@echo "$(RED)環境完全リセット中...$(NC)"
@@ -337,9 +359,8 @@ reset:
 
 k8s-apply:
 	@echo "$(BLUE)Kubernetes マニフェスト適用中...$(NC)"
-	@kubectl apply -f k8s/namespace.yaml 2>/dev/null || true
-	@kubectl apply -f k8s/configmap.yaml 2>/dev/null || true
-	@kubectl apply -f k8s/secrets.yaml 2>/dev/null || true
+	@kubectl apply -f k8s/01-namespace-configmap.yaml 2>/dev/null || true
+	@kubectl apply -f k8s/02-secrets.yaml 2>/dev/null || true
 	@kubectl apply -f k8s/redis/ 2>/dev/null || true
 	@kubectl apply -f k8s/services/ 2>/dev/null || true
 	@echo "$(GREEN)Kubernetes マニフェスト適用完了$(NC)"
@@ -495,3 +516,254 @@ _health-check-all:
 	@printf "Pets Endpoint: "
 	@PETS_TEST=$(curl -s http://localhost:8080/api/pets?limit=1 2>/dev/null) && \
 	if echo "$PETS_TEST" | grep -q "pets"; then echo "$(GREEN)OK$(NC)"; else echo "$(YELLOW)Empty or Error$(NC)"; fi
+
+# 内部ヘルパー関数（新規追加）
+_full-k8s-setup:
+	@echo "$(CYAN)Step 1 Namespace & ConfigMap...$(NC)"
+	@kubectl apply -f k8s/01-namespace-configmap.yaml
+	@echo "$(CYAN)Step 2 Secrets...$(NC)"
+	@kubectl apply -f k8s/02-secrets.yaml
+	@echo "$(CYAN)Step 3 Redis...$(NC)"
+	@kubectl apply -f k8s/redis/
+	@echo "$(CYAN)Step 4 Services...$(NC)"
+	@kubectl apply -f k8s/services/
+	@echo "$(GREEN)OK Kubernetes リソース作成完了$(NC)"
+
+_build-and-deploy-all:
+	@echo "$(BLUE)BUILD Docker環境設定...$(NC)"
+	@eval $(minikube docker-env)
+	@echo "$(BLUE)BUILD 全イメージビルド...$(NC)"
+	@eval $(minikube docker-env) && docker build -t petmatch/pet-service:latest -f services/pet-service/Dockerfile . --quiet
+	@eval $(minikube docker-env) && docker build -t petmatch/auth-service:latest -f services/auth-service/Dockerfile . --quiet
+	@eval $(minikube docker-env) && docker build -t petmatch/user-service:latest -f services/user-service/Dockerfile . --quiet
+	@eval $(minikube docker-env) && docker build -t petmatch/api-gateway:latest -f services/api-gateway/Dockerfile . --quiet
+	@echo "$(GREEN)OK 全イメージビルド完了$(NC)"
+
+_wait-for-ready:
+	@echo "$(YELLOW)⏳ Pod起動待ち（最大120秒）...$(NC)"
+	@kubectl wait --for=condition=Ready pods --all -n petmatch --timeout=120s 2>/dev/null || true
+	@echo "$(CYAN)STATS 最終状況:$(NC)"
+	@kubectl get pods -n petmatch
+
+# API Gateway 専用修復
+fix-gateway:
+	@echo "$(RED)FIX API Gateway 修復開始$(NC)"
+	@eval $(minikube docker-env) && docker build -t petmatch/api-gateway:latest -f services/api-gateway/Dockerfile .
+	@kubectl rollout restart deployment/api-gateway -n petmatch
+	@kubectl rollout status deployment/api-gateway -n petmatch --timeout=60s
+	@echo "$(GREEN)OK API Gateway 修復完了$(NC)"
+
+_setup-minikube:
+	@echo "$(CYAN)Minikube 確認中...$(NC)"
+	@if ! minikube status >/dev/null 2>&1; then \
+		echo "$(YELLOW)Minikube起動中...$(NC)"; \
+		minikube start; \
+	fi
+	@echo "$(GREEN)OK Minikube 準備完了$(NC)"
+
+# ===============================
+# サンプルデータ生成機能
+# ===============================
+
+# サンプルデータ生成 (デフォルト30匹)
+sample-data:
+	@echo "$(CYAN)PET PetMatch サンプルデータ生成$(NC)"
+	@echo "$(WHITE)===============================$(NC)"
+	@$(MAKE) --no-print-directory _ensure-sample-data-script
+	@$(MAKE) --no-print-directory _check-api-ready
+	@$(MAKE) --no-print-directory _show-existing-data
+	@echo ""
+	@echo "$(CYAN)30匹のペットサンプルデータを生成します$(NC)"
+	@chmod +x scripts/generate-sample-data-working.sh
+	@./scripts/generate-sample-data-working.sh "http://localhost:8083" "http://localhost:18091" 30
+	@echo ""
+	@$(MAKE) --no-print-directory _show-final-stats
+
+sample-data-quick:
+	@echo "$(CYAN)PET クイックサンプルデータ生成 (10匹)$(NC)"
+	@$(MAKE) --no-print-directory _ensure-sample-data-script
+	@$(MAKE) --no-print-directory _check-api-ready
+	@chmod +x scripts/generate-sample-data-working.sh
+	@./scripts/generate-sample-data-working.sh "http://localhost:8083" "http://localhost:18091" 10
+	@$(MAKE) --no-print-directory _show-final-stats
+
+sample-data-full:
+	@echo "$(CYAN)PET 大量サンプルデータ生成 (100匹)$(NC)"
+	@echo "$(YELLOW)WARNING  100匹の生成には時間がかかります$(NC)"
+	@echo "$(YELLOW)続行しますか? [y/N]$(NC)"
+	@read -p "" confirm && [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || ( echo "$(YELLOW)キャンセルしました$(NC)" && exit 1 )
+	@$(MAKE) --no-print-directory _ensure-sample-data-script
+	@$(MAKE) --no-print-directory _check-api-ready
+	@chmod +x scripts/generate-sample-data-working.sh
+	@./scripts/generate-sample-data-working.sh "http://localhost:8083" "http://localhost:18091" 100
+	@$(MAKE) --no-print-directory _show-final-stats
+
+sample-data-status:
+	@echo "$(BLUE)STATS PetMatch データ状況$(NC)"
+	@echo "$(WHITE)=====================$(NC)"
+	@$(MAKE) --no-print-directory _check-api-ready-silent
+	@echo ""
+	@echo "$(CYAN)データ統計:$(NC)"
+	@total=$(curl -s "http://localhost:8083/pets" 2>/dev/null | jq '.total // 0' 2>/dev/null || echo "0"); \
+	echo "PET 総ペット数: $total 匹"
+	@echo ""
+	@echo "$(CYAN)種類別集計:$(NC)"
+	@for species in dog cat bird rabbit hamster; do \
+		count=$(curl -s "http://localhost:8083/pets?species=$species" 2>/dev/null | jq '.total // 0' 2>/dev/null || echo "0"); \
+		case $species in \
+			dog) emoji="dog" ;; \
+			cat) emoji="cat" ;; \
+			bird) emoji="bird" ;; \
+			rabbit) emoji="rabbit" ;; \
+			hamster) emoji="hamster" ;; \
+		esac; \
+		printf "  %s %-8s: %2d匹\n" "$emoji" "$species" "$count"; \
+	done
+	@echo ""
+	@echo "$(CYAN)最新5匹:$(NC)"
+	@curl -s "http://localhost:8083/pets?limit=5&sort=created_at:desc" 2>/dev/null | \
+		jq -r '.pets[]? | "  • \(.name) (\(.species) - \(.breed))"' 2>/dev/null || \
+		echo "$(YELLOW)  データ取得エラー$(NC)"
+
+# デバッグ・テスト用
+sample-data-debug:
+	@echo "$(CYAN)DEBUG 認証デバッグテスト$(NC)"
+	@chmod +x scripts/debug-auth-sample-data.sh
+	@./scripts/debug-auth-sample-data.sh "http://localhost:8083" "http://localhost:18091" 5
+
+auth-debug:
+	@echo "$(CYAN)DEBUG 簡易認証デバッグ$(NC)"
+	@chmod +x scripts/simple-auth-debug.sh
+	@./scripts/simple-auth-debug.sh
+
+sample-data-clean:
+	@echo "$(RED)DELETE  サンプルデータ削除$(NC)"
+	@echo "$(RED)警告: 全てのペットデータが削除されます$(NC)"
+	@echo "$(RED)本当に削除しますか? [y/N]$(NC)"
+	@read -p "" confirm && [ "$confirm" = "y" ] || [ "$confirm" = "Y" ] || ( echo "$(YELLOW)削除をキャンセルしました$(NC)" && exit 1 )
+	@echo "$(YELLOW)Redis データ削除中...$(NC)"
+	@kubectl exec deployment/redis -n petmatch -- redis-cli EVAL "for _,k in ipairs(redis.call('KEYS','pet:*')) do redis.call('DEL',k) end" 0 2>/dev/null || \
+		echo "$(RED)Redis削除エラー$(NC)"
+	@echo "$(GREEN)OK サンプルデータ削除完了$(NC)"
+
+demo-ready:
+	@echo "$(CYAN)LAUNCH PetMatch デモ環境完全セットアップ$(NC)"
+	@echo "$(WHITE)======================================$(NC)"
+	@echo ""
+	@echo "$(CYAN)Step 1 システム起動確認...$(NC)"
+	@if ! $(MAKE) --no-print-directory _check-system-ready 2>/dev/null; then \
+		echo "$(YELLOW)システムを起動します...$(NC)"; \
+		$(MAKE) --no-print-directory start; \
+	else \
+		echo "$(GREEN)OK システム稼働中$(NC)"; \
+	fi
+	@echo ""
+	@echo "$(CYAN)Step 2 サンプルデータ生成...$(NC)"
+	@$(MAKE) --no-print-directory sample-data
+	@echo ""
+	@echo "$(CYAN)Step 3 アクセス情報表示...$(NC)"
+	@$(MAKE) --no-print-directory _show-demo-access-info
+	@echo ""
+	@echo "$(GREEN)SUCCESS デモ環境準備完了！$(NC)"
+
+# ===============================
+# サンプルデータ用内部ヘルパー
+# ===============================
+
+_ensure-sample-data-script:
+	@if [ ! -f "scripts/generate-improved-sample-data.sh" ]; then \
+		echo "$(RED)FAIL scripts/generate-improved-sample-data.sh が見つかりません$(NC)"; \
+		echo "$(YELLOW)スクリプトを作成してください$(NC)"; \
+		exit 1; \
+	fi
+
+_check-api-ready:
+	@echo "$(CYAN)API API接続確認中...$(NC)"
+	@if ! curl -s "http://localhost:8083/health" >/dev/null 2>&1; then \
+		echo "$(RED)FAIL Pet Service (8083) に接続できません$(NC)"; \
+		echo ""; \
+		echo "$(YELLOW)FIX 解決手順:$(NC)"; \
+		echo "  1. make status    - システム状況確認"; \
+		echo "  2. make start     - システム起動"; \
+		echo "  3. make logs-pet  - ログ確認"; \
+		echo ""; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)OK API接続成功$(NC)"
+
+_check-api-ready-silent:
+	@curl -s "http://localhost:8083/health" >/dev/null 2>&1 || \
+		( echo "$(RED)FAIL API未接続 - make start で起動してください$(NC)" && exit 1 )
+
+_show-existing-data:
+	@echo "$(CYAN)STATS 既存データ確認...$(NC)"
+	@bash -c 'existing_pets=$$(curl -s "http://localhost:8083/pets" 2>/dev/null | jq ".total // 0" 2>/dev/null || echo "0"); \
+	echo "PET 現在のペット数: $$existing_pets 匹"'
+
+_show-final-stats:
+	@echo ""
+	@echo "$(GREEN)STATS 最終データ統計$(NC)"
+	@echo "$(WHITE)==================$(NC)"
+	@bash -c 'total=$$(curl -s "http://localhost:8083/pets" 2>/dev/null | jq ".total // 0" 2>/dev/null || echo "0"); \
+	echo "PET 総ペット数: $$total 匹"'
+	@echo ""
+	@echo "$(CYAN)DEBUG 確認方法:$(NC)"
+	@echo "  • データ状況: make sample-data-status"
+	@echo "  • API直接: curl 'http://localhost:8083/pets'"
+	@echo "  • Web UI: $(shell minikube service web-app-nodeport -n petmatch --url 2>/dev/null || echo 'N/A')"
+
+
+
+_check-system-ready:
+	@curl -s "http://localhost:8083/health" >/dev/null 2>&1
+
+_show-demo-access-info:
+	@echo "$(WHITE)WEB アクセス情報:$(NC)"
+	@echo "  • Pet API: http://localhost:8083/pets"
+	@echo "  • API Gateway: http://localhost:8080/api/pets"
+	@web_url=$(minikube service web-app-nodeport -n petmatch --url 2>/dev/null || echo ""); \
+	if [ -n "$web_url" ]; then \
+		echo "  • Web App: $web_url"; \
+	else \
+		echo "  • Web App: N/A (make start で起動)"; \
+	fi
+	@echo ""
+	@echo "$(WHITE)FIX 管理コマンド:$(NC)"
+	@echo "  • データ確認: make sample-data-status"
+	@echo "  • データ追加: make sample-data"
+	@echo "  • データ削除: make sample-data-clean"
+	@echo "  • システム停止: make stop"
+
+# ===============================
+# MinIO ストレージ機能
+# ===============================
+
+minio-deploy:
+	@echo "$(PURPLE)STORAGE MinIO デプロイ$(NC)"
+	@kubectl apply -f k8s/minio/minio.yaml
+	@echo "$(YELLOW)WAIT MinIO Pod起動待ち...$(NC)"
+	@kubectl wait --for=condition=Ready pod -l app=minio -n petmatch --timeout=120s
+	@echo "$(GREEN)OK MinIO デプロイ完了$(NC)"
+
+minio-setup:
+	@echo "$(PURPLE)FIX MinIO セットアップ$(NC)"
+	@kubectl delete job minio-setup -n petmatch 2>/dev/null || true
+	@kubectl apply -f k8s/minio/minio-setup.yaml
+	@echo "$(YELLOW)WAIT セットアップ完了待ち...$(NC)"
+	@kubectl wait --for=condition=Complete job/minio-setup -n petmatch --timeout=60s
+	@echo "$(CYAN)STATS セットアップログ:$(NC)"
+	@kubectl logs job/minio-setup -n petmatch
+	@echo "$(GREEN)OK MinIO セットアップ完了$(NC)"
+
+minio-console:
+	@echo "$(CYAN)CONSOLE MinIO コンソールアクセス$(NC)"
+	@echo "$(WHITE)URL: $(shell minikube service minio-console -n petmatch --url 2>/dev/null || echo 'N/A')$(NC)"
+	@echo "$(WHITE)クレデンシャル:$(NC)"
+	@echo "  Username: minioadmin"
+	@echo "  Password: minioadmin"
+	@echo ""
+	@echo "$(YELLOW)ブラウザで上記URLを開いてアクセスしてください$(NC)"
+
+minio-logs:
+	@echo "$(YELLOW)MinIO ログ$(NC)"
+	@kubectl logs -f deployment/minio -n petmatch

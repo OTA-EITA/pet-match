@@ -24,7 +24,7 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: petmatch/api-gateway:jwt-auth
+        image: petmatch/api-gateway:latest
         imagePullPolicy: Never
         ports:
         - containerPort: 8080
