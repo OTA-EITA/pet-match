@@ -1,0 +1,16 @@
+# NodePort Service for Web App
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-nodeport
+  namespace: petmatch
+  labels:
+    app: web-app
+spec:
+  selector:
+    app: web-app
+  ports:
+  - port: 3000
+    targetPort: 3000
+    nodePort: 30080
+  type: NodePort

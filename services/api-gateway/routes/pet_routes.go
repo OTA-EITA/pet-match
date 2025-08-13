@@ -22,6 +22,18 @@ func SetupPetRoutes(
 			pets.GET("/:id", petProxy.GetPet)                 // GET /api/pets/:id
 			pets.GET("/search", petProxy.SearchPets)          // GET /api/pets/search
 
+			// Image routes
+			images := pets.Group("/:id/images")
+			{
+				// Public image viewing
+				images.GET("", petProxy.GetPetImages)             // GET /api/pets/:id/images
+				images.GET("/health", petProxy.GetImageHealth)    // GET /api/pets/:id/images/health (MinIO health check)
+				
+				// Image upload/delete (temporarily public for development)
+				images.POST("", petProxy.UploadPetImage)          // POST /api/pets/:id/images
+				images.DELETE("/:image_id", petProxy.DeletePetImage) // DELETE /api/pets/:id/images/:image_id
+			}
+
 			// Protected routes (require authentication)
 			protected := pets.Group("")
 			protected.Use(authMiddleware.RequireAuth())

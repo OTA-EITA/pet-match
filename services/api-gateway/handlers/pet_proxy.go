@@ -74,6 +74,31 @@ func (p *PetProxy) SearchPets(c *gin.Context) {
 	p.proxyRequest(c, "GET", "/pets/search")
 }
 
+// GetPetImages - ペット画像一覧取得
+func (p *PetProxy) GetPetImages(c *gin.Context) {
+	petID := c.Param("id")
+	p.proxyRequest(c, "GET", fmt.Sprintf("/pets/%s/images", petID))
+}
+
+// UploadPetImage - ペット画像アップロード
+func (p *PetProxy) UploadPetImage(c *gin.Context) {
+	petID := c.Param("id")
+	p.proxyRequest(c, "POST", fmt.Sprintf("/pets/%s/images", petID))
+}
+
+// DeletePetImage - ペット画像削除
+func (p *PetProxy) DeletePetImage(c *gin.Context) {
+	petID := c.Param("id")
+	imageID := c.Param("image_id")
+	p.proxyRequest(c, "DELETE", fmt.Sprintf("/pets/%s/images/%s", petID, imageID))
+}
+
+// GetImageHealth - MinIO画像ストレージのヘルスチェック
+func (p *PetProxy) GetImageHealth(c *gin.Context) {
+	petID := c.Param("id")
+	p.proxyRequest(c, "GET", fmt.Sprintf("/pets/%s/images/health", petID))
+}
+
 // CreatePet - ペット作成（Shelter限定）
 func (p *PetProxy) CreatePet(c *gin.Context) {
 	p.proxyRequestWithAuth(c, "POST", "/pets")

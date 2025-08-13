@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
 
@@ -11,25 +12,26 @@ import (
 
 	"github.com/petmatch/app/services/pet-service/models"
 	"github.com/petmatch/app/services/pet-service/services"
+	"github.com/petmatch/app/services/pet-service/storage"
 	sharedModels "github.com/petmatch/app/shared/models" // shared modelsをインポート
 	"github.com/petmatch/app/shared/utils"
 )
 
 var imageCtx = context.Background()
 
-// ImageHandler handles image-related operations
+// ImageHandler handles image-related operations with MinIO
 type ImageHandler struct {
-	imageService *services.ImageService
+	imageService *services.MinioImageService
 }
 
-// NewImageHandler creates a new image handler
+// NewImageHandler creates a new image handler with MinIO support
 func NewImageHandler(uploadDir string) *ImageHandler {
 	return &ImageHandler{
-		imageService: services.NewImageService(uploadDir),
+		imageService: services.NewMinioImageService(),
 	}
 }
 
-// UploadPetImage handles POST /pets/:id/images
+// UploadPetImage handles POST /pets/:id/images with MinIO storage
 func (h *ImageHandler) UploadPetImage(c *gin.Context) {
 	petID := c.Param("id")
 	// Development: Skip user authentication
@@ -64,21 +66,25 @@ func (h *ImageHandler) UploadPetImage(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to open uploaded file"})
 		return
 	}
-	defer file.Close()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Failed to close uploaded file: %v", err)
+		}
+	}()
 
-	// Save image
-	originalPath, thumbnailPath, width, height, err := h.imageService.SaveImage(petID, fileHeader, file)
+	// Save image to MinIO
+	originalURL, thumbnailURL, width, height, err := h.imageService.SaveImage(petID, fileHeader, file)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("Failed to save image: %v", err)})
 		return
 	}
 
 	// Create image record
-	image := models.NewPetImage(
+	image := models.NewPetImageWithMinIO(
 		petID,
-		filepath.Base(originalPath),
-		originalPath,
-		thumbnailPath,
+		filepath.Base(originalURL), // Extract filename from URL
+		originalURL,
+		thumbnailURL,
 		fileHeader.Size,
 		fileHeader.Header.Get("Content-Type"),
 		width,
@@ -97,7 +103,7 @@ func (h *ImageHandler) UploadPetImage(c *gin.Context) {
 
 	// Save image record to Redis
 	if err := h.saveImageToRedis(image); err != nil {
-		// Clean up uploaded files
+		// Clean up uploaded files from MinIO
 		if err := h.imageService.DeleteImage(petID, image.FileName); err != nil {
 			fmt.Printf("Warning: Failed to clean up uploaded files: %v\n", err)
 		}
@@ -113,7 +119,7 @@ func (h *ImageHandler) UploadPetImage(c *gin.Context) {
 
 	c.JSON(http.StatusCreated, models.ImageUploadResponse{
 		Image:   image,
-		Message: "Image uploaded successfully",
+		Message: "Image uploaded successfully to MinIO",
 	})
 }
 
@@ -180,9 +186,9 @@ func (h *ImageHandler) DeletePetImage(c *gin.Context) {
 		return
 	}
 
-	// Delete physical files
+	// Delete physical files from MinIO
 	if err := h.imageService.DeleteImage(petID, image.FileName); err != nil {
-		fmt.Printf("Warning: Failed to delete physical files: %v\n", err)
+		fmt.Printf("Warning: Failed to delete physical files from MinIO: %v\n", err)
 	}
 
 	// Delete image record from Redis
@@ -196,7 +202,24 @@ func (h *ImageHandler) DeletePetImage(c *gin.Context) {
 		fmt.Printf("Warning: Failed to update pet images list: %v\n", err)
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Image deleted successfully"})
+	c.JSON(http.StatusOK, gin.H{"message": "Image deleted successfully from MinIO"})
+}
+
+// HealthCheck endpoint for MinIO connectivity
+func (h *ImageHandler) HealthCheck(c *gin.Context) {
+	if err := storage.HealthCheck(); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status": "unhealthy",
+			"error":  fmt.Sprintf("MinIO connection failed: %v", err),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"status":  "healthy",
+		"storage": "minio",
+		"buckets": []string{storage.PetImagesBucket, storage.PetThumbnailsBucket},
+	})
 }
 
 // Helper functions

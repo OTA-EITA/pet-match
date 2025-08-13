@@ -18,7 +18,11 @@ func main() {
 
 	// Initialize Redis connection
 	redisClient := utils.NewRedisClient(cfg)
-	defer redisClient.Close()
+	defer func() {
+		if err := redisClient.Close(); err != nil {
+			log.Printf("Failed to close redis client: %v", err)
+		}
+	}()
 
 	// Initialize services
 	userService := services.NewUserService(redisClient, cfg)

@@ -3,11 +3,13 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/petmatch/app/services/pet-service/handlers"
 	"github.com/petmatch/app/services/pet-service/middleware"
+	"github.com/petmatch/app/services/pet-service/storage"
 	"github.com/petmatch/app/shared/config"
 	sharedMiddleware "github.com/petmatch/app/shared/middleware"
 	"github.com/petmatch/app/shared/utils"
@@ -41,7 +43,35 @@ func initializeServices(cfg *config.Config) error {
 		log.Printf("Warning: Failed to setup Redis indexes: %v", err)
 	}
 
+	// Initialize MinIO
+	if err := initMinIO(); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func initMinIO() error {
+	minioConfig := storage.MinioConfig{
+		Endpoint:        getEnvOrDefault("MINIO_ENDPOINT", "localhost:9000"),
+		AccessKeyID:     getEnvOrDefault("MINIO_ACCESS_KEY", "minioadmin"),
+		SecretAccessKey: getEnvOrDefault("MINIO_SECRET_KEY", "minioadmin"),
+		UseSSL:          getEnvOrDefault("MINIO_USE_SSL", "false") == "true",
+	}
+
+	if err := storage.InitMinio(minioConfig); err != nil {
+		return err
+	}
+
+	log.Println("MinIO initialized successfully")
+	return nil
+}
+
+func getEnvOrDefault(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
 }
 
 func setupRouter(cfg *config.Config) *gin.Engine {
@@ -72,7 +102,7 @@ func setupRoutes(r *gin.Engine, cfg *config.Config) {
 	// Health check
 	r.GET("/health", healthCheckHandler)
 
-	// Static file serving for uploaded images
+	// Static file serving for uploaded images (legacy support)
 	r.Static("/uploads", "./uploads")
 
 	// Pet routes
@@ -82,7 +112,7 @@ func setupRoutes(r *gin.Engine, cfg *config.Config) {
 func setupPetRoutes(r *gin.Engine, cfg *config.Config) {
 	// Initialize handlers
 	petHandler := handlers.NewPetHandler()
-	imageHandler := handlers.NewImageHandler("./uploads")
+	imageHandler := handlers.NewImageHandler("./uploads") // uploadDir not used for MinIO
 
 	petRoutes := r.Group("/pets")
 	{
@@ -97,6 +127,7 @@ func setupPetRoutes(r *gin.Engine, cfg *config.Config) {
 		{
 			imageRoutes.POST("", imageHandler.UploadPetImage)
 			imageRoutes.DELETE("/:image_id", imageHandler.DeletePetImage)
+			imageRoutes.GET("/health", imageHandler.HealthCheck) // MinIO health check
 		}
 		
 		// Migration endpoint (for development/admin use)
@@ -115,7 +146,17 @@ func setupPetRoutes(r *gin.Engine, cfg *config.Config) {
 }
 
 func healthCheckHandler(c *gin.Context) {
+	// Check Redis health
 	if err := utils.HealthCheck(); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status": "unhealthy",
+			"error":  err.Error(),
+		})
+		return
+	}
+
+	// Check MinIO health
+	if err := storage.HealthCheck(); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"status": "unhealthy",
 			"error":  err.Error(),
@@ -129,8 +170,12 @@ func healthCheckHandler(c *gin.Context) {
 		"version": "1.0.0",
 		"features": []string{
 			"pet-crud",
-			"image-upload",
+			"minio-image-upload",
 			"search-filter",
+		},
+		"storage": map[string]string{
+			"database": "redis",
+			"images":   "minio",
 		},
 	})
 }
