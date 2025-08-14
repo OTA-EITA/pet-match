@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: match-service
+  namespace: petmatch
+  labels:
+    app: match-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: match-service
+  template:
+    metadata:
+      labels:
+        app: match-service
+    spec:
+      containers:
+      - name: match-service
+        image: petmatch/match-service:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8084
+        env:
+        - name: PORT
+          value: "8084"
+        - name: REDIS_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: petmatch-config
+              key: REDIS_HOST
+        - name: REDIS_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: petmatch-config
+              key: REDIS_PORT
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: petmatch-secrets
+              key: REDIS_PASSWORD
+        - name: JWT_ACCESS_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: petmatch-secrets
+              key: JWT_ACCESS_SECRET
+        - name: APP_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: petmatch-config
+              key: APP_ENV
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8084
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: 8084
+          initialDelaySeconds: 5
+          periodSeconds: 5
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: match-service
+  namespace: petmatch
+spec:
+  selector:
+    app: match-service
+  ports:
+  - port: 8084
+    targetPort: 8084
+  type: ClusterIP
