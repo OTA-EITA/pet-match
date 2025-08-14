@@ -31,6 +31,7 @@ help:
 	@echo "  make build-pet      - Pet Service ビルド"
 	@echo "  make build-auth     - Auth Service ビルド"
 	@echo "  make build-user     - User Service ビルド"
+	@echo "  make build-match      - Match Service ビルド"
 	@echo "  make build-gateway  - API Gateway ビルド"
 	@echo "  make build-web      - Web App ビルド"
 	@echo ""
@@ -39,6 +40,7 @@ help:
 	@echo "  make deploy-pet     - Pet Service 再デプロイ"
 	@echo "  make deploy-auth    - Auth Service 再デプロイ"
 	@echo "  make deploy-user    - User Service 再デプロイ"
+	@echo "  make deploy-match    - Match Service デプロイ"
 	@echo "  make deploy-gateway - API Gateway 再デプロイ"
 	@echo "  make deploy-web     - Web App 再デプロイ"
 	@echo ""
@@ -47,6 +49,7 @@ help:
 	@echo "  make logs-pet       - Pet Service ログ"
 	@echo "  make logs-auth      - Auth Service ログ"
 	@echo "  make logs-user      - User Service ログ"
+	@echo "  make logs-match       - Match Service ログ"
 	@echo "  make logs-gateway   - API Gateway ログ"
 	@echo "  make logs-web       - Web App ログ"
 	@echo ""
@@ -157,6 +160,7 @@ build-all:
 	@$(MAKE) --no-print-directory build-pet
 	@$(MAKE) --no-print-directory build-auth
 	@$(MAKE) --no-print-directory build-user
+	@$(MAKE) --no-print-directory build-match
 	@$(MAKE) --no-print-directory build-gateway
 	@$(MAKE) --no-print-directory build-web
 	@echo "$(GREEN)全サービスビルド完了$(NC)"
@@ -185,9 +189,15 @@ build-gateway:
 	docker build -t petmatch/api-gateway:latest -f services/api-gateway/Dockerfile . && \
 	echo "$(GREEN)API Gateway ビルド完了$(NC)"
 
+build-match:
+	@echo "$(BLUE)Match Service ビルド中...$(NC)"
+	@eval $(minikube docker-env) && \
+	docker build -t petmatch/match-service:latest -f services/match-service/Dockerfile . && \
+	echo "$(GREEN)Match Service ビルド完了$(NC)"
+
 build-web:
 	@echo "$(BLUE)Web App ビルド中...$(NC)"
-	@eval $$(minikube docker-env) && \
+	@eval $(minikube docker-env) && \
 	docker build -t petmatch/web-app:latest -f web-app/Dockerfile ./web-app && \
 	echo "$(GREEN)Web App ビルド完了$(NC)"
 
@@ -197,6 +207,7 @@ deploy-all:
 	@$(MAKE) --no-print-directory deploy-pet
 	@$(MAKE) --no-print-directory deploy-auth
 	@$(MAKE) --no-print-directory deploy-user
+	@$(MAKE) --no-print-directory deploy-match
 	@$(MAKE) --no-print-directory deploy-gateway
 	@$(MAKE) --no-print-directory deploy-web
 	@echo "$(GREEN)全サービス再デプロイ完了$(NC)"
@@ -225,6 +236,19 @@ deploy-gateway:
 	@kubectl rollout status deployment/api-gateway -n petmatch --timeout=120s
 	@echo "$(GREEN)API Gateway 再デプロイ完了$(NC)"
 
+deploy-match:
+	@echo "$(PURPLE)Match Service デプロイ中...$(NC)"
+	@if kubectl get deployment match-service -n petmatch >/dev/null 2>&1; then \
+		echo "$(BLUE)既存デプロイメント再起動中...$(NC)"; \
+		kubectl rollout restart deployment/match-service -n petmatch; \
+		kubectl rollout status deployment/match-service -n petmatch --timeout=120s; \
+	else \
+		echo "$(BLUE)初回デプロイ実行中...$(NC)"; \
+		kubectl apply -f k8s/services/match-service.yaml; \
+		kubectl wait --for=condition=Ready pod -l app=match-service -n petmatch --timeout=120s; \
+	fi
+	@echo "$(GREEN)Match Service デプロイ完了$(NC)"
+
 deploy-web:
 	@echo "$(PURPLE)Web App 再デプロイ中...$(NC)"
 	@kubectl rollout restart deployment/web-app -n petmatch
@@ -250,6 +274,10 @@ logs-gateway:
 	@echo "$(YELLOW)API Gateway ログ$(NC)"
 	@kubectl logs -f deployment/api-gateway -n petmatch
 
+logs-match:
+	@echo "$(YELLOW)Match Service ログ$(NC)"
+	@kubectl logs -f deployment/match-service -n petmatch
+
 logs-web:
 	@echo "$(YELLOW)Web App ログ$(NC)"
 	@kubectl logs -f deployment/web-app -n petmatch
@@ -268,6 +296,7 @@ test-unit:
 	@cd services/pet-service && go test ./... -v
 	@cd services/auth-service && go test ./... -v
 	@cd services/user-service && go test ./... -v
+	@cd services/match-service && go test ./... -v
 	@cd services/api-gateway && go test ./... -v
 	@echo "$(GREEN)ユニットテスト完了$(NC)"
 
@@ -408,7 +437,7 @@ port-check:
 
 pid-cleanup:
 	@echo "$(YELLOW)PIDファイルクリーンアップ中...$(NC)"
-	@rm -f .pet-service.pid .auth-service.pid .user-service.pid .api-gateway.pid 2>/dev/null || true
+	@rm -f .pet-service.pid .auth-service.pid .user-service.pid .match-service.pid .api-gateway.pid 2>/dev/null || true
 	@echo "$(GREEN)PIDファイルクリーンアップ完了$(NC)"
 
 # 内部ヘルパー関数
@@ -433,22 +462,27 @@ _start-port-forwards:
 	echo $! > .auth-service.pid && echo "  Auth Service: 18091"
 	@kubectl port-forward service/user-service 18092:8082 -n petmatch >/dev/null 2>&1 & \
 	echo $! > .user-service.pid && echo "  User Service: 18092"
+	@kubectl port-forward service/match-service 8084:8084 -n petmatch >/dev/null 2>&1 & \
+	echo $! > .match-service.pid && echo "  Match Service: 8084"
 	@kubectl port-forward service/api-gateway 8080:8080 -n petmatch >/dev/null 2>&1 & \
 	echo $! > .api-gateway.pid && echo "  API Gateway: 8080"
 	@sleep 3
 
 _stop-port-forwards:
 	@if [ -f .pet-service.pid ]; then \
-		kill $$(cat .pet-service.pid) 2>/dev/null && echo "$(GREEN)Pet Service ポートフォワード停止$(NC)"; \
+		kill $(cat .pet-service.pid) 2>/dev/null && echo "$(GREEN)Pet Service ポートフォワード停止$(NC)"; \
 	fi
 	@if [ -f .auth-service.pid ]; then \
-		kill $$(cat .auth-service.pid) 2>/dev/null && echo "$(GREEN)Auth Service ポートフォワード停止$(NC)"; \
+		kill $(cat .auth-service.pid) 2>/dev/null && echo "$(GREEN)Auth Service ポートフォワード停止$(NC)"; \
 	fi
 	@if [ -f .user-service.pid ]; then \
-		kill $$(cat .user-service.pid) 2>/dev/null && echo "$(GREEN)User Service ポートフォワード停止$(NC)"; \
+		kill $(cat .user-service.pid) 2>/dev/null && echo "$(GREEN)User Service ポートフォワード停止$(NC)"; \
+	fi
+	@if [ -f .match-service.pid ]; then \
+		kill $(cat .match-service.pid) 2>/dev/null && echo "$(GREEN)Match Service ポートフォワード停止$(NC)"; \
 	fi
 	@if [ -f .api-gateway.pid ]; then \
-		kill $$(cat .api-gateway.pid) 2>/dev/null && echo "$(GREEN)API Gateway ポートフォワード停止$(NC)"; \
+		kill $(cat .api-gateway.pid) 2>/dev/null && echo "$(GREEN)API Gateway ポートフォワード停止$(NC)"; \
 	fi
 	@pkill -f "kubectl port-forward.*petmatch" 2>/dev/null || true
 
@@ -459,6 +493,8 @@ _health-check-services:
 	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:18091/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
 	@printf "User Service (18092): "
 	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:18092/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+	@printf "Match Service (8084): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8084/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
 	@printf "API Gateway (8080): "
 	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8080/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
 
@@ -472,6 +508,7 @@ _show-access-info:
 	@echo "Pet Service: http://localhost:8083"
 	@echo "Auth Service: http://localhost:18091"
 	@echo "User Service: http://localhost:18092"
+	@echo "Match Service: http://localhost:8084"
 	@echo "API Gateway: http://localhost:8080"
 	@echo "Web App: $(minikube service web-app-nodeport -n petmatch --url 2>/dev/null || echo 'N/A')"
 	@echo ""
@@ -536,6 +573,7 @@ _build-and-deploy-all:
 	@eval $(minikube docker-env) && docker build -t petmatch/pet-service:latest -f services/pet-service/Dockerfile . --quiet
 	@eval $(minikube docker-env) && docker build -t petmatch/auth-service:latest -f services/auth-service/Dockerfile . --quiet
 	@eval $(minikube docker-env) && docker build -t petmatch/user-service:latest -f services/user-service/Dockerfile . --quiet
+	@eval $(minikube docker-env) && docker build -t petmatch/match-service:latest -f services/match-service/Dockerfile . --quiet
 	@eval $(minikube docker-env) && docker build -t petmatch/api-gateway:latest -f services/api-gateway/Dockerfile . --quiet
 	@echo "$(GREEN)OK 全イメージビルド完了$(NC)"
 

@@ -36,7 +36,7 @@ spec:
           valueFrom:
             secretKeyRef:
               name: petmatch-secrets
-              key: JWT_SECRET
+              key: JWT_ACCESS_SECRET
         - name: APP_ENV
           valueFrom:
             configMapKeyRef:
