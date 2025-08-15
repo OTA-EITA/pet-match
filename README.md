@@ -27,33 +27,49 @@
 - Docker & Docker Compose
 - Go 1.21+
 - kubectl (Kubernetes実行時)
+- minikube (ローカル開発時)
 
 # リポジトリクローン
 git clone git@github.com:OTA-EITA/pet-match.git
 cd pet-match
 ```
 
-### 2. 開発環境セットアップ
+### 2. 開発環境セットアップ & 起動
 ```bash
-# 自動セットアップスクリプト実行
-chmod +x scripts/dev-setup.sh
-./scripts/dev-setup.sh
+# 一発セットアップ（初回のみ）
+make setup-auto
 
-# または手動で
-docker-compose -f docker/docker-compose.dev.yml up -d
+# または段階的に
+make setup          # セットアップのみ
+make start          # 開発環境起動
+
+# システム状況確認
+make status
 ```
 
-### 3. Pet Service 起動
-```bash
-# Go dependencies
-go mod tidy
+### 3. API仕様確認（統合Swagger UI）
+**全サービスのAPIが1つのSwagger UIで確認可能**
 
-# Pet Service 起動
-cd services/pet-service
-go run .
+```bash
+# 統合Swagger更新
+make swagger-gen
+
+# アクセス
+open http://localhost:8090/swagger/index.html
 ```
 
-### 4. 動作確認
+**重要**: Swagger UIでエラーが表示される場合は、上部の入力欄に以下を入力してください：
+```
+http://localhost:8090/swagger.json
+```
+
+**含まれるAPI**:
+- **Pet API**: `/api/pets` (ペット一覧・詳細・登録・更新・削除)
+- **Auth API**: `/api/auth` (ログイン・登録・トークン検証)
+- **User API**: `/api/users` (プロフィール管理)
+- **Match API**: `/api/matches` (マッチング・おすすめ・履歴・お気に入り)
+
+### 4. 基本的な動作確認
 ```bash
 # ヘルスチェック
 curl http://localhost:8083/health
@@ -110,6 +126,25 @@ curl -X POST http://localhost:8083/pets \
 ```
 
 ## 開発ツール
+
+### 統合Swagger UI
+**全APIを1つのSwagger UIで管理**
+```bash
+# 統合Swagger仕様更新
+make swagger-gen
+
+# アクセス方法
+open http://localhost:8090/swagger/index.html
+# または直接仕様: http://localhost:8090/swagger.json
+```
+
+**利用可能なAPI**:
+- Pet Service: ペット管理 (CRUD)
+- Auth Service: 認証・認可
+- User Service: ユーザー管理
+- Match Service: マッチング機能
+
+**トラブルシューティング**: Swagger UIでエラーが出る場合は、入力欄に `http://localhost:8090/swagger.json` を入力してください。
 
 ### Redis 管理
 ```bash

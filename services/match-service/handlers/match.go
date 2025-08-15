@@ -27,6 +27,18 @@ func NewMatchHandler(matchService *services.MatchService, algorithmService *serv
 }
 
 // FindMatches handles POST /matches - find matches for user
+// @Summary Find pet matches for user
+// @Description Find pet matches based on user criteria and preferences
+// @Tags Matching
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.MatchRequest true "Match search criteria"
+// @Success 200 {object} models.MatchResponse "Successful match response"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /matches [post]
 func (h *MatchHandler) FindMatches(c *gin.Context) {
 	// Get user ID from auth middleware
 	userID, exists := c.Get("user_id")
@@ -60,6 +72,19 @@ func (h *MatchHandler) FindMatches(c *gin.Context) {
 }
 
 // UpdateMatchStatus handles PUT /matches/:match_id/status - update match status
+// @Summary Update match status
+// @Description Update the status of a specific match
+// @Tags Matching
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param match_id path string true "Match ID"
+// @Param request body models.UpdateMatchStatusRequest true "Status update request"
+// @Success 200 {object} map[string]interface{} "Status updated successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /matches/{match_id}/status [put]
 func (h *MatchHandler) UpdateMatchStatus(c *gin.Context) {
 	// Get user ID from auth middleware
 	userID, exists := c.Get("user_id")
@@ -95,6 +120,16 @@ func (h *MatchHandler) UpdateMatchStatus(c *gin.Context) {
 }
 
 // GetRecommendations handles GET /matches/recommendations - get personalized recommendations
+// @Summary Get personalized pet recommendations
+// @Description Get personalized pet recommendations based on user preferences
+// @Tags Matching
+// @Produce json
+// @Security BearerAuth
+// @Param limit query int false "Number of recommendations" default(10)
+// @Success 200 {object} map[string]interface{} "Successful recommendations response"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /matches/recommendations [get]
 func (h *MatchHandler) GetRecommendations(c *gin.Context) {
 	// Get user ID from auth middleware
 	userID, exists := c.Get("user_id")
@@ -131,6 +166,18 @@ func (h *MatchHandler) GetRecommendations(c *gin.Context) {
 }
 
 // GetMatchHistory handles GET /matches/history - get user's match history
+// @Summary Get user's match history
+// @Description Get user's match history with pagination and optional status filtering
+// @Tags Matching
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(20)
+// @Param status query string false "Filter by status" Enums(pending,viewed,contacted,rejected)
+// @Success 200 {object} models.MatchHistoryResponse "Successful history response"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /matches/history [get]
 func (h *MatchHandler) GetMatchHistory(c *gin.Context) {
 	// Get user ID from auth middleware
 	userID, exists := c.Get("user_id")

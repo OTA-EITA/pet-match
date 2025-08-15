@@ -1,3 +1,102 @@
+# Swagger API仕様管理
+swagger-install:
+	@echo "$(BLUE)Swagger CLI インストール & 確認中...$(NC)"
+	@export PATH="/usr/local/go/bin:$(HOME)/go/bin:$PATH" && \
+	if ! command -v swag >/dev/null 2>&1; then \
+		echo "$(YELLOW)swagが見つかりません。インストール中...$(NC)"; \
+		go install github.com/swaggo/swag/cmd/swag@latest; \
+		echo "$(GREEN)swagインストール完了$(NC)"; \
+	else \
+		echo "$(GREEN)swag確認済み$(NC)"; \
+	fi
+
+# Match Service単体でのSwagger生成（match-service専用）
+swagger-gen-match:
+	@echo "$(CYAN)Match Service Swagger仕様生成中...$(NC)"
+	@$(MAKE) --no-print-directory swagger-install
+	@if [ ! -d "services/match-service" ]; then \
+		echo "$(RED)ERROR: services/match-service ディレクトリが見つかりません$(NC)"; \
+		exit 1; \
+	fi
+	@cd services/match-service && \
+	export PATH="/usr/local/go/bin:$(HOME)/go/bin:$PATH" && \
+	echo "$(BLUE)  docs/ ディレクトリクリーンアップ中...$(NC)" && \
+	rm -rf docs/* && \
+	echo "$(BLUE)  Swagger仕様生成中...$(NC)" && \
+	swag init -g main.go -o docs --parseDependency --parseInternal && \
+	if [ -f "docs/swagger.json" ] && [ -f "docs/swagger.yaml" ]; then \
+		echo "$(GREEN)  ✓ swagger.json 生成完了$(NC)"; \
+		echo "$(GREEN)  ✓ swagger.yaml 生成完了$(NC)"; \
+	else \
+		echo "$(RED)  ✗ Swagger生成に失敗しました$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)Match Service Swagger生成完了$(NC)"
+
+# 全サービスでのSwagger生成（各サービス個別）
+swagger-gen-all:
+	@echo "$(CYAN)各サービス Swagger仕様生成中...$(NC)"
+	@$(MAKE) --no-print-directory swagger-install
+	@services="pet-service auth-service user-service match-service api-gateway"; \
+	success_count=0; \
+	total_count=0; \
+	for service in $services; do \
+		total_count=$((total_count + 1)); \
+		if [ -d "services/$service" ]; then \
+			echo "$(BLUE)$service Swagger生成中...$(NC)"; \
+			cd services/$service && \
+			export PATH="/usr/local/go/bin:$(HOME)/go/bin:$PATH" && \
+			rm -rf docs/* 2>/dev/null || true && \
+			if swag init -g main.go -o docs --parseDependency --parseInternal 2>/dev/null; then \
+				if [ -f "docs/swagger.json" ]; then \
+					echo "$(GREEN)  ✓ $service 生成成功$(NC)"; \
+					success_count=$((success_count + 1)); \
+				else \
+					echo "$(YELLOW)  ⚠ $service 生成完了だがファイル不完全$(NC)"; \
+				fi; \
+			else \
+				echo "$(RED)  ✗ $service 生成失敗（コメント不足の可能性）$(NC)"; \
+			fi && \
+			cd ../..; \
+		else \
+			echo "$(YELLOW)  ⚠ $service ディレクトリが見つかりません$(NC)"; \
+		fi; \
+	done; \
+	echo ""; \
+	echo "$(CYAN)生成結果: $success_count/$total_count サービス成功$(NC)"
+	@echo "$(GREEN)各サービス Swagger生成完了$(NC)"
+
+# 統合Swagger（docs-serviceで全API統合表示）
+swagger-gen:
+	@echo "$(PURPLE)PetMatch 統合Swagger 更新中...$(NC)"
+	@echo "$(CYAN)Step 1: Docs Service 統合仕様ビルド...$(NC)"
+	@$(MAKE) --no-print-directory build-docs
+	@echo "$(CYAN)Step 2: Docs Service 再デプロイ...$(NC)"
+	@$(MAKE) --no-print-directory deploy-docs
+	@echo "$(CYAN)Step 3: 統合API確認...$(NC)"
+	@sleep 3
+	@printf "統合Swagger仕様: "
+	@if curl -s "http://localhost:8090/swagger.json" 2>/dev/null | grep -q '"openapi"'; then \
+		echo "$(GREEN)OK$(NC)"; \
+	else \
+		echo "$(YELLOW)要確認$(NC)"; \
+	fi
+	@printf "統合Swagger UI: "
+	@if curl -s -o /dev/null -w "%{http_code}" "http://localhost:8090/swagger/" 2>/dev/null | grep -q "200"; then \
+		echo "$(GREEN)OK$(NC)"; \
+	else \
+		echo "$(YELLOW)要確認$(NC)"; \
+	fi
+	@echo ""
+	@echo "$(GREEN)SUCCESS 統合Swagger完了！$(NC)"
+	@echo "$(WHITE)統合API仕様: http://localhost:8090/swagger.json$(NC)"
+	@echo "$(WHITE)統合Swagger UI: http://localhost:8090/swagger/index.html$(NC)"
+	@echo "$(CYAN)含まれるAPI:$(NC)"
+	@echo "  • Pet API: /api/pets (CRUD)"
+	@echo "  • Auth API: /api/auth (login, register, verify)"
+	@echo "  • User API: /api/users (profile)"
+	@echo "  • Match API: /api/matches (matching, recommendations, history)"
+
 # PetMatch Development Makefile
 # 完全版 - すべての開発・運用機能を含む
 
@@ -31,8 +130,9 @@ help:
 	@echo "  make build-pet      - Pet Service ビルド"
 	@echo "  make build-auth     - Auth Service ビルド"
 	@echo "  make build-user     - User Service ビルド"
-	@echo "  make build-match      - Match Service ビルド"
+	@echo "  make build-match    - Match Service ビルド"
 	@echo "  make build-gateway  - API Gateway ビルド"
+	@echo "  make build-docs     - Docs Service ビルド"
 	@echo "  make build-web      - Web App ビルド"
 	@echo ""
 	@echo "$(PURPLE) デプロイ:$(NC)"
@@ -40,8 +140,9 @@ help:
 	@echo "  make deploy-pet     - Pet Service 再デプロイ"
 	@echo "  make deploy-auth    - Auth Service 再デプロイ"
 	@echo "  make deploy-user    - User Service 再デプロイ"
-	@echo "  make deploy-match    - Match Service デプロイ"
+	@echo "  make deploy-match   - Match Service デプロイ"
 	@echo "  make deploy-gateway - API Gateway 再デプロイ"
+	@echo "  make deploy-docs    - Docs Service デプロイ"
 	@echo "  make deploy-web     - Web App 再デプロイ"
 	@echo ""
 	@echo "$(YELLOW) 監視・ログ:$(NC)"
@@ -49,8 +150,9 @@ help:
 	@echo "  make logs-pet       - Pet Service ログ"
 	@echo "  make logs-auth      - Auth Service ログ"
 	@echo "  make logs-user      - User Service ログ"
-	@echo "  make logs-match       - Match Service ログ"
+	@echo "  make logs-match     - Match Service ログ"
 	@echo "  make logs-gateway   - API Gateway ログ"
+	@echo "  make logs-docs      - Docs Service ログ"
 	@echo "  make logs-web       - Web App ログ"
 	@echo ""
 	@echo "$(GREEN) テスト:$(NC)"
@@ -95,6 +197,14 @@ help:
 	@echo "$(WHITE) ユーティリティ:$(NC)"
 	@echo "  make port-check     - ポート使用状況確認"
 	@echo "  make pid-cleanup    - PIDファイルクリーンアップ"
+	@echo ""
+	@echo "$(CYAN) Swagger/APIドキュメント:$(NC)"
+	@echo "  make swagger-gen       - 統合Swagger更新（全API一括表示）"
+	@echo "  make swagger-gen-match - Match Service仕様のみ生成"
+	@echo "  make swagger-gen-all   - 全サービス仕様生成（個別）"
+	@echo "  make swagger-install   - Swagger CLIインストール"
+	@echo "  統合Swagger UI: http://localhost:8090/swagger/index.html (make start後)"
+	@echo "  全API（Pets, Auth, Users, Matches）を1つのSwagger UIで表示"
 
 # 基本操作
 start:
@@ -162,6 +272,7 @@ build-all:
 	@$(MAKE) --no-print-directory build-user
 	@$(MAKE) --no-print-directory build-match
 	@$(MAKE) --no-print-directory build-gateway
+	@$(MAKE) --no-print-directory build-docs
 	@$(MAKE) --no-print-directory build-web
 	@echo "$(GREEN)全サービスビルド完了$(NC)"
 
@@ -189,6 +300,12 @@ build-gateway:
 	docker build -t petmatch/api-gateway:latest -f services/api-gateway/Dockerfile . && \
 	echo "$(GREEN)API Gateway ビルド完了$(NC)"
 
+build-docs:
+	@echo "$(BLUE)Docs Service ビルド中...$(NC)"
+	@eval $(minikube docker-env) && \
+	docker build -t petmatch/docs-service:latest -f services/docs-service/Dockerfile . && \
+	echo "$(GREEN)Docs Service ビルド完了$(NC)"
+
 build-match:
 	@echo "$(BLUE)Match Service ビルド中...$(NC)"
 	@eval $(minikube docker-env) && \
@@ -209,6 +326,7 @@ deploy-all:
 	@$(MAKE) --no-print-directory deploy-user
 	@$(MAKE) --no-print-directory deploy-match
 	@$(MAKE) --no-print-directory deploy-gateway
+	@$(MAKE) --no-print-directory deploy-docs
 	@$(MAKE) --no-print-directory deploy-web
 	@echo "$(GREEN)全サービス再デプロイ完了$(NC)"
 
@@ -235,6 +353,19 @@ deploy-gateway:
 	@kubectl rollout restart deployment/api-gateway -n petmatch
 	@kubectl rollout status deployment/api-gateway -n petmatch --timeout=120s
 	@echo "$(GREEN)API Gateway 再デプロイ完了$(NC)"
+
+deploy-docs:
+	@echo "$(PURPLE)Docs Service デプロイ中...$(NC)"
+	@if kubectl get deployment docs-service -n petmatch >/dev/null 2>&1; then \
+		echo "$(BLUE)既存デプロイメント再起動中...$(NC)"; \
+		kubectl rollout restart deployment/docs-service -n petmatch; \
+		kubectl rollout status deployment/docs-service -n petmatch --timeout=120s; \
+	else \
+		echo "$(BLUE)初回デプロイ実行中...$(NC)"; \
+		kubectl apply -f k8s/services/docs-service.yaml; \
+		kubectl wait --for=condition=Ready pod -l app=docs-service -n petmatch --timeout=120s; \
+	fi
+	@echo "$(GREEN)Docs Service デプロイ完了$(NC)"
 
 deploy-match:
 	@echo "$(PURPLE)Match Service デプロイ中...$(NC)"
@@ -277,6 +408,10 @@ logs-gateway:
 logs-match:
 	@echo "$(YELLOW)Match Service ログ$(NC)"
 	@kubectl logs -f deployment/match-service -n petmatch
+
+logs-docs:
+	@echo "$(YELLOW)Docs Service ログ$(NC)"
+	@kubectl logs -f deployment/docs-service -n petmatch
 
 logs-web:
 	@echo "$(YELLOW)Web App ログ$(NC)"
@@ -437,7 +572,7 @@ port-check:
 
 pid-cleanup:
 	@echo "$(YELLOW)PIDファイルクリーンアップ中...$(NC)"
-	@rm -f .pet-service.pid .auth-service.pid .user-service.pid .match-service.pid .api-gateway.pid 2>/dev/null || true
+	@rm -f .pet-service.pid .auth-service.pid .user-service.pid .match-service.pid .api-gateway.pid .docs-service.pid 2>/dev/null || true
 	@echo "$(GREEN)PIDファイルクリーンアップ完了$(NC)"
 
 # 内部ヘルパー関数
@@ -466,6 +601,8 @@ _start-port-forwards:
 	echo $! > .match-service.pid && echo "  Match Service: 8084"
 	@kubectl port-forward service/api-gateway 8080:8080 -n petmatch >/dev/null 2>&1 & \
 	echo $! > .api-gateway.pid && echo "  API Gateway: 8080"
+	@kubectl port-forward service/docs-service 8090:8090 -n petmatch >/dev/null 2>&1 & \
+	echo $! > .docs-service.pid && echo "  Docs Service: 8090"
 	@sleep 3
 
 _stop-port-forwards:
@@ -484,6 +621,9 @@ _stop-port-forwards:
 	@if [ -f .api-gateway.pid ]; then \
 		kill $(cat .api-gateway.pid) 2>/dev/null && echo "$(GREEN)API Gateway ポートフォワード停止$(NC)"; \
 	fi
+	@if [ -f .docs-service.pid ]; then \
+		kill $(cat .docs-service.pid) 2>/dev/null && echo "$(GREEN)Docs Service ポートフォワード停止$(NC)"; \
+	fi
 	@pkill -f "kubectl port-forward.*petmatch" 2>/dev/null || true
 
 _health-check-services:
@@ -497,6 +637,8 @@ _health-check-services:
 	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8084/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
 	@printf "API Gateway (8080): "
 	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8080/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
+	@printf "Docs Service (8090): "
+	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8090/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
 
 _health-check-external:
 	@printf "Redis: "
@@ -510,6 +652,7 @@ _show-access-info:
 	@echo "User Service: http://localhost:18092"
 	@echo "Match Service: http://localhost:8084"
 	@echo "API Gateway: http://localhost:8080"
+	@echo "Docs Service: http://localhost:8090"
 	@echo "Web App: $(minikube service web-app-nodeport -n petmatch --url 2>/dev/null || echo 'N/A')"
 	@echo ""
 	@echo "停止方法: make stop"
@@ -599,9 +742,7 @@ _setup-minikube:
 	fi
 	@echo "$(GREEN)OK Minikube 準備完了$(NC)"
 
-# ===============================
-# サンプルデータ生成機能
-# ===============================
+
 
 # サンプルデータ生成 (デフォルト30匹)
 sample-data:
@@ -765,6 +906,7 @@ _show-demo-access-info:
 	else \
 		echo "  • Web App: N/A (make start で起動)"; \
 	fi
+	@echo "  • Docs Service: http://localhost:8090/ (make start で自動起動)"
 	@echo ""
 	@echo "$(WHITE)FIX 管理コマンド:$(NC)"
 	@echo "  • データ確認: make sample-data-status"

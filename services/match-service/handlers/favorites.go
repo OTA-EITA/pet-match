@@ -23,6 +23,18 @@ func NewFavoritesHandler(matchService *services.MatchService, cfg *config.Config
 }
 
 // AddFavorite handles POST /matches/favorites
+// @Summary Add pet to favorites
+// @Description Add a pet to user's favorites list
+// @Tags Favorites
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.FavoriteRequest true "Favorite request"
+// @Success 201 {object} map[string]interface{} "Favorite added successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /matches/favorites [post]
 func (h *FavoritesHandler) AddFavorite(c *gin.Context) {
 	// Get user ID from auth middleware
 	userID, exists := c.Get("user_id")

@@ -1,0 +1,430 @@
+basePath: /
+definitions:
+  models.FavoriteRequest:
+    properties:
+      note:
+        type: string
+      pet_id:
+        type: string
+    required:
+    - pet_id
+    type: object
+  models.Location:
+    properties:
+      latitude:
+        type: number
+      longitude:
+        type: number
+    type: object
+  models.Match:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: string
+      pet_id:
+        type: string
+      reason:
+        type: string
+      score:
+        type: number
+      status:
+        description: pending, viewed, contacted, rejected
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.MatchHistoryResponse:
+    properties:
+      limit:
+        type: integer
+      matches:
+        items:
+          $ref: '#/definitions/models.MatchResult'
+        type: array
+      page:
+        type: integer
+      status:
+        type: string
+      total:
+        type: integer
+    type: object
+  models.MatchRequest:
+    properties:
+      age_max:
+        type: integer
+      age_min:
+        type: integer
+      breed:
+        type: string
+      filters:
+        additionalProperties: true
+        type: object
+      gender:
+        type: string
+      limit:
+        type: integer
+      location:
+        $ref: '#/definitions/models.Location'
+      max_radius:
+        description: in kilometers
+        type: integer
+      size:
+        type: string
+      species:
+        type: string
+      user_id:
+        type: string
+    type: object
+  models.MatchResponse:
+    properties:
+      limit:
+        type: integer
+      matches:
+        items:
+          $ref: '#/definitions/models.MatchResult'
+        type: array
+      page:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.MatchResult:
+    properties:
+      match:
+        $ref: '#/definitions/models.Match'
+      pet:
+        additionalProperties: true
+        type: object
+    type: object
+  models.PreferenceRequest:
+    properties:
+      age_max:
+        type: integer
+      age_min:
+        type: integer
+      breeds:
+        items:
+          type: string
+        type: array
+      custom_filters:
+        additionalProperties: true
+        type: object
+      experience_level:
+        type: string
+      genders:
+        items:
+          type: string
+        type: array
+      good_with_kids:
+        type: boolean
+      good_with_pets:
+        type: boolean
+      has_yard:
+        type: boolean
+      housing_type:
+        type: string
+      location:
+        $ref: '#/definitions/models.Location'
+      max_radius:
+        type: integer
+      personalities:
+        items:
+          type: string
+        type: array
+      sizes:
+        items:
+          type: string
+        type: array
+      special_needs:
+        type: boolean
+      species:
+        items:
+          type: string
+        type: array
+    type: object
+  models.UpdateMatchStatusRequest:
+    properties:
+      match_id:
+        type: string
+      note:
+        type: string
+      status:
+        enum:
+        - pending
+        - viewed
+        - contacted
+        - rejected
+        type: string
+    required:
+    - match_id
+    - status
+    type: object
+host: localhost:8084
+info:
+  contact:
+    email: support@petmatch.com
+    name: API Support
+    url: http://www.petmatch.com/support
+  description: Match Service for PetMatch - handles pet matching, recommendations,
+    and user preferences
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: PetMatch Match Service API
+  version: "1.0"
+paths:
+  /matches:
+    post:
+      consumes:
+      - application/json
+      description: Find pet matches based on user criteria and preferences
+      parameters:
+      - description: Match search criteria
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.MatchRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful match response
+          schema:
+            $ref: '#/definitions/models.MatchResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Find pet matches for user
+      tags:
+      - Matching
+  /matches/{match_id}/status:
+    put:
+      consumes:
+      - application/json
+      description: Update the status of a specific match
+      parameters:
+      - description: Match ID
+        in: path
+        name: match_id
+        required: true
+        type: string
+      - description: Status update request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UpdateMatchStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Status updated successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update match status
+      tags:
+      - Matching
+  /matches/favorites:
+    post:
+      consumes:
+      - application/json
+      description: Add a pet to user's favorites list
+      parameters:
+      - description: Favorite request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.FavoriteRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Favorite added successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Add pet to favorites
+      tags:
+      - Favorites
+  /matches/history:
+    get:
+      description: Get user's match history with pagination and optional status filtering
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - description: Filter by status
+        enum:
+        - pending
+        - viewed
+        - contacted
+        - rejected
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful history response
+          schema:
+            $ref: '#/definitions/models.MatchHistoryResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get user's match history
+      tags:
+      - Matching
+  /matches/preferences:
+    post:
+      consumes:
+      - application/json
+      description: Set or update user matching preferences
+      parameters:
+      - description: Preference request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.PreferenceRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Preferences saved successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Set user preferences
+      tags:
+      - Preferences
+  /matches/recommendations:
+    get:
+      description: Get personalized pet recommendations based on user preferences
+      parameters:
+      - default: 10
+        description: Number of recommendations
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Successful recommendations response
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get personalized pet recommendations
+      tags:
+      - Matching
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and JWT token
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

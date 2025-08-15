@@ -22,6 +22,18 @@ func NewPreferencesHandler(matchService *services.MatchService, cfg *config.Conf
 }
 
 // SetPreferences handles POST /matches/preferences
+// @Summary Set user preferences
+// @Description Set or update user matching preferences
+// @Tags Preferences
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body models.PreferenceRequest true "Preference request"
+// @Success 200 {object} map[string]interface{} "Preferences saved successfully"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Unauthorized"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /matches/preferences [post]
 func (h *PreferencesHandler) SetPreferences(c *gin.Context) {
 	// Get user ID from auth middleware
 	userID, exists := c.Get("user_id")
