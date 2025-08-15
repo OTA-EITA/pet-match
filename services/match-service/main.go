@@ -12,6 +12,27 @@ import (
 	"github.com/petmatch/app/shared/utils"
 )
 
+// @title PetMatch Match Service API
+// @version 1.0
+// @description Match Service for PetMatch - handles pet matching, recommendations, and user preferences
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.petmatch.com/support
+// @contact.email support@petmatch.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8084
+// @BasePath /
+// @schemes http https
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token
+
 func main() {
 	// Load configuration
 	cfg := config.Load()
@@ -49,6 +70,88 @@ func main() {
 
 	router.GET("/ready", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ready", "service": "match-service"})
+	})
+
+	// API documentation endpoint (embedded swagger spec)
+	router.GET("/docs/swagger.json", func(c *gin.Context) {
+		c.Header("Content-Type", "application/json")
+		// Return embedded swagger spec
+		swaggerSpec := `{
+    "schemes": ["http", "https"],
+    "swagger": "2.0",
+    "info": {
+        "description": "Match Service for PetMatch - handles pet matching, recommendations, and user preferences",
+        "title": "PetMatch Match Service API",
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "url": "http://www.petmatch.com/support",
+            "email": "support@petmatch.com"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8084",
+    "basePath": "/",
+    "paths": {
+        "/matches": {
+            "post": {
+                "security": [{ "BearerAuth": [] }],
+                "description": "Find pet matches based on user criteria and preferences",
+                "consumes": ["application/json"],
+                "produces": ["application/json"],
+                "tags": ["Matching"],
+                "summary": "Find pet matches for user",
+                "responses": {
+                    "200": { "description": "Successful match response" },
+                    "400": { "description": "Invalid request" },
+                    "401": { "description": "Unauthorized" },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
+        "/matches/recommendations": {
+            "get": {
+                "security": [{ "BearerAuth": [] }],
+                "description": "Get personalized pet recommendations based on user preferences",
+                "produces": ["application/json"],
+                "tags": ["Matching"],
+                "summary": "Get personalized pet recommendations",
+                "responses": {
+                    "200": { "description": "Successful recommendations response" },
+                    "401": { "description": "Unauthorized" },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        },
+        "/matches/history": {
+            "get": {
+                "security": [{ "BearerAuth": [] }],
+                "description": "Get user's match history with pagination and optional status filtering",
+                "produces": ["application/json"],
+                "tags": ["Matching"],
+                "summary": "Get user's match history",
+                "responses": {
+                    "200": { "description": "Successful history response" },
+                    "401": { "description": "Unauthorized" },
+                    "500": { "description": "Internal server error" }
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "BearerAuth": {
+            "description": "Type 'Bearer' followed by a space and JWT token",
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
+}`
+		c.String(200, swaggerSpec)
 	})
 
 	// Test endpoint (no auth required)
