@@ -1,5 +1,5 @@
 # Web App Dockerfile - CI optimized
-FROM node:18-alpine AS base
+FROM node:20-alpine AS base
 
 # Build argument for CI isolation
 ARG BUILD_ID=default
