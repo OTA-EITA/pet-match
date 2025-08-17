@@ -6,7 +6,9 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/petmatch/app/shared/config"
@@ -31,6 +33,8 @@ import (
 
 type DocsService struct {
 	cfg *config.Config
+	// 許可されたサービスURL（SSRF対策）
+	allowedServices map[string]string
 }
 
 type ServiceInfo struct {
@@ -62,7 +66,18 @@ func main() {
 		c.Next()
 	})
 
-	docsService := &DocsService{cfg: cfg}
+	// 許可されたサービスのホワイトリスト（SSRF対策）
+	allowedServices := map[string]string{
+		"match": "http://localhost:8084",
+		"auth":  "http://localhost:8081", 
+		"user":  "http://localhost:8082",
+		"pet":   "http://localhost:8083",
+	}
+
+	docsService := &DocsService{
+		cfg: cfg,
+		allowedServices: allowedServices,
+	}
 
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
@@ -112,13 +127,19 @@ func (d *DocsService) ListServices(c *gin.Context) {
 			SpecURL:     "/swagger.json",
 			Available:   true,
 		},
-		{
-			Name:        "Match Service",
-			Description: "Pet matching, recommendations, and user preferences",
-			URL:         "http://localhost:8084",
-			SpecURL:     "/specs/matches",
-			Available:   d.checkServiceAvailability("http://localhost:8084/health"),
-		},
+	}
+
+	// 許可されたサービスのみ表示
+	for serviceName, serviceURL := range d.allowedServices {
+		if serviceName == "match" {
+			services = append(services, ServiceInfo{
+				Name:        "Match Service",
+				Description: "Pet matching, recommendations, and user preferences",
+				URL:         serviceURL,
+				SpecURL:     "/specs/matches",
+				Available:   d.checkServiceAvailability(serviceURL + "/health"),
+			})
+		}
 	}
 
 	c.JSON(200, gin.H{
@@ -129,7 +150,15 @@ func (d *DocsService) ListServices(c *gin.Context) {
 
 // ProxyMatchServiceSpec proxies Match Service OpenAPI specification
 func (d *DocsService) ProxyMatchServiceSpec(c *gin.Context) {
-	d.proxyServiceSpec(c, "http://localhost:8084/docs/swagger.json")
+	// 許可されたサービスかチェック
+	if matchURL, ok := d.allowedServices["match"]; ok {
+		d.proxyServiceSpec(c, matchURL + "/docs/swagger.json")
+	} else {
+		c.JSON(403, gin.H{
+			"error": "Service not allowed",
+			"details": "Match service is not in the allowed services list",
+		})
+	}
 }
 
 // GetCombinedSpec returns a combined OpenAPI specification
@@ -185,12 +214,67 @@ func (d *DocsService) GetCombinedSpec(c *gin.Context) {
 
 // Helper functions
 
-func (d *DocsService) proxyServiceSpec(c *gin.Context, serviceSpecURL string) {
-	resp, err := http.Get(serviceSpecURL)
+// validateURL はURLが許可されたサービスのものかチェック（SSRF対策）
+func (d *DocsService) validateURL(targetURL string) error {
+	parsedURL, err := url.Parse(targetURL)
 	if err != nil {
+		return fmt.Errorf("invalid URL format: %v", err)
+	}
+
+	// HTTPSまたはHTTPのみ許可
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("invalid scheme: %s", parsedURL.Scheme)
+	}
+
+	// 許可されたホストかチェック
+	allowedHosts := []string{
+		"localhost:8081",
+		"localhost:8082", 
+		"localhost:8083",
+		"localhost:8084",
+		"127.0.0.1:8081",
+		"127.0.0.1:8082",
+		"127.0.0.1:8083",
+		"127.0.0.1:8084",
+	}
+
+	hostAllowed := false
+	for _, allowedHost := range allowedHosts {
+		if parsedURL.Host == allowedHost {
+			hostAllowed = true
+			break
+		}
+	}
+
+	if !hostAllowed {
+		return fmt.Errorf("host not allowed: %s", parsedURL.Host)
+	}
+
+	return nil
+}
+
+func (d *DocsService) proxyServiceSpec(c *gin.Context, serviceSpecURL string) {
+	// URL検証（SSRF対策）
+	if err := d.validateURL(serviceSpecURL); err != nil {
+		log.Printf("Invalid service URL attempt: %s, error: %v", serviceSpecURL, err)
+		c.JSON(400, gin.H{
+			"error": "Invalid service URL",
+			"details": "The requested URL is not allowed",
+		})
+		return
+	}
+
+	// タイムアウト設定でHTTPクライアント作成
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+	}
+
+	resp, err := client.Get(serviceSpecURL)
+	if err != nil {
+		log.Printf("Error fetching specification from %s: %v", serviceSpecURL, err)
 		c.JSON(503, gin.H{
 			"error": "Service unavailable",
-			"details": fmt.Sprintf("Cannot fetch specification from %s", serviceSpecURL),
+			"details": "Cannot fetch specification from service",
 		})
 		return
 	}
@@ -201,6 +285,7 @@ func (d *DocsService) proxyServiceSpec(c *gin.Context, serviceSpecURL string) {
 	}()
 
 	if resp.StatusCode != 200 {
+		log.Printf("Service returned non-200 status: %s for URL: %s", resp.Status, serviceSpecURL)
 		c.JSON(resp.StatusCode, gin.H{
 			"error": "Specification not available",
 			"details": fmt.Sprintf("Service returned %s", resp.Status),
@@ -210,9 +295,10 @@ func (d *DocsService) proxyServiceSpec(c *gin.Context, serviceSpecURL string) {
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
+		log.Printf("Error reading response body: %v", err)
 		c.JSON(500, gin.H{
 			"error": "Failed to read specification",
-			"details": err.Error(),
+			"details": "Internal server error",
 		})
 		return
 	}
@@ -220,9 +306,10 @@ func (d *DocsService) proxyServiceSpec(c *gin.Context, serviceSpecURL string) {
 	// Parse and potentially modify the specification
 	var spec map[string]interface{}
 	if err := json.Unmarshal(body, &spec); err != nil {
+		log.Printf("Error parsing JSON response: %v", err)
 		c.JSON(500, gin.H{
 			"error": "Invalid specification format",
-			"details": err.Error(),
+			"details": "Internal server error",
 		})
 		return
 	}
@@ -240,8 +327,20 @@ func (d *DocsService) proxyServiceSpec(c *gin.Context, serviceSpecURL string) {
 }
 
 func (d *DocsService) checkServiceAvailability(healthURL string) bool {
-	resp, err := http.Get(healthURL)
+	// URL検証（SSRF対策）
+	if err := d.validateURL(healthURL); err != nil {
+		log.Printf("Invalid health check URL: %v", err)
+		return false
+	}
+
+	// タイムアウト設定でHTTPクライアント作成
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	resp, err := client.Get(healthURL)
 	if err != nil {
+		log.Printf("Health check failed for %s: %v", healthURL, err)
 		return false
 	}
 	defer func() {

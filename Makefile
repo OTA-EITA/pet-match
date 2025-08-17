@@ -1,3 +1,19 @@
+# セキュリティ
+security-scan:
+	@echo "$(CYAN)セキュリティスキャン実行中...$(NC)"
+	@if command -v gosec >/dev/null 2>&1; then \
+		gosec -fmt json -out security-report.json ./...; \
+		echo "$(GREEN)セキュリティスキャン完了: security-report.json$(NC)"; \
+	else \
+		echo "$(YELLOW)gosec がインストールされていません$(NC)"; \
+		echo "インストール: go install github.com/securego/gosec/v2/cmd/gosec@latest"; \
+	fi
+
+security-install:
+	@echo "$(BLUE)gosec インストール中...$(NC)"
+	@go install github.com/securego/gosec/v2/cmd/gosec@latest
+	@echo "$(GREEN)gosec インストール完了$(NC)"
+
 # Swagger API仕様管理
 swagger-install:
 	@echo "$(BLUE)Swagger CLI インストール & 確認中...$(NC)"
@@ -167,6 +183,8 @@ help:
 	@echo "  make lint-go        - Go コードリント"
 	@echo "  make lint-js        - JavaScript コードリント"
 	@echo "  make fix            - 自動修正"
+	@echo "  make security-scan  - セキュリティスキャン"
+	@echo "  make security-install - gosec インストール"
 	@echo ""
 	@echo "$(BLUE) 環境管理:$(NC)"
 	@echo "  make setup          - 初期環境セットアップ（手動確認あり）"
