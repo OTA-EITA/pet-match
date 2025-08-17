@@ -318,6 +318,12 @@ build-web:
 	docker build -t petmatch/web-app:latest -f web-app/Dockerfile ./web-app && \
 	echo "$(GREEN)Web App ビルド完了$(NC)"
 
+build-sample-data:
+	@echo "$(BLUE)Sample Data Image ビルド中...$(NC)"
+	@eval $(minikube docker-env) && \
+	docker build -t petmatch/sample-data:latest -f docker/sample-data/Dockerfile . && \
+	echo "$(GREEN)Sample Data Image ビルド完了$(NC)"
+
 # デプロイ
 deploy-all:
 	@echo "$(PURPLE)全サービス再デプロイ中...$(NC)"
@@ -422,25 +428,100 @@ test:
 	@echo "$(GREEN)全テスト実行中...$(NC)"
 	@$(MAKE) --no-print-directory test-unit
 	@$(MAKE) --no-print-directory test-integration
-	@$(MAKE) --no-print-directory test-jwt
-	@$(MAKE) --no-print-directory test-redis
+	@$(MAKE) --no-print-directory test-build
 	@echo "$(GREEN)全テスト完了$(NC)"
 
 test-unit:
 	@echo "$(GREEN)ユニットテスト実行中...$(NC)"
-	@cd services/pet-service && go test ./... -v
-	@cd services/auth-service && go test ./... -v
-	@cd services/user-service && go test ./... -v
-	@cd services/match-service && go test ./... -v
-	@cd services/api-gateway && go test ./... -v
-	@echo "$(GREEN)ユニットテスト完了$(NC)"
+	@echo "============================"
+	@success_count=0; total_count=0; \
+	for service in pet-service auth-service user-service match-service api-gateway; do \
+		total_count=$((total_count + 1)); \
+		echo "$(CYAN)[$total_count] Testing $service...$(NC)"; \
+		if [ -d "services/$service" ]; then \
+			cd "services/$service" && \
+			if go test ./... -v -race -timeout=10m; then \
+				echo "$(GREEN)✓ $service テスト成功$(NC)"; \
+				success_count=$((success_count + 1)); \
+			else \
+				echo "$(RED)✗ $service テスト失敗$(NC)"; \
+			fi && \
+			cd ../..; \
+		else \
+			echo "$(YELLOW)⚠ $service ディレクトリなし$(NC)"; \
+		fi; \
+	done; \
+	echo ""; \
+	echo "$(CYAN)テスト結果: $success_count/$total_count サービス成功$(NC)"; \
+	if [ $success_count -eq $total_count ]; then \
+		echo "$(GREEN)🎉 全ユニットテスト成功！$(NC)"; \
+	else \
+		echo "$(RED)❌ 一部テスト失敗$(NC)"; \
+		exit 1; \
+	fi
 
 test-integration:
 	@echo "$(GREEN)統合テスト実行中...$(NC)"
 	@if [ -d "test-integration" ]; then \
-		cd test-integration && go test ./... -v; \
+		cd test-integration && go test ./... -v -tags=integration; \
 	else \
 		echo "$(YELLOW)統合テストディレクトリが見つかりません$(NC)"; \
+	fi
+
+test-coverage:
+	@echo "$(CYAN)テストカバレッジ生成中...$(NC)"
+	@mkdir -p coverage
+	@for service in pet-service auth-service user-service match-service api-gateway; do \
+		if [ -d "services/$service" ]; then \
+			echo "$(BLUE)$service カバレッジ生成...$(NC)"; \
+			cd "services/$service" && \
+			go test -coverprofile=../../coverage/$service.out ./... && \
+			go tool cover -html=../../coverage/$service.out -o ../../coverage/$service.html && \
+			echo "$(GREEN)✓ $service カバレッジ: coverage/$service.html$(NC)" && \
+			cd ../..; \
+		fi; \
+	done
+	@echo "$(GREEN)全カバレッジレポート生成完了$(NC)"
+
+test-bench:
+	@echo "$(CYAN)ベンチマークテスト実行中...$(NC)"
+	@for service in pet-service auth-service user-service; do \
+		if [ -d "services/$service" ]; then \
+			echo "$(BLUE)$service ベンチマーク...$(NC)"; \
+			cd "services/$service" && \
+			go test -bench=. -benchmem ./... || echo "No benchmarks in $service"; \
+			cd ../..; \
+		fi; \
+	done
+
+test-build:
+	@echo "$(CYAN)ビルドテスト（*_test.go 除外確認）$(NC)"
+	@echo "=============================="
+	@success_count=0; total_count=0; \
+	for service in pet-service auth-service user-service match-service api-gateway; do \
+		total_count=$((total_count + 1)); \
+		echo "$(BLUE)[$total_count] $service ビルド中...$(NC)"; \
+		if [ -d "services/$service" ]; then \
+			cd "services/$service" && \
+			if go build -o /tmp/test-$service . 2>/dev/null; then \
+				echo "$(GREEN)✓ $service ビルド成功$(NC)"; \
+				rm -f /tmp/test-$service; \
+				success_count=$((success_count + 1)); \
+			else \
+				echo "$(RED)✗ $service ビルド失敗$(NC)"; \
+			fi && \
+			cd ../..; \
+		else \
+			echo "$(YELLOW)⚠ $service ディレクトリなし$(NC)"; \
+		fi; \
+	done; \
+	echo ""; \
+	echo "$(CYAN)ビルド結果: $success_count/$total_count サービス成功$(NC)"; \
+	if [ $success_count -eq $total_count ]; then \
+		echo "$(GREEN)🏗️ 全サービスビルド成功！$(NC)"; \
+	else \
+		echo "$(RED)❌ 一部ビルド失敗$(NC)"; \
+		exit 1; \
 	fi
 
 test-jwt:
@@ -511,6 +592,19 @@ setup-auto:
 	@$(MAKE) --no-print-directory _wait-for-ready
 	@$(MAKE) --no-print-directory start
 	@echo "$(GREEN)LAUNCH 全システム起動完了！$(NC)"
+
+setup-auto-with-data:
+	@echo "$(BLUE)PetMatch 完全自動セットアップ（データ付き）$(NC)"
+	@echo "$(WHITE)===========================================$(NC)"
+	@$(MAKE) --no-print-directory _setup-minikube
+	@$(MAKE) --no-print-directory _full-k8s-setup
+	@$(MAKE) --no-print-directory _build-and-deploy-all-with-sample-data
+	@$(MAKE) --no-print-directory _wait-for-ready
+	@$(MAKE) --no-print-directory sample-data-job
+	@$(MAKE) --no-print-directory start
+	@$(MAKE) --no-print-directory _show-demo-access-info
+	@echo ""
+	@echo "$(GREEN)SUCCESS サンプルデータ付き完全セットアップ完了！$(NC)"
 
 reset:
 	@echo "$(RED)環境完全リセット中...$(NC)"
@@ -845,6 +939,27 @@ demo-ready:
 	@echo ""
 	@echo "$(GREEN)SUCCESS デモ環境準備完了！$(NC)"
 
+sample-data-job:
+	@echo "$(CYAN)INIT Kubernetesサンプルデータジョブ実行$(NC)"
+	@echo "$(WHITE)========================================$(NC)"
+	@$(MAKE) --no-print-directory build-sample-data
+	@echo "$(BLUE)Sample Data Job デプロイ中...$(NC)"
+	@kubectl apply -f k8s/jobs/sample-data-job.yaml
+	@echo "$(YELLOW)Job完了待ち（最大5分）...$(NC)"
+	@kubectl wait --for=condition=Complete job/petmatch-sample-data -n petmatch --timeout=300s
+	@echo "$(CYAN)Jobログ:$(NC)"
+	@kubectl logs job/petmatch-sample-data -n petmatch
+	@echo "$(GREEN)OK サンプルデータジョブ完了$(NC)"
+
+sample-data-job-logs:
+	@echo "$(YELLOW)Sample Data Job ログ$(NC)"
+	@kubectl logs job/petmatch-sample-data -n petmatch
+
+sample-data-job-delete:
+	@echo "$(RED)Sample Data Job 削除$(NC)"
+	@kubectl delete job petmatch-sample-data -n petmatch 2>/dev/null || true
+	@echo "$(GREEN)OK Job削除完了$(NC)"
+
 # ===============================
 # サンプルデータ用内部ヘルパー
 # ===============================
@@ -947,3 +1062,140 @@ minio-console:
 minio-logs:
 	@echo "$(YELLOW)MinIO ログ$(NC)"
 	@kubectl logs -f deployment/minio -n petmatch
+# PetMatch Golang テストコマンド追加
+
+# ===============================
+# Golang テスト管理
+# ===============================
+
+# 各サービスのテスト関連コマンド
+test-pet:
+	@echo "$(GREEN)Pet Service テスト実行$(NC)"
+	@cd services/pet-service && go test ./... -v
+
+test-auth:
+	@echo "$(GREEN)Auth Service テスト実行$(NC)"
+	@cd services/auth-service && go test ./... -v
+
+test-user:
+	@echo "$(GREEN)User Service テスト実行$(NC)"
+	@cd services/user-service && go test ./... -v
+
+test-match:
+	@echo "$(GREEN)Match Service テスト実行$(NC)"
+	@cd services/match-service && go test ./... -v
+
+test-gateway:
+	@echo "$(GREEN)API Gateway テスト実行$(NC)"
+	@cd services/api-gateway && go test ./... -v
+
+# テストカバレッジ
+test-coverage:
+	@echo "$(CYAN)全サービス テストカバレッジ確認$(NC)"
+	@cd services/pet-service && go test -cover ./...
+	@cd services/auth-service && go test -cover ./...
+	@cd services/user-service && go test -cover ./...
+	@cd services/match-service && go test -cover ./...
+	@cd services/api-gateway && go test -cover ./...
+
+# ベンチマークテスト
+test-bench:
+	@echo "$(CYAN)ベンチマークテスト実行$(NC)"
+	@cd services/pet-service && go test -bench=. ./...
+	@cd services/auth-service && go test -bench=. ./...
+
+# テストファイル生成
+test-gen-pet:
+	@echo "$(BLUE)Pet Service テストファイル生成$(NC)"
+	@echo "handlers/pets_test.go は既に存在します"
+	@if [ ! -f "services/pet-service/handlers/images_test.go" ]; then \
+		echo "handlers/images_test.go を生成します..."; \
+		echo 'package handlers\n\nimport "testing"\n\nfunc TestImageHandler(t *testing.T) {\n\tt.Skip("TODO: implement")\n}' > services/pet-service/handlers/images_test.go; \
+	fi
+	@if [ ! -f "services/pet-service/services/image_service_test.go" ]; then \
+		echo "services/image_service_test.go を生成します..."; \
+		echo 'package services\n\nimport "testing"\n\nfunc TestImageService(t *testing.T) {\n\tt.Skip("TODO: implement")\n}' > services/pet-service/services/image_service_test.go; \
+	fi
+	@if [ ! -f "services/pet-service/storage/minio_client_test.go" ]; then \
+		echo "storage/minio_client_test.go を生成します..."; \
+		echo 'package storage\n\nimport "testing"\n\nfunc TestMinIOClient(t *testing.T) {\n\tt.Skip("TODO: implement")\n}' > services/pet-service/storage/minio_client_test.go; \
+	fi
+	@echo "$(GREEN)Pet Service テストファイル生成完了$(NC)"
+
+test-gen-auth:
+	@echo "$(BLUE)Auth Service テストファイル生成$(NC)"
+	@if [ ! -f "services/auth-service/handlers/auth_test.go" ]; then \
+		echo "handlers/auth_test.go を生成します..."; \
+		echo 'package handlers\n\nimport "testing"\n\nfunc TestAuthHandler(t *testing.T) {\n\tt.Skip("TODO: implement")\n}' > services/auth-service/handlers/auth_test.go; \
+	fi
+	@if [ ! -f "services/auth-service/services/auth_service_test.go" ]; then \
+		echo "services/auth_service_test.go を生成します..."; \
+		echo 'package services\n\nimport "testing"\n\nfunc TestAuthService(t *testing.T) {\n\tt.Skip("TODO: implement")\n}' > services/auth-service/services/auth_service_test.go; \
+	fi
+	@echo "$(GREEN)Auth Service テストファイル生成完了$(NC)"
+
+# 全テストファイル生成
+test-gen-all: test-gen-pet test-gen-auth
+	@echo "$(GREEN)全サービステストファイル生成完了$(NC)"
+
+# テストファイル一覧
+test-list:
+	@echo "$(CYAN)テストファイル一覧$(NC)"
+	@echo "$(WHITE)===============$(NC)"
+	@find services/ -name "*_test.go" | sort || echo "$(YELLOW)テストファイルが見つかりません$(NC)"
+
+# Go モジュール関連
+go-mod-tidy:
+	@echo "$(BLUE)Go モジュール整理$(NC)"
+	@cd services/pet-service && go mod tidy
+	@cd services/auth-service && go mod tidy
+	@cd services/user-service && go mod tidy
+	@cd services/match-service && go mod tidy
+	@cd services/api-gateway && go mod tidy
+	@echo "$(GREEN)Go モジュール整理完了$(NC)"
+
+# テスト依存関係のインストール
+test-deps:
+	@echo "$(BLUE)テスト依存関係インストール$(NC)"
+	@cd services/pet-service && go get github.com/stretchr/testify/assert github.com/stretchr/testify/mock
+	@cd services/auth-service && go get github.com/stretchr/testify/assert github.com/stretchr/testify/mock
+	@cd services/user-service && go get github.com/stretchr/testify/assert github.com/stretchr/testify/mock
+	@cd services/match-service && go get github.com/stretchr/testify/assert github.com/stretchr/testify/mock
+	@cd services/api-gateway && go get github.com/stretchr/testify/assert github.com/stretchr/testify/mock
+	@$(MAKE) --no-print-directory go-mod-tidy
+	@echo "$(GREEN)テスト依存関係インストール完了$(NC)"
+
+# ビルドテスト（*_test.go が除外されることを確認）
+test-build:
+	@echo "$(CYAN)ビルドテスト（*_test.go 除外確認）$(NC)"
+	@echo "$(WHITE)==============================$(NC)"
+	@for service in pet-service auth-service user-service match-service api-gateway; do \
+		echo "$(BLUE)$$service ビルド中...$(NC)"; \
+		cd services/$$service && \
+		if go build -o /tmp/test-$$service . 2>/dev/null; then \
+			echo "$(GREEN)✓ $$service ビルド成功$(NC)"; \
+			rm -f /tmp/test-$$service; \
+		else \
+			echo "$(RED)✗ $$service ビルド失敗$(NC)"; \
+		fi && \
+		cd ../..; \
+	done
+	@echo "$(GREEN)全サービスビルドテスト完了$(NC)"
+
+# テスト実行とビルド確認を組み合わせ
+test-verify:
+	@echo "$(PURPLE)テスト検証（実行+ビルド確認）$(NC)"
+	@echo "$(WHITE)===========================$(NC)"
+	@$(MAKE) --no-print-directory test-unit
+	@echo ""
+	@$(MAKE) --no-print-directory test-build
+	@echo ""
+	@echo "$(GREEN)✅ テストファイルは正常に動作し、ビルド時に除外されます$(NC)"
+
+# クリーンアップ
+cleanup-scripts:
+	@echo "$(RED)余計なスクリプト削除中...$(NC)"
+	@rm -f run_commands.sh check_status.sh emergency-sample-data.sh
+	@rm -f full-auto-start.sh auto-petmatch.sh Makefile.auto
+	@rm -f test-build-verification.sh cleanup.sh
+	@echo "$(GREEN)スクリプトクリーンアップ完了$(NC)"

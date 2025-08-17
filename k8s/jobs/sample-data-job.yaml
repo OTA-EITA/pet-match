@@ -1,0 +1,291 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: petmatch-sample-data
+  namespace: petmatch
+  labels:
+    app: petmatch-sample-data
+    version: v1.0.0
+spec:
+  ttlSecondsAfterFinished: 3600  # 1時間後にジョブを自動削除
+  backoffLimit: 3  # 最大3回リトライ
+  template:
+    metadata:
+      labels:
+        app: petmatch-sample-data
+    spec:
+      restartPolicy: Never
+      initContainers:
+      # サービス起動待ち
+      - name: wait-for-services
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "Waiting for Pet Service..."
+          until nc -z pet-service 8083; do
+            echo "Pet Service not ready, waiting..."
+            sleep 5
+          done
+          echo "Waiting for Auth Service..."
+          until nc -z auth-service 8081; do
+            echo "Auth Service not ready, waiting..."
+            sleep 5
+          done
+          echo "All services are ready!"
+      containers:
+      - name: sample-data-generator
+        image: petmatch/sample-data:latest
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PET_SERVICE_URL
+          value: "http://pet-service:8083"
+        - name: AUTH_SERVICE_URL
+          value: "http://auth-service:8081"
+        - name: NUM_PETS
+          value: "30"
+        - name: LOG_LEVEL
+          value: "info"
+        envFrom:
+        - configMapRef:
+            name: petmatch-config
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "🚀 PetMatch Sample Data Generation Starting..."
+          echo "Pet Service: $PET_SERVICE_URL"
+          echo "Auth Service: $AUTH_SERVICE_URL"
+          echo "Target Pets: $NUM_PETS"
+          echo "======================================"
+          
+          # サンプルデータ生成スクリプト実行
+          /app/generate-sample-data.sh "$PET_SERVICE_URL" "$AUTH_SERVICE_URL" "$NUM_PETS"
+          
+          # 結果確認
+          echo ""
+          echo "🔍 Verification..."
+          total_pets=$(wget -qO- "$PET_SERVICE_URL/pets" 2>/dev/null | grep -o '"total":[0-9]*' | cut -d: -f2 || echo "0")
+          echo "✅ Total pets created: $total_pets"
+          
+          if [ "$total_pets" -gt 0 ]; then
+            echo "🎉 Sample data generation completed successfully!"
+            exit 0
+          else
+            echo "❌ Sample data generation failed"
+            exit 1
+          fi
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "100m"
+          limits:
+            memory: "256Mi"
+            cpu: "200m"
+        volumeMounts:
+        - name: sample-data-script
+          mountPath: /app
+          readOnly: true
+      volumes:
+      - name: sample-data-script
+        configMap:
+          name: sample-data-script
+          defaultMode: 0755
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sample-data-script
+  namespace: petmatch
+  labels:
+    app: petmatch-sample-data
+data:
+  generate-sample-data.sh: |
+    #!/bin/sh
+    set -e
+    
+    API_BASE_URL=${1:-"http://pet-service:8083"}
+    AUTH_SERVICE_URL=${2:-"http://auth-service:8081"}
+    NUM_PETS=${3:-30}
+    
+    echo "🐾 PetMatch Container Sample Data Generator"
+    echo "Pet Service: $API_BASE_URL"
+    echo "Auth Service: $AUTH_SERVICE_URL"
+    echo "Pets to create: $NUM_PETS"
+    echo "=================================="
+    
+    # 必要ツールの確認
+    if ! command -v wget >/dev/null 2>&1; then
+      echo "Installing wget..."
+      apk add --no-cache wget curl
+    fi
+    
+    # サンプルデータ配列（簡略版）
+    SPECIES="dog cat bird rabbit hamster"
+    NAMES="ポチ タマ ココ モモ チョコ ミルク クッキー マロン レオ ルナ ソラ ハナ サクラ コテツ シロ クロ ベル ラック ピコ ナナ"
+    GENDERS="male female"
+    SIZES="small medium large"
+    COLORS="茶色 黒 白 グレー 三毛 茶白 黒白"
+    PERSONALITIES="活発 人懐っこい おとなしい 甘えん坊 好奇心旺盛 警戒心が強い 遊び好き マイペース"
+    
+    # ランダム選択関数
+    get_random() {
+      echo "$1" | tr ' ' '\n' | shuf -n 1
+    }
+    
+    # 品種マッピング（簡略版）
+    get_breed() {
+      case $1 in
+        "dog") echo "柴犬" ;;
+        "cat") echo "アメリカンショートヘア" ;;
+        "bird") echo "セキセイインコ" ;;
+        "rabbit") echo "ホーランドロップ" ;;
+        "hamster") echo "ゴールデンハムスター" ;;
+        *) echo "ミックス" ;;
+      esac
+    }
+    
+    # API接続確認
+    echo "📡 API接続確認中..."
+    if ! wget -q --spider "$API_BASE_URL/health" 2>/dev/null; then
+      echo "❌ Pet Service接続失敗: $API_BASE_URL"
+      exit 1
+    fi
+    
+    if ! wget -q --spider "$AUTH_SERVICE_URL/health" 2>/dev/null; then
+      echo "❌ Auth Service接続失敗: $AUTH_SERVICE_URL"
+      exit 1
+    fi
+    
+    echo "✅ API接続成功"
+    
+    # 認証トークン取得
+    echo "🔐 認証トークン取得中..."
+    
+    # ユーザー登録
+    register_data='{"name":"Sample User","email":"sample@petmatch.com","password":"sample123","phone":"090-1234-5678","address":"東京都渋谷区","type":"adopter"}'
+    
+    wget -q --post-data="$register_data" \
+         --header="Content-Type: application/json" \
+         "$AUTH_SERVICE_URL/auth/register" -O /dev/null 2>/dev/null || true
+    
+    # ログイン
+    login_data='{"email":"sample@petmatch.com","password":"sample123"}'
+    
+    login_response=$(wget -q --post-data="$login_data" \
+                          --header="Content-Type: application/json" \
+                          "$AUTH_SERVICE_URL/auth/login" -O -)
+    
+    # トークン抽出（jq使わずに）
+    TOKEN=$(echo "$login_response" | grep -o '"access_token":"[^"]*"' | cut -d'"' -f4)
+    
+    if [ -z "$TOKEN" ]; then
+      echo "❌ 認証トークン取得失敗"
+      echo "Response: $login_response"
+      exit 1
+    fi
+    
+    echo "✅ 認証トークン取得成功"
+    
+    # サンプルペット生成
+    echo ""
+    echo "🐾 $NUM_PETS 匹のペット生成中..."
+    echo ""
+    
+    success_count=0
+    error_count=0
+    
+    i=1
+    while [ $i -le $NUM_PETS ]; do
+      # ランダムデータ生成
+      species=$(get_random "$SPECIES")
+      breed=$(get_breed "$species")
+      name=$(get_random "$NAMES")
+      gender=$(get_random "$GENDERS")
+      size=$(get_random "$SIZES")
+      color=$(get_random "$COLORS")
+      personality=$(get_random "$PERSONALITIES")
+      
+      age_years=$(($(shuf -i 1-10 -n 1)))
+      age_months=$(($(shuf -i 0-11 -n 1)))
+      
+      # 位置情報（東京エリア）
+      lat="35.6762"
+      lng="139.6503"
+      
+      # 説明文
+      gender_jp=""
+      case $gender in
+        "male") gender_jp="オス" ;;
+        "female") gender_jp="メス" ;;
+      esac
+      
+      description="${name}は${age_years}歳の${gender_jp}の${breed}です。${personality}な性格をしています。"
+      
+      # JSONデータ作成
+      pet_data=$(cat <<EOF
+    {
+      "name": "$name",
+      "species": "$species",
+      "breed": "$breed",
+      "age_years": $age_years,
+      "age_months": $age_months,
+      "is_estimated": false,
+      "gender": "$gender",
+      "size": "$size",
+      "color": "$color",
+      "personality": ["$personality"],
+      "medical_info": {
+        "vaccinated": true,
+        "neutered": true,
+        "health_issues": [],
+        "last_checkup": "",
+        "medications": []
+      },
+      "location": "$lat,$lng",
+      "description": "$description"
+    }
+    EOF
+    )
+      
+      printf "%-3d. %-8s %-12s %-15s... " "$i" "$species" "$name" "$breed"
+      
+      # API経由でペット作成
+      response=$(wget -q --post-data="$pet_data" \
+                      --header="Content-Type: application/json" \
+                      --header="Authorization: Bearer $TOKEN" \
+                      "$API_BASE_URL/pets" -O - 2>/dev/null)
+      
+      if echo "$response" | grep -q '"id"'; then
+        echo "✅"
+        success_count=$((success_count + 1))
+      else
+        echo "❌"
+        error_count=$((error_count + 1))
+        if [ $error_count -le 2 ]; then
+          echo "     Error: $(echo "$response" | head -c 50)..."
+        fi
+      fi
+      
+      # 負荷軽減
+      sleep 0.2
+      i=$((i + 1))
+    done
+    
+    echo ""
+    echo "📊 生成結果"
+    echo "======================"
+    echo "✅ 成功: $success_count 匹"
+    echo "❌ 失敗: $error_count 匹"
+    
+    if [ $success_count -gt 0 ]; then
+      echo ""
+      echo "🎉 サンプルデータ生成完了！"
+      exit 0
+    else
+      echo ""
+      echo "❌ サンプルデータ生成失敗"
+      exit 1
+    fi

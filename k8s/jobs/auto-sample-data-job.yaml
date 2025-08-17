@@ -1,0 +1,297 @@
+# 自動サンプルデータ投入Job（改良版）
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: petmatch-auto-sample-data
+  namespace: petmatch
+  labels:
+    app: petmatch-sample-data
+    version: v2.0.0
+    auto-run: "true"
+spec:
+  ttlSecondsAfterFinished: 7200  # 2時間後に自動削除
+  backoffLimit: 3  # 最大3回リトライ
+  activeDeadlineSeconds: 600  # 10分でタイムアウト
+  template:
+    metadata:
+      labels:
+        app: petmatch-sample-data
+    spec:
+      restartPolicy: Never
+      initContainers:
+      # サービス起動待ち
+      - name: wait-for-services
+        image: busybox:1.35
+        command:
+        - sh
+        - -c
+        - |
+          echo "🔍 Waiting for services to be ready..."
+          
+          # Pet Service待ち
+          echo "Checking Pet Service..."
+          retry_count=0
+          max_retries=60  # 5分間待機
+          while [ $retry_count -lt $max_retries ]; do
+            if nc -z pet-service 8083; then
+              echo "✅ Pet Service ready"
+              break
+            fi
+            echo "Pet Service not ready, waiting... ($retry_count/$max_retries)"
+            sleep 5
+            retry_count=$((retry_count + 1))
+          done
+          
+          # Auth Service待ち
+          echo "Checking Auth Service..."
+          retry_count=0
+          while [ $retry_count -lt $max_retries ]; do
+            if nc -z auth-service 8081; then
+              echo "✅ Auth Service ready"
+              break
+            fi
+            echo "Auth Service not ready, waiting... ($retry_count/$max_retries)"
+            sleep 5
+            retry_count=$((retry_count + 1))
+          done
+          
+          echo "🚀 All services are ready!"
+          
+      # データ重複チェック
+      - name: check-existing-data
+        image: alpine/curl:latest
+        command:
+        - sh
+        - -c
+        - |
+          echo "🔍 Checking for existing data..."
+          
+          # Pet Service接続確認
+          if ! curl -s "http://pet-service:8083/health" >/dev/null; then
+            echo "❌ Pet Service not accessible"
+            exit 1
+          fi
+          
+          # 既存データ確認
+          existing_count=$(curl -s "http://pet-service:8083/pets" 2>/dev/null | grep -o '"total":[0-9]*' | cut -d: -f2 || echo "0")
+          echo "📊 Existing pets: $existing_count"
+          
+          # 既に十分なデータがある場合はスキップ
+          if [ "$existing_count" -ge 20 ]; then
+            echo "✅ Sufficient data exists ($existing_count pets). Skipping data generation."
+            # スキップフラグファイル作成
+            touch /shared/skip_generation
+          else
+            echo "📝 Need to generate sample data (current: $existing_count)"
+          fi
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+          
+      containers:
+      - name: sample-data-generator
+        image: alpine:3.18
+        command:
+        - sh
+        - -c
+        - |
+          # スキップフラグチェック
+          if [ -f /shared/skip_generation ]; then
+            echo "🔄 Sample data generation skipped - sufficient data exists"
+            exit 0
+          fi
+          
+          echo "🚀 PetMatch Auto Sample Data Generation"
+          echo "======================================"
+          
+          # 必要パッケージインストール
+          apk add --no-cache curl jq
+          
+          # 環境変数
+          PET_SERVICE_URL="http://pet-service:8083"
+          AUTH_SERVICE_URL="http://auth-service:8081"
+          NUM_PETS=30
+          
+          echo "Pet Service: $PET_SERVICE_URL"
+          echo "Auth Service: $AUTH_SERVICE_URL"
+          echo "Target Pets: $NUM_PETS"
+          echo ""
+          
+          # サンプルデータ配列
+          species_list="dog cat bird rabbit hamster"
+          names_list="ポチ タマ ココ モモ チョコ ミルク クッキー マロン レオ ルナ ソラ ハナ サクラ コテツ シロ クロ ベル ラック ピコ ナナ ミミ ララ ポポ"
+          
+          # ランダム選択関数
+          get_random() {
+            echo "$1" | tr ' ' '\n' | shuf -n 1
+          }
+          
+          # 品種取得
+          get_breed() {
+            case $1 in
+              "dog") echo "柴犬" ;;
+              "cat") echo "アメリカンショートヘア" ;;
+              "bird") echo "セキセイインコ" ;;
+              "rabbit") echo "ホーランドロップ" ;;
+              "hamster") echo "ゴールデンハムスター" ;;
+              *) echo "ミックス" ;;
+            esac
+          }
+          
+          # API接続確認
+          echo "📡 API接続確認..."
+          if ! curl -s "$PET_SERVICE_URL/health" >/dev/null; then
+            echo "❌ Pet Service接続失敗"
+            exit 1
+          fi
+          
+          if ! curl -s "$AUTH_SERVICE_URL/health" >/dev/null; then
+            echo "❌ Auth Service接続失敗"
+            exit 1
+          fi
+          
+          echo "✅ API接続成功"
+          
+          # 認証処理
+          echo "🔐 認証処理..."
+          
+          # ユーザー登録（エラーは無視）
+          register_data='{"name":"Auto Sample User","email":"auto@petmatch.com","password":"auto123","phone":"090-0000-0000","address":"東京都","type":"adopter"}'
+          
+          curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$register_data" \
+            "$AUTH_SERVICE_URL/auth/register" >/dev/null 2>&1 || true
+          
+          # ログイン
+          login_data='{"email":"auto@petmatch.com","password":"auto123"}'
+          
+          login_response=$(curl -s -X POST \
+            -H "Content-Type: application/json" \
+            -d "$login_data" \
+            "$AUTH_SERVICE_URL/auth/login")
+          
+          # トークン抽出
+          TOKEN=$(echo "$login_response" | jq -r '.tokens.access_token' 2>/dev/null || echo "")
+          
+          if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+            echo "❌ 認証トークン取得失敗"
+            echo "Response: $login_response"
+            exit 1
+          fi
+          
+          echo "✅ 認証成功"
+          
+          # サンプルペット生成
+          echo ""
+          echo "🐾 $NUM_PETS 匹のペット生成開始..."
+          echo ""
+          
+          success=0
+          errors=0
+          
+          for i in $(seq 1 $NUM_PETS); do
+            # ランダムデータ生成
+            species=$(get_random "$species_list")
+            breed=$(get_breed "$species")
+            name=$(get_random "$names_list")
+            gender=$([ $((RANDOM % 2)) -eq 0 ] && echo "male" || echo "female")
+            size="medium"
+            color="茶色"
+            
+            age_years=$((RANDOM % 8 + 1))
+            age_months=$((RANDOM % 12))
+            
+            gender_jp=$([ "$gender" = "male" ] && echo "オス" || echo "メス")
+            description="${name}は${age_years}歳の${gender_jp}の${breed}です。人懐っこい性格で新しい家族を待っています。"
+            
+            # JSONデータ作成
+            pet_data=$(cat <<EOF
+{
+  "name": "$name",
+  "species": "$species",
+  "breed": "$breed",
+  "age_years": $age_years,
+  "age_months": $age_months,
+  "is_estimated": false,
+  "gender": "$gender",
+  "size": "$size",
+  "color": "$color",
+  "personality": ["人懐っこい", "活発"],
+  "medical_info": {
+    "vaccinated": true,
+    "neutered": true,
+    "health_issues": [],
+    "last_checkup": "",
+    "medications": []
+  },
+  "location": "35.6762,139.6503",
+  "description": "$description"
+}
+EOF
+)
+            
+            printf "%-3d. %-8s %-12s %-15s... " "$i" "$species" "$name" "$breed"
+            
+            # API実行
+            response=$(curl -s -w "\nHTTP_STATUS:%{http_code}\n" -X POST \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $TOKEN" \
+              -d "$pet_data" \
+              "$PET_SERVICE_URL/pets")
+            
+            http_status=$(echo "$response" | grep "HTTP_STATUS:" | cut -d: -f2)
+            
+            if [ "$http_status" = "201" ] || [ "$http_status" = "200" ]; then
+              echo "✅"
+              success=$((success + 1))
+            else
+              echo "❌ (HTTP $http_status)"
+              errors=$((errors + 1))
+              if [ $errors -le 2 ]; then
+                echo "     Error: $(echo "$response" | head -c 80)..."
+              fi
+            fi
+            
+            # 負荷軽減
+            sleep 0.1
+          done
+          
+          echo ""
+          echo "📊 生成結果"
+          echo "========================"
+          echo "✅ 成功: $success 匹"
+          echo "❌ 失敗: $errors 匹"
+          echo "📊 成功率: $(( success * 100 / NUM_PETS ))%"
+          
+          # 最終確認
+          echo ""
+          echo "🔍 最終データ確認..."
+          total_pets=$(curl -s "$PET_SERVICE_URL/pets" | jq '.total // 0' 2>/dev/null || echo "0")
+          echo "📊 データベース総ペット数: $total_pets 匹"
+          
+          if [ $success -gt 0 ]; then
+            echo ""
+            echo "🎉 自動サンプルデータ生成完了！"
+            exit 0
+          else
+            echo ""
+            echo "❌ サンプルデータ生成失敗"
+            exit 1
+          fi
+        env:
+        - name: TZ
+          value: "Asia/Tokyo"
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "50m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        volumeMounts:
+        - name: shared-data
+          mountPath: /shared
+      volumes:
+      - name: shared-data
+        emptyDir: {}
