@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/petmatch/app/services/api-gateway/middleware"
@@ -49,7 +50,9 @@ func NewPetProxy(petServiceURL string) *PetProxy {
 		log.Printf("Pet service proxy error: %v", err)
 		rw.Header().Set("Content-Type", "application/json")
 		rw.WriteHeader(http.StatusBadGateway)
-		rw.Write([]byte(`{"error": "pet_service_unavailable", "message": "Pet service is temporarily unavailable"}`))
+		if _, writeErr := rw.Write([]byte(`{"error": "pet_service_unavailable", "message": "Pet service is temporarily unavailable"}`)); writeErr != nil {
+			log.Printf("Error writing error response: %v", writeErr)
+		}
 	}
 
 	return &PetProxy{
@@ -186,13 +189,23 @@ func (p *PetProxy) proxyRequestWithAuth(c *gin.Context, method, path string) {
 
 // HealthCheck - Pet Service のヘルスチェック
 func (p *PetProxy) HealthCheck() bool {
-	url := fmt.Sprintf("%s/health", p.petServiceURL)
-	resp, err := http.Get(url)
+	healthURL := fmt.Sprintf("%s/health", p.petServiceURL)
+	
+	// タイムアウト設定でHTTPクライアント作成
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	
+	resp, err := client.Get(healthURL)
 	if err != nil {
 		log.Printf("Pet service health check failed: %v", err)
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Error closing response body: %v", closeErr)
+		}
+	}()
 
 	return resp.StatusCode == http.StatusOK
 }

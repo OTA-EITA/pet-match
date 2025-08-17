@@ -4,7 +4,6 @@ import (
 	"log"
 	"os"
 	"strconv"
-	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -136,16 +135,6 @@ func getEnvAsBool(key string, defaultValue bool) bool {
 			return value
 		}
 		log.Printf("Warning: invalid boolean value for %s: %s, using default %t", key, valueStr, defaultValue)
-	}
-	return defaultValue
-}
-
-func getEnvAsDuration(key string, defaultValue time.Duration) time.Duration {
-	if valueStr := os.Getenv(key); valueStr != "" {
-		if value, err := time.ParseDuration(valueStr); err == nil {
-			return value
-		}
-		log.Printf("Warning: invalid duration value for %s: %s, using default %s", key, valueStr, defaultValue.String())
 	}
 	return defaultValue
 }
