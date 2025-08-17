@@ -315,17 +315,33 @@ make deploy-pet
 - `deploy-pet`: Pet Serviceをすぐに再起動（依存関係チェックなし）
 - `deploy-pet-safe`: Redis・MinIOの起動確認後にPet Serviceを再起動
 
-### 依存関係の確認
-```bash
-# Redis状態確認
-kubectl get pods -l app=redis -n petmatch
-
-# MinIO状態確認
-kubectl get pods -l app=minio -n petmatch
-
-# 全サービス状態確認
-make status
+### CI npm ci エラー
+**症状:**
 ```
+`npm ci` can only install packages when your package.json and package-lock.json are in sync.
+Invalid: lock file's eslint-config-next@14.0.0 does not satisfy eslint-config-next@15.0.0
+```
+
+**原因:** package.jsonとpackage-lock.jsonのバージョン不整合
+
+**解決方法:**
+```bash
+# web-appディレクトリで実行
+cd web-app
+
+# 自動修復スクリプト使用（推奨）
+chmod +x regenerate-lockfile.sh
+./regenerate-lockfile.sh
+
+# または手動で
+rm package-lock.json
+npm install
+
+# 整合性確認
+npm ci --dry-run
+```
+
+**予防策:** package.jsonを更新した際は必ずpackage-lock.jsonも更新
 
 ### Redis接続エラー
 ```bash

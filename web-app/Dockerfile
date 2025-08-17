@@ -13,8 +13,16 @@ WORKDIR /app
 # Copy package files
 COPY package.json package-lock.json* ./
 
-# Install with clean cache for CI
-RUN npm ci --prefer-offline --no-audit --progress=false && \
+# Verify package-lock.json and install dependencies
+RUN if [ ! -f package-lock.json ]; then \
+        echo "package-lock.json not found, generating..."; \
+        npm install --package-lock-only; \
+    elif ! npm ci --dry-run > /dev/null 2>&1; then \
+        echo "package.json and package-lock.json are out of sync, regenerating..."; \
+        rm package-lock.json; \
+        npm install --package-lock-only; \
+    fi && \
+    npm ci --prefer-offline --no-audit --progress=false && \
     npm cache clean --force
 
 # Build the application

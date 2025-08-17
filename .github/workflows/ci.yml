@@ -113,6 +113,14 @@ jobs:
         if [ ! -f package-lock.json ]; then
           echo "package-lock.json not found, generating..."
           npm install --package-lock-only
+        else
+          echo "Verifying package.json and package-lock.json sync..."
+          # package.jsonとpackage-lock.jsonの整合性チェック
+          if ! npm ci --dry-run > /dev/null 2>&1; then
+            echo "package.json and package-lock.json are out of sync, regenerating..."
+            rm package-lock.json
+            npm install --package-lock-only
+          fi
         fi
         echo "package-lock.json verified"
 
