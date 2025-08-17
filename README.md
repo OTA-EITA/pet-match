@@ -47,6 +47,12 @@ make start          # 開発環境起動
 make status
 ```
 
+**重要**: Pet ServiceがCrashLoopBackOffになる場合は、MinIOが起動していないことが原因です。以下で解決できます：
+```bash
+# 安全な再起動（依存関係チェック付き）
+make deploy-pet-safe
+```
+
 ### 3. API仕様確認（統合Swagger UI）
 **全サービスのAPIが1つのSwagger UIで確認可能**
 
@@ -126,6 +132,33 @@ curl -X POST http://localhost:8083/pets \
 ```
 
 ## 開発ツール
+
+### よく使うコマンド
+```bash
+# 基本操作
+make start              # 開発環境起動
+make stop               # 開発環境停止
+make status             # システム状況確認
+make health             # 詳細ヘルスチェック
+
+# セットアップ
+make setup-auto         # 完全自動セットアップ（初回推奨）
+make k8s-apply          # Kubernetesリソース作成のみ
+
+# サービス管理
+make deploy-pet-safe    # Pet Service安全再起動（推奨）
+make deploy-pet         # Pet Service通常再起動
+make logs-pet           # Pet Serviceログ確認
+
+# データ管理
+make sample-data        # サンプルデータ生成（30匹）
+make sample-data-status # データ状況確認
+make sample-data-clean  # サンプルデータ削除
+
+# ストレージ
+make minio-deploy       # MinIO単体デプロイ
+make minio-console      # MinIOコンソールアクセス
+```
 
 ### 統合Swagger UI
 **全APIを1つのSwagger UIで管理**
@@ -255,6 +288,44 @@ kubectl get services -n petmatch
 - **Notification Service**: プッシュ通知・メール通知
 
 ## トラブルシューティング
+
+### Pet Service CrashLoopBackOff 問題
+Pet ServiceがMinIOに依存しているため、MinIOが起動していない状態で起動するとクラッシュします。
+
+**症状:**
+```
+Failed to initialize services: failed to ensure buckets exist: failed to check if bucket pet-images exists: dial tcp: lookup minio-service on 10.96.0.10:53: no such host
+```
+
+**解決方法:**
+```bash
+# 安全なPet Service再起動（依存関係チェック付き）
+make deploy-pet-safe
+
+# または依存関係を含む完全セットアップ
+make setup-auto
+
+# 手動でMinIOをデプロイしてから再起動
+kubectl apply -f k8s/minio/minio.yaml
+kubectl wait --for=condition=Ready pod -l app=minio -n petmatch --timeout=120s
+make deploy-pet
+```
+
+**`deploy-pet-safe` vs `deploy-pet`の違い:**
+- `deploy-pet`: Pet Serviceをすぐに再起動（依存関係チェックなし）
+- `deploy-pet-safe`: Redis・MinIOの起動確認後にPet Serviceを再起動
+
+### 依存関係の確認
+```bash
+# Redis状態確認
+kubectl get pods -l app=redis -n petmatch
+
+# MinIO状態確認
+kubectl get pods -l app=minio -n petmatch
+
+# 全サービス状態確認
+make status
+```
 
 ### Redis接続エラー
 ```bash

@@ -1,15 +1,21 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
-import { authApi, tokenStorage, User, AuthError } from '@/lib/auth';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { 
+  User, 
+  AuthState, 
+  LoginCredentials, 
+  RegisterData, 
+  ApiException 
+} from '@/types';
+import { authApi, tokenStorage, authStateHelpers } from '@/lib/auth';
 
-interface AuthContextType {
-  user: User | null;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string, type: 'adopter' | 'shelter') => Promise<void>;
-  logout: () => void;
-  isAuthenticated: boolean;
+interface AuthContextType extends AuthState {
+  login: (credentials: LoginCredentials) => Promise<void>;
+  register: (userData: RegisterData) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
+  clearError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,114 +28,185 @@ export const useAuth = () => {
   return context;
 };
 
-export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+interface AuthProviderProps {
+  children: React.ReactNode;
+}
 
-  const isAuthenticated = user !== null;
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [state, setState] = useState<AuthState>({
+    user: null,
+    isAuthenticated: false,
+    isLoading: true,
+    error: null,
+  });
 
-  // Token refresh function
-  const refreshAccessToken = async (): Promise<string | null> => {
-    const refreshToken = tokenStorage.getRefreshToken();
-    if (!refreshToken) return null;
+  // Clear error
+  const clearError = useCallback(() => {
+    setState(prev => ({ ...prev, error: null }));
+  }, []);
 
-    try {
-      const response = await authApi.refreshToken(refreshToken);
-      tokenStorage.setTokens(response.access_token, refreshToken);
-      return response.access_token;
-    } catch (error) {
-      console.error('Token refresh failed:', error);
-      tokenStorage.clearTokens();
-      return null;
+  // Set loading state
+  const setLoading = useCallback((loading: boolean) => {
+    setState(prev => ({ ...prev, isLoading: loading }));
+  }, []);
+
+  // Set error state
+  const setError = useCallback((error: string) => {
+    setState(prev => ({ ...prev, error, isLoading: false }));
+  }, []);
+
+  // Set authenticated user
+  const setAuthenticatedUser = useCallback((user: User) => {
+    setState({
+      user,
+      isAuthenticated: true,
+      isLoading: false,
+      error: null,
+    });
+  }, []);
+
+  // Set unauthenticated state
+  const setUnauthenticated = useCallback(() => {
+    setState({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      error: null,
+    });
+  }, []);
+
+  // Refresh user data
+  const refreshUser = useCallback(async (): Promise<void> => {
+    const accessToken = tokenStorage.getAccessToken();
+    if (!accessToken) {
+      setUnauthenticated();
+      return;
     }
-  };
 
-  // Verify and set user from token
-  const verifyAndSetUser = async (accessToken: string): Promise<boolean> => {
     try {
-      const userData = await authApi.verifyToken(accessToken);
-      setUser(userData);
-      return true;
+      setLoading(true);
+      const userData = await authApi.getCurrentUser();
+      setAuthenticatedUser(userData);
     } catch (error) {
-      console.error('Token verification failed:', error);
-      // Try to refresh token
-      const newAccessToken = await refreshAccessToken();
-      if (newAccessToken) {
+      console.error('Failed to refresh user data:', error);
+      
+      // Try to refresh token and retry
+      const refreshToken = tokenStorage.getRefreshToken();
+      if (refreshToken) {
         try {
-          const userData = await authApi.verifyToken(newAccessToken);
-          setUser(userData);
-          return true;
+          const authResponse = await authApi.refreshToken(refreshToken);
+          tokenStorage.setTokens(authResponse.access_token, authResponse.refresh_token);
+          
+          const userData = await authApi.getCurrentUser();
+          setAuthenticatedUser(userData);
+          return;
         } catch (refreshError) {
-          console.error('Token refresh verification failed:', refreshError);
+          console.error('Token refresh failed:', refreshError);
         }
       }
+      
+      // Authentication failed completely
       tokenStorage.clearTokens();
-      return false;
+      setUnauthenticated();
     }
-  };
+  }, [setLoading, setAuthenticatedUser, setUnauthenticated]);
+
+  // Login function
+  const login = useCallback(async (credentials: LoginCredentials): Promise<void> => {
+    try {
+      setLoading(true);
+      clearError();
+      
+      const authResponse = await authApi.login(credentials);
+      tokenStorage.setTokens(authResponse.access_token, authResponse.refresh_token);
+      setAuthenticatedUser(authResponse.user);
+    } catch (error) {
+      const errorMessage = error instanceof ApiException 
+        ? error.message 
+        : 'ログインに失敗しました';
+      setError(errorMessage);
+      throw error;
+    }
+  }, [setLoading, clearError, setAuthenticatedUser, setError]);
+
+  // Register function
+  const register = useCallback(async (userData: RegisterData): Promise<void> => {
+    try {
+      setLoading(true);
+      clearError();
+      
+      const authResponse = await authApi.register(userData);
+      tokenStorage.setTokens(authResponse.access_token, authResponse.refresh_token);
+      setAuthenticatedUser(authResponse.user);
+    } catch (error) {
+      const errorMessage = error instanceof ApiException 
+        ? error.message 
+        : '登録に失敗しました';
+      setError(errorMessage);
+      throw error;
+    }
+  }, [setLoading, clearError, setAuthenticatedUser, setError]);
+
+  // Logout function
+  const logout = useCallback(async (): Promise<void> => {
+    try {
+      setLoading(true);
+      await authApi.logout();
+    } catch (error) {
+      console.error('Logout API call failed:', error);
+      // Continue with logout even if API call fails
+    } finally {
+      tokenStorage.clearTokens();
+      setUnauthenticated();
+    }
+  }, [setLoading, setUnauthenticated]);
 
   // Initialize auth state on mount
   useEffect(() => {
     const initializeAuth = async () => {
-      setLoading(true);
-      
-      const accessToken = tokenStorage.getAccessToken();
-      if (accessToken) {
-        await verifyAndSetUser(accessToken);
+      // Check if we have valid tokens
+      if (!tokenStorage.hasValidTokens()) {
+        setUnauthenticated();
+        return;
       }
-      
-      setLoading(false);
+
+      // Try to get current user
+      await refreshUser();
     };
 
     initializeAuth();
-  }, []);
+  }, [refreshUser, setUnauthenticated]);
 
-  // Login function
-  const login = async (email: string, password: string): Promise<void> => {
-    setLoading(true);
-    try {
-      const response = await authApi.login({ email, password });
-      tokenStorage.setTokens(response.tokens.access_token, response.tokens.refresh_token);
-      setUser(response.user);
-    } catch (error) {
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Auto-refresh token when it's about to expire
+  useEffect(() => {
+    if (!state.isAuthenticated) return;
 
-  // Register function
-  const register = async (
-    email: string, 
-    password: string, 
-    name: string, 
-    type: 'adopter' | 'shelter'
-  ): Promise<void> => {
-    setLoading(true);
-    try {
-      const response = await authApi.register({ email, password, name, type });
-      tokenStorage.setTokens(response.tokens.access_token, response.tokens.refresh_token);
-      setUser(response.user);
-    } catch (error) {
-      throw error;
-    } finally {
-      setLoading(false);
-    }
-  };
+    const interval = setInterval(async () => {
+      const accessToken = tokenStorage.getAccessToken();
+      if (accessToken && authStateHelpers.needsTokenRefresh()) {
+        const refreshToken = tokenStorage.getRefreshToken();
+        if (refreshToken) {
+          try {
+            const authResponse = await authApi.refreshToken(refreshToken);
+            tokenStorage.setTokens(authResponse.access_token, authResponse.refresh_token);
+          } catch (error) {
+            console.error('Auto token refresh failed:', error);
+            await logout();
+          }
+        }
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
 
-  // Logout function
-  const logout = () => {
-    tokenStorage.clearTokens();
-    setUser(null);
-  };
+    return () => clearInterval(interval);
+  }, [state.isAuthenticated, logout]);
 
   const value: AuthContextType = {
-    user,
-    loading,
+    ...state,
     login,
     register,
     logout,
-    isAuthenticated,
+    refreshUser,
+    clearError,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

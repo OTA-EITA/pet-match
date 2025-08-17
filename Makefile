@@ -137,7 +137,8 @@ help:
 	@echo ""
 	@echo "$(PURPLE) デプロイ:$(NC)"
 	@echo "  make deploy-all     - 全サービス再デプロイ"
-	@echo "  make deploy-pet     - Pet Service 再デプロイ"
+	@echo "  make deploy-pet     - Pet Service 再デプロイ
+  make deploy-pet-safe - Pet Service 安全再起動（依存関係確認付き）"
 	@echo "  make deploy-auth    - Auth Service 再デプロイ"
 	@echo "  make deploy-user    - User Service 再デプロイ"
 	@echo "  make deploy-match   - Match Service デプロイ"
@@ -191,7 +192,8 @@ help:
 	@echo "  make sample-data-clean  - サンプルデータ削除"
 	@echo "  make minio-deploy       - MinIOデプロイ"
 	@echo "  make minio-setup        - MinIOセットアップ"
-	@echo "  make minio-console      - MinIOコンソールアクセス"
+	@echo "  make minio-console      - MinIOコンソールアクセス
+  make deploy-pet-safe    - Pet Service安全再起動"
 	@echo "  make demo-ready         - デモ用完全セットアップ"
 	@echo ""
 	@echo "$(WHITE) ユーティリティ:$(NC)"
@@ -332,9 +334,13 @@ deploy-all:
 
 deploy-pet:
 	@echo "$(PURPLE)Pet Service 再デプロイ中...$(NC)"
-	@kubectl rollout restart deployment/pet-service -n petmatch
-	@kubectl rollout status deployment/pet-service -n petmatch --timeout=120s
+	@$(MAKE) --no-print-directory _restart-pet-service-safe
 	@echo "$(GREEN)Pet Service 再デプロイ完了$(NC)"
+
+deploy-pet-safe:
+	@echo "$(PURPLE)Pet Service 安全再起動中...$(NC)"
+	@$(MAKE) --no-print-directory _restart-pet-service-safe
+	@echo "$(GREEN)Pet Service 安全再起動完了$(NC)"
 
 deploy-auth:
 	@echo "$(PURPLE)Auth Service 再デプロイ中...$(NC)"
@@ -587,6 +593,7 @@ _check-minikube:
 _check-pods:
 	@echo "$(CYAN)Pod状況確認中...$(NC)"
 	@kubectl get pods -n petmatch 2>/dev/null || echo "$(YELLOW)Namespace 'petmatch' が見つかりません$(NC)"
+	@$(MAKE) --no-print-directory _ensure-minio-running
 
 _start-port-forwards:
 	@echo "$(CYAN)ポートフォワード開始中...$(NC)"
@@ -705,7 +712,9 @@ _full-k8s-setup:
 	@kubectl apply -f k8s/02-secrets.yaml
 	@echo "$(CYAN)Step 3 Redis...$(NC)"
 	@kubectl apply -f k8s/redis/
-	@echo "$(CYAN)Step 4 Services...$(NC)"
+	@echo "$(CYAN)Step 4 MinIO...$(NC)"
+	@kubectl apply -f k8s/minio/minio.yaml
+	@echo "$(CYAN)Step 5 Services...$(NC)"
 	@kubectl apply -f k8s/services/
 	@echo "$(GREEN)OK Kubernetes リソース作成完了$(NC)"
 
@@ -721,7 +730,10 @@ _build-and-deploy-all:
 	@echo "$(GREEN)OK 全イメージビルド完了$(NC)"
 
 _wait-for-ready:
-	@echo "$(YELLOW)⏳ Pod起動待ち（最大120秒）...$(NC)"
+	@echo "$(YELLOW)⏳ Redis & MinIO起動待ち（最大120秒）...$(NC)"
+	@kubectl wait --for=condition=Ready pod -l app=redis -n petmatch --timeout=60s 2>/dev/null || true
+	@kubectl wait --for=condition=Ready pod -l app=minio -n petmatch --timeout=60s 2>/dev/null || true
+	@echo "$(YELLOW)⏳ 全Pod起動待ち（最大120秒）...$(NC)"
 	@kubectl wait --for=condition=Ready pods --all -n petmatch --timeout=120s 2>/dev/null || true
 	@echo "$(CYAN)STATS 最終状況:$(NC)"
 	@kubectl get pods -n petmatch
@@ -947,3 +959,40 @@ minio-console:
 minio-logs:
 	@echo "$(YELLOW)MinIO ログ$(NC)"
 	@kubectl logs -f deployment/minio -n petmatch
+
+# ===============================
+# 内部ヘルパー関数（MinIO確認）
+# ===============================
+
+_ensure-minio-running:
+	@echo "$(CYAN)MinIO状況確認中...$(NC)"
+	@if ! kubectl get pod -l app=minio -n petmatch >/dev/null 2>&1; then \
+		echo "$(YELLOW)MinIOが見つかりません。デプロイ中...$(NC)"; \
+		kubectl apply -f k8s/minio/minio.yaml; \
+		echo "$(YELLOW)MinIO起動待ち...$(NC)"; \
+		kubectl wait --for=condition=Ready pod -l app=minio -n petmatch --timeout=120s 2>/dev/null || true; \
+	else \
+		if ! kubectl get pod -l app=minio -n petmatch | grep -q "Running"; then \
+			echo "$(YELLOW)MinIO起動待ち...$(NC)"; \
+			kubectl wait --for=condition=Ready pod -l app=minio -n petmatch --timeout=120s 2>/dev/null || true; \
+		else \
+			echo "$(GREEN)MinIO 稼働中$(NC)"; \
+		fi; \
+	fi
+
+_ensure-dependencies-ready:
+	@echo "$(CYAN)依存関係確認中...$(NC)"
+	@echo "$(BLUE)Redis確認...$(NC)"
+	@kubectl wait --for=condition=Ready pod -l app=redis -n petmatch --timeout=60s 2>/dev/null || \
+		(echo "$(RED)Redis起動失敗$(NC)" && exit 1)
+	@echo "$(BLUE)MinIO確認...$(NC)"
+	@kubectl wait --for=condition=Ready pod -l app=minio -n petmatch --timeout=60s 2>/dev/null || \
+		(echo "$(RED)MinIO起動失敗$(NC)" && exit 1)
+	@echo "$(GREEN)依存関係準備完了$(NC)"
+
+_restart-pet-service-safe:
+	@echo "$(PURPLE)Pet Service安全再起動中...$(NC)"
+	@$(MAKE) --no-print-directory _ensure-dependencies-ready
+	@kubectl rollout restart deployment/pet-service -n petmatch
+	@kubectl rollout status deployment/pet-service -n petmatch --timeout=120s
+	@echo "$(GREEN)Pet Service安全再起動完了$(NC)"

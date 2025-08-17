@@ -1,8 +1,5 @@
-'use client';
+// Re-export the useAuth hook from AuthContext for convenience
+export { useAuth } from '@/contexts/AuthContext';
 
-import { useAuth as useAuthContext } from '@/contexts/AuthContext';
-
-// Re-export for convenience
-export const useAuth = useAuthContext;
-
-export default useAuth;
+// This file exists to maintain the hook export pattern
+// The actual useAuth implementation is in AuthContext.tsx
