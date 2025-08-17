@@ -82,7 +82,11 @@ func (p *MatchProxy) HealthCheck(c *gin.Context) {
 		})
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Error closing response body: %v", closeErr)
+		}
+	}()
 
 	c.JSON(resp.StatusCode, gin.H{
 		"service": "match-service",
@@ -155,7 +159,11 @@ func (p *MatchProxy) proxyRequest(c *gin.Context, method, path string) {
 		})
 		return
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Error closing response body: %v", closeErr)
+		}
+	}()
 
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)

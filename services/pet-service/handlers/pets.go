@@ -20,7 +20,7 @@ var petCtx = context.Background()
 // isTestEnvironment checks if we're running in a test environment
 func isTestEnvironment() bool {
 	return os.Getenv("GO_ENV") == "test" || 
-		   (os.Args != nil && len(os.Args) > 0 && 
+		   (len(os.Args) > 0 && 
 		    (os.Args[0] == "/tmp/go-build" || 
 		     os.Args[0] == "/_test/"))
 }
@@ -100,7 +100,7 @@ func parsePetSearchParams(c *gin.Context) petSearchParams {
 func fetchAndFilterPets(params petSearchParams) ([]models.Pet, error) {
 	// Check if Redis client is initialized
 	if utils.RedisClient == nil {
-		return nil, fmt.Errorf("Redis client not initialized")
+		return nil, fmt.Errorf("redis client not initialized")
 	}
 	
 	// Get all pet keys from Redis
@@ -126,7 +126,7 @@ func fetchAndFilterPets(params petSearchParams) ([]models.Pet, error) {
 
 func fetchPetFromRedis(key string) (models.Pet, error) {
 	if utils.RedisClient == nil {
-		return models.Pet{}, fmt.Errorf("Redis client not initialized")
+		return models.Pet{}, fmt.Errorf("redis client not initialized")
 	}
 	
 	petJSON, err := utils.RedisClient.Get(petCtx, key).Result()
@@ -249,7 +249,7 @@ func createNewPetFromRequest(req models.PetCreateRequest, userID string) *models
 
 func savePetToRedis(pet *models.Pet) error {
 	if utils.RedisClient == nil {
-		return fmt.Errorf("Redis client not initialized")
+		return fmt.Errorf("redis client not initialized")
 	}
 	
 	petJSON, err := json.Marshal(pet)
@@ -330,7 +330,7 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 
 func getPetByID(petID string) (*models.Pet, error) {
 	if utils.RedisClient == nil {
-		return nil, fmt.Errorf("Redis client not initialized")
+		return nil, fmt.Errorf("redis client not initialized")
 	}
 	
 	key := utils.GetRedisKey("pet", petID)

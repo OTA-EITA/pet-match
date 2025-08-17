@@ -75,7 +75,11 @@ func (p *AuthProxy) ProxyRequest(endpoint string) gin.HandlerFunc {
 			})
 			return
 		}
-		defer resp.Body.Close()
+		defer func() {
+			if closeErr := resp.Body.Close(); closeErr != nil {
+				log.Printf("Error closing response body: %v", closeErr)
+			}
+		}()
 
 		// レスポンスボディを読み取り
 		respBody, err := io.ReadAll(resp.Body)
@@ -138,7 +142,11 @@ func (p *AuthProxy) HealthCheck() bool {
 		log.Printf("Auth service health check failed: %v", err)
 		return false
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Error closing response body: %v", closeErr)
+		}
+	}()
 
 	return resp.StatusCode == http.StatusOK
 }
@@ -162,7 +170,11 @@ func (p *AuthProxy) ValidateToken(token string) (*TokenClaims, error) {
 	if err != nil {
 		return nil, fmt.Errorf("validation request failed: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			log.Printf("Error closing response body: %v", closeErr)
+		}
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("token validation failed: status %d", resp.StatusCode)

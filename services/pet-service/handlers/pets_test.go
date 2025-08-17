@@ -23,7 +23,10 @@ func setupMockRedis() (redismock.ClientMock, func()) {
 
 	cleanup := func() {
 		utils.RedisClient = originalClient
-		mockClient.Close()
+		if err := mockClient.Close(); err != nil {
+			// テスト環境ではログ出力せずにエラーを無視
+			_ = err
+		}
 	}
 
 	return mock, cleanup
