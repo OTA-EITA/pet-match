@@ -21,7 +21,38 @@ export const API_CONFIG = {
       IMAGE_UPLOAD: (id: string) => `/api/pets/${id}/images`,
       IMAGE_DELETE: (id: string, imageId: string) => `/api/pets/${id}/images/${imageId}`,
       HEALTH: '/health'
-    }
+    },
+
+    // New search and suggestion endpoints
+    SEARCH: {
+      CATS: '/search/cats',
+      CAT_DETAIL: (id: string) => `/search/cats/${id}`,
+    },
+
+    SUGGESTIONS: {
+      SIMILAR: (catId: string) => `/suggestions/similar/${catId}`,
+      NEARBY: '/suggestions/nearby',
+      NEW: '/suggestions/new',
+    },
+
+    APPLICATIONS: {
+      LIST: '/applications',
+      DETAIL: (id: string) => `/applications/${id}`,
+      STATUS: (id: string) => `/applications/${id}/status`,
+      STATS: '/applications/stats',
+    },
+
+    FAVORITES: {
+      LIST: '/matches/favorites',
+      ADD: '/matches/favorites',
+      REMOVE: (petId: string) => `/matches/favorites/${petId}`,
+    },
+
+    PREFERENCES: {
+      GET: '/matches/preferences',
+      SET: '/matches/preferences',
+      UPDATE: '/matches/preferences',
+    },
   },
   
   // Helper methods for image URLs

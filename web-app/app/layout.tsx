@@ -1,4 +1,5 @@
 import './globals.css'
+import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import AuthProvider from '@/contexts/AuthContext'
 import Header from '@/components/layout/Header'
@@ -7,9 +8,20 @@ import DevStatusPanel from '@/components/dev/DevStatusPanel'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export const metadata = {
-  title: 'PetMatch - ペット里親マッチング',
-  description: 'ペットと里親をマッチングするプラットフォーム',
+export const metadata: Metadata = {
+  title: 'OnlyCats - 猫の里親マッチング＆猫好きSNS',
+  description: '保護猫・ブリーダー猫との出会い、猫好きのためのコミュニティプラットフォーム',
+  icons: {
+    icon: '/favicon.ico',
+  },
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  userScalable: true,
+  themeColor: '#F6C7A6',
 }
 
 export default function RootLayout({
@@ -19,25 +31,64 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja" className="scroll-smooth">
-      <body className={`${inter.className} min-h-screen bg-gray-50`}>
+      <body className={`${inter.className} min-h-screen bg-cream-100 antialiased`}>
         <AuthProvider>
           <Header />
           
-          <main className="min-h-screen">
+          <main className="min-h-screen pt-16 sm:pt-20 pb-safe safe-area-padding">
             {children}
           </main>
           
-          <footer className="bg-gray-800 text-white py-8">
+          <footer className="bg-neutral-900 text-white py-6 sm:py-8">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="text-center">
-                <p>&copy; 2024 PetMatch. All rights reserved.</p>
+              <div className="text-center sm:hidden">
+                <p className="text-sm text-neutral-400">
+                  &copy; 2024 OnlyCats
+                </p>
+              </div>
+              
+              <div className="hidden sm:block">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <div>
+                    <h3 className="text-lg font-bold mb-3 text-primary-300">OnlyCats</h3>
+                    <p className="text-sm text-neutral-400 leading-relaxed">
+                      保護猫・ブリーダー猫との出会いと<br />
+                      猫好きのためのコミュニティ
+                    </p>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3 text-neutral-300">サービス</h4>
+                    <ul className="space-y-2 text-sm text-neutral-400">
+                      <li><a href="/cats" className="hover:text-primary-300 transition">猫を探す</a></li>
+                      <li><a href="/portal" className="hover:text-primary-300 transition">猫図鑑</a></li>
+                      <li><a href="/community" className="hover:text-primary-300 transition">コミュニティ</a></li>
+                    </ul>
+                  </div>
+                  
+                  <div>
+                    <h4 className="text-sm font-semibold mb-3 text-neutral-300">サポート</h4>
+                    <ul className="space-y-2 text-sm text-neutral-400">
+                      <li><a href="/about" className="hover:text-primary-300 transition">運営について</a></li>
+                      <li><a href="/terms" className="hover:text-primary-300 transition">利用規約</a></li>
+                      <li><a href="/privacy" className="hover:text-primary-300 transition">プライバシー</a></li>
+                    </ul>
+                  </div>
+                </div>
+                
+                <div className="mt-6 pt-6 border-t border-neutral-800 text-center text-sm text-neutral-500">
+                  &copy; 2024 OnlyCats. All rights reserved.
+                </div>
               </div>
             </div>
           </footer>
           
-          {/* Development Panels */}
-          <DevAuthPanel />
-          <DevStatusPanel />
+          {process.env.NODE_ENV === 'development' && (
+            <>
+              <DevAuthPanel />
+              <DevStatusPanel />
+            </>
+          )}
         </AuthProvider>
       </body>
     </html>
