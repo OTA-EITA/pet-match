@@ -5,31 +5,422 @@
     ],
     "swagger": "2.0",
     "info": {
-        "description": "Match Service for PetMatch - handles pet matching, recommendations, and user preferences",
-        "title": "PetMatch Match Service API",
+        "description": "Match Service for OnlyCats - handles cat search, applications, suggestions, and user preferences",
+        "title": "OnlyCats Match Service API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",
-            "url": "http://www.petmatch.com/support",
-            "email": "support@petmatch.com"
+            "url": "http://www.onlycats.com/support",
+            "email": "support@onlycats.com"
         },
         "license": {
             "name": "MIT",
             "url": "https://opensource.org/licenses/MIT"
         },
-        "version": "1.0"
+        "version": "2.0"
     },
     "host": "localhost:8084",
     "basePath": "/",
     "paths": {
-        "/matches": {
+        "/search/cats": {
+            "get": {
+                "description": "Search for cats based on various filters",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Search"
+                ],
+                "summary": "Search for cats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Species (e.g., cat)",
+                        "name": "species",
+                        "in": "query"
+                    },
+                    {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        },
+                        "description": "Breeds",
+                        "name": "breeds",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Minimum age",
+                        "name": "age_min",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum age",
+                        "name": "age_max",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "enum": ["male", "female"],
+                        "description": "Gender",
+                        "name": "gender",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "enum": ["small", "medium", "large"],
+                        "description": "Size",
+                        "name": "size",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Maximum search radius in km",
+                        "name": "max_radius",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Good with kids",
+                        "name": "good_with_kids",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Good with pets",
+                        "name": "good_with_pets",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Has special needs",
+                        "name": "special_needs",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Only available cats",
+                        "name": "available",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "created_at",
+                        "enum": ["created_at", "age", "distance"],
+                        "description": "Sort by",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "default": "desc",
+                        "enum": ["asc", "desc"],
+                        "description": "Sort order",
+                        "name": "sort_order",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Search results",
+                        "schema": {
+                            "$ref": "#/definitions/models.SearchResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/search/cats/{id}": {
+            "get": {
+                "description": "Get detailed information about a specific cat",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Search"
+                ],
+                "summary": "Get cat by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cat ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Cat details",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Cat not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/suggestions/similar/{cat_id}": {
+            "get": {
+                "description": "Get cats similar to the specified cat based on appearance",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Suggestions"
+                ],
+                "summary": "Get similar cats",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Cat ID",
+                        "name": "cat_id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 5,
+                        "description": "Number of suggestions",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Similar cats",
+                        "schema": {
+                            "$ref": "#/definitions/models.SuggestionResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Cat not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/suggestions/nearby": {
+            "get": {
+                "description": "Get cats near the user's location",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Suggestions"
+                ],
+                "summary": "Get nearby cats",
+                "parameters": [
+                    {
+                        "type": "number",
+                        "description": "User latitude",
+                        "name": "latitude",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "number",
+                        "description": "User longitude",
+                        "name": "longitude",
+                        "in": "query",
+                        "required": true
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Maximum radius in km",
+                        "name": "radius",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Number of suggestions",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Nearby cats",
+                        "schema": {
+                            "$ref": "#/definitions/models.SuggestionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/suggestions/new": {
+            "get": {
+                "description": "Get recently added cats",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Suggestions"
+                ],
+                "summary": "Get new cats",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "default": 10,
+                        "description": "Number of suggestions",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "New cats",
+                        "schema": {
+                            "$ref": "#/definitions/models.SuggestionResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/applications": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get all applications submitted by the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "Get user applications",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "enum": ["pending", "under_review", "approved", "rejected", "withdrawn", "completed"],
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 20,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "User applications",
+                        "schema": {
+                            "$ref": "#/definitions/models.ApplicationListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Find pet matches based on user criteria and preferences",
+                "description": "Submit a new application to adopt a cat",
                 "consumes": [
                     "application/json"
                 ],
@@ -37,25 +428,25 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Matching"
+                    "Applications"
                 ],
-                "summary": "Find pet matches for user",
+                "summary": "Create application",
                 "parameters": [
                     {
-                        "description": "Match search criteria",
+                        "description": "Application request",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.MatchRequest"
+                            "$ref": "#/definitions/models.ApplicationRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "200": {
-                        "description": "Successful match response",
+                    "201": {
+                        "description": "Application created",
                         "schema": {
-                            "$ref": "#/definitions/models.MatchResponse"
+                            "$ref": "#/definitions/models.Application"
                         }
                     },
                     "400": {
@@ -82,14 +473,274 @@
                 }
             }
         },
+        "/applications/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get details of a specific application",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "Get application by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Application ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Application details",
+                        "schema": {
+                            "$ref": "#/definitions/models.Application"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Application not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Cancel/withdraw an application",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "Cancel application",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Application ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Application cancelled",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Application not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/applications/{id}/status": {
+            "put": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Update the status of an application (shelter/breeder only)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "Update application status",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Application ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Status update request",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.UpdateApplicationStatusRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Status updated",
+                        "schema": {
+                            "$ref": "#/definitions/models.Application"
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "404": {
+                        "description": "Application not found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/applications/stats": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get application status counts for the authenticated user",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Applications"
+                ],
+                "summary": "Get application status counts",
+                "responses": {
+                    "200": {
+                        "description": "Status counts",
+                        "schema": {
+                            "$ref": "#/definitions/models.ApplicationStatusCountsResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
         "/matches/favorites": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get user's favorite cats",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Favorites"
+                ],
+                "summary": "Get favorites",
+                "responses": {
+                    "200": {
+                        "description": "User's favorites",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Add a pet to user's favorites list",
+                "description": "Add a cat to user's favorites list",
                 "consumes": [
                     "application/json"
                 ],
@@ -99,7 +750,7 @@
                 "tags": [
                     "Favorites"
                 ],
-                "summary": "Add pet to favorites",
+                "summary": "Add cat to favorites",
                 "parameters": [
                     {
                         "description": "Favorite request",
@@ -143,54 +794,36 @@
                 }
             }
         },
-        "/matches/history": {
-            "get": {
+        "/matches/favorites/{pet_id}": {
+            "delete": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Get user's match history with pagination and optional status filtering",
+                "description": "Remove a cat from user's favorites",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "Matching"
+                    "Favorites"
                 ],
-                "summary": "Get user's match history",
+                "summary": "Remove favorite",
                 "parameters": [
                     {
-                        "type": "integer",
-                        "default": 1,
-                        "description": "Page number",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "default": 20,
-                        "description": "Items per page",
-                        "name": "limit",
-                        "in": "query"
-                    },
-                    {
-                        "enum": [
-                            "pending",
-                            "viewed",
-                            "contacted",
-                            "rejected"
-                        ],
                         "type": "string",
-                        "description": "Filter by status",
-                        "name": "status",
-                        "in": "query"
+                        "description": "Pet ID",
+                        "name": "pet_id",
+                        "in": "path",
+                        "required": true
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Successful history response",
+                        "description": "Favorite removed",
                         "schema": {
-                            "$ref": "#/definitions/models.MatchHistoryResponse"
+                            "type": "object",
+                            "additionalProperties": true
                         }
                     },
                     "401": {
@@ -211,13 +844,51 @@
             }
         },
         "/matches/preferences": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Get user's search preferences",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Preferences"
+                ],
+                "summary": "Get user preferences",
+                "responses": {
+                    "200": {
+                        "description": "User preferences",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
             "post": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Set or update user matching preferences",
+                "description": "Set or update user search preferences",
                 "consumes": [
                     "application/json"
                 ],
@@ -269,65 +940,14 @@
                         }
                     }
                 }
-            }
-        },
-        "/matches/recommendations": {
-            "get": {
-                "security": [
-                    {
-                        "BearerAuth": []
-                    }
-                ],
-                "description": "Get personalized pet recommendations based on user preferences",
-                "produces": [
-                    "application/json"
-                ],
-                "tags": [
-                    "Matching"
-                ],
-                "summary": "Get personalized pet recommendations",
-                "parameters": [
-                    {
-                        "type": "integer",
-                        "default": 10,
-                        "description": "Number of recommendations",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
-                "responses": {
-                    "200": {
-                        "description": "Successful recommendations response",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "401": {
-                        "description": "Unauthorized",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal server error",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    }
-                }
-            }
-        },
-        "/matches/{match_id}/status": {
+            },
             "put": {
                 "security": [
                     {
                         "BearerAuth": []
                     }
                 ],
-                "description": "Update the status of a specific match",
+                "description": "Update user search preferences",
                 "consumes": [
                     "application/json"
                 ],
@@ -335,30 +955,23 @@
                     "application/json"
                 ],
                 "tags": [
-                    "Matching"
+                    "Preferences"
                 ],
-                "summary": "Update match status",
+                "summary": "Update user preferences",
                 "parameters": [
                     {
-                        "type": "string",
-                        "description": "Match ID",
-                        "name": "match_id",
-                        "in": "path",
-                        "required": true
-                    },
-                    {
-                        "description": "Status update request",
+                        "description": "Preference request",
                         "name": "request",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.UpdateMatchStatusRequest"
+                            "$ref": "#/definitions/models.PreferenceRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "Status updated successfully",
+                        "description": "Preferences updated successfully",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -390,20 +1003,6 @@
         }
     },
     "definitions": {
-        "models.FavoriteRequest": {
-            "type": "object",
-            "required": [
-                "pet_id"
-            ],
-            "properties": {
-                "note": {
-                    "type": "string"
-                },
-                "pet_id": {
-                    "type": "string"
-                }
-            }
-        },
         "models.Location": {
             "type": "object",
             "properties": {
@@ -415,60 +1014,31 @@
                 }
             }
         },
-        "models.Match": {
+        "models.SearchResponse": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
+                "cats": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": true
+                    }
                 },
-                "id": {
-                    "type": "string"
+                "filters": {
+                    "$ref": "#/definitions/models.SearchQuery"
                 },
-                "pet_id": {
-                    "type": "string"
-                },
-                "reason": {
-                    "type": "string"
-                },
-                "score": {
-                    "type": "number"
-                },
-                "status": {
-                    "description": "pending, viewed, contacted, rejected",
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.MatchHistoryResponse": {
-            "type": "object",
-            "properties": {
                 "limit": {
                     "type": "integer"
                 },
-                "matches": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.MatchResult"
-                    }
-                },
                 "page": {
                     "type": "integer"
-                },
-                "status": {
-                    "type": "string"
                 },
                 "total": {
                     "type": "integer"
                 }
             }
         },
-        "models.MatchRequest": {
+        "models.SearchQuery": {
             "type": "object",
             "properties": {
                 "age_max": {
@@ -477,15 +1047,23 @@
                 "age_min": {
                     "type": "integer"
                 },
-                "breed": {
-                    "type": "string"
+                "available": {
+                    "type": "boolean"
                 },
-                "filters": {
-                    "type": "object",
-                    "additionalProperties": true
+                "breeds": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "gender": {
                     "type": "string"
+                },
+                "good_with_kids": {
+                    "type": "boolean"
+                },
+                "good_with_pets": {
+                    "type": "boolean"
                 },
                 "limit": {
                     "type": "integer"
@@ -494,31 +1072,166 @@
                     "$ref": "#/definitions/models.Location"
                 },
                 "max_radius": {
-                    "description": "in kilometers",
+                    "type": "integer"
+                },
+                "page": {
                     "type": "integer"
                 },
                 "size": {
                     "type": "string"
                 },
-                "species": {
+                "sort_by": {
                     "type": "string"
                 },
-                "user_id": {
+                "sort_order": {
+                    "type": "string"
+                },
+                "special_needs": {
+                    "type": "boolean"
+                },
+                "species": {
                     "type": "string"
                 }
             }
         },
-        "models.MatchResponse": {
+        "models.SuggestionResponse": {
             "type": "object",
             "properties": {
-                "limit": {
-                    "type": "integer"
-                },
-                "matches": {
+                "cats": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.MatchResult"
+                        "type": "object",
+                        "additionalProperties": true
                     }
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Application": {
+            "type": "object",
+            "properties": {
+                "cat_id": {
+                    "type": "string"
+                },
+                "contact_email": {
+                    "type": "string"
+                },
+                "contact_phone": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "current_pets": {
+                    "type": "string"
+                },
+                "experience": {
+                    "type": "string"
+                },
+                "has_yard": {
+                    "type": "boolean"
+                },
+                "housing_type": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "living_situation": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "occupation": {
+                    "type": "string"
+                },
+                "organization_id": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string",
+                    "enum": ["pending", "under_review", "approved", "rejected", "withdrawn", "completed"]
+                },
+                "status_note": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
+                },
+                "veterinarian": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ApplicationRequest": {
+            "type": "object",
+            "required": [
+                "cat_id",
+                "contact_email",
+                "contact_phone"
+            ],
+            "properties": {
+                "cat_id": {
+                    "type": "string"
+                },
+                "contact_email": {
+                    "type": "string"
+                },
+                "contact_phone": {
+                    "type": "string"
+                },
+                "current_pets": {
+                    "type": "string"
+                },
+                "experience": {
+                    "type": "string"
+                },
+                "has_yard": {
+                    "type": "boolean"
+                },
+                "housing_type": {
+                    "type": "string"
+                },
+                "living_situation": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "occupation": {
+                    "type": "string"
+                },
+                "reason": {
+                    "type": "string"
+                },
+                "veterinarian": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ApplicationListResponse": {
+            "type": "object",
+            "properties": {
+                "applications": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Application"
+                    }
+                },
+                "limit": {
+                    "type": "integer"
                 },
                 "page": {
                     "type": "integer"
@@ -528,15 +1241,58 @@
                 }
             }
         },
-        "models.MatchResult": {
+        "models.UpdateApplicationStatusRequest": {
+            "type": "object",
+            "required": [
+                "status"
+            ],
+            "properties": {
+                "status": {
+                    "type": "string",
+                    "enum": ["pending", "under_review", "approved", "rejected", "withdrawn", "completed"]
+                },
+                "status_note": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ApplicationStatusCountsResponse": {
             "type": "object",
             "properties": {
-                "match": {
-                    "$ref": "#/definitions/models.Match"
+                "approved": {
+                    "type": "integer"
                 },
-                "pet": {
-                    "type": "object",
-                    "additionalProperties": true
+                "completed": {
+                    "type": "integer"
+                },
+                "pending": {
+                    "type": "integer"
+                },
+                "rejected": {
+                    "type": "integer"
+                },
+                "total": {
+                    "type": "integer"
+                },
+                "under_review": {
+                    "type": "integer"
+                },
+                "withdrawn": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.FavoriteRequest": {
+            "type": "object",
+            "required": [
+                "pet_id"
+            ],
+            "properties": {
+                "note": {
+                    "type": "string"
+                },
+                "pet_id": {
+                    "type": "string"
                 }
             }
         },
@@ -608,35 +1364,11 @@
                     }
                 }
             }
-        },
-        "models.UpdateMatchStatusRequest": {
-            "type": "object",
-            "required": [
-                "match_id",
-                "status"
-            ],
-            "properties": {
-                "match_id": {
-                    "type": "string"
-                },
-                "note": {
-                    "type": "string"
-                },
-                "status": {
-                    "type": "string",
-                    "enum": [
-                        "pending",
-                        "viewed",
-                        "contacted",
-                        "rejected"
-                    ]
-                }
-            }
         }
     },
     "securityDefinitions": {
         "BearerAuth": {
-            "description": "Type \"Bearer\" followed by a space and JWT token",
+            "description": "Type 'Bearer' followed by a space and JWT token",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
