@@ -46,12 +46,15 @@ func main() {
 	}()
 
 	// Initialize services
-	matchService := services.NewMatchService(redisClient, cfg)
-	algorithmService := services.NewAlgorithmService(cfg)
-	scoringService := services.NewScoringService(cfg)
+	searchService := services.NewSearchService(redisClient, cfg)
+	applicationService := services.NewApplicationService(redisClient, cfg)
+	suggestionService := services.NewSuggestionService(redisClient, cfg)
+	matchService := services.NewMatchService(redisClient, cfg) // For favorites and preferences
 
 	// Initialize handlers
-	matchHandler := handlers.NewMatchHandler(matchService, algorithmService, scoringService, cfg)
+	searchHandler := handlers.NewSearchHandler(searchService, cfg)
+	applicationHandler := handlers.NewApplicationHandler(applicationService, cfg)
+	suggestionHandler := handlers.NewSuggestionHandler(suggestionService, cfg)
 	favoritesHandler := handlers.NewFavoritesHandler(matchService, cfg)
 	preferencesHandler := handlers.NewPreferencesHandler(matchService, cfg)
 
@@ -184,37 +187,55 @@ func main() {
 		c.JSON(200, gin.H{"ping": pong, "pet_data": petData})
 	})
 
-	// Test service directly without auth
-	router.GET("/test/match", func(c *gin.Context) {
-		// Create test match request
-		testReq := &models.MatchRequest{
-			UserID: "test-user",
-			Species: "dog",
+	// Test search service directly without auth
+	router.GET("/test/search-service", func(c *gin.Context) {
+		// Create test search query
+		testQuery := &models.SearchQuery{
+			Species: "cat",
 			Limit: 5,
 		}
 		
-		// Call match service directly
-		response, err := matchService.FindMatches(c.Request.Context(), testReq)
+		// Call search service directly
+		response, err := searchService.SearchCats(c.Request.Context(), testQuery)
 		if err != nil {
-			c.JSON(500, gin.H{"error": "Match failed", "details": err.Error()})
+			c.JSON(500, gin.H{"error": "Search failed", "details": err.Error()})
 			return
 		}
 		
 		c.JSON(200, response)
 	})
 
-	// Match routes
-	matchGroup := router.Group("/matches")
+	// Search routes (public)
+	searchGroup := router.Group("/search")
 	{
-		// All match endpoints require authentication
-		matchGroup.Use(middleware.AuthMiddleware(cfg))
-		
-		// Matching endpoints
-		matchGroup.POST("/", matchHandler.FindMatches)
-		matchGroup.GET("/recommendations", matchHandler.GetRecommendations)
-		matchGroup.GET("/history", matchHandler.GetMatchHistory)
-		matchGroup.PUT("/:match_id/status", matchHandler.UpdateMatchStatus)
-		
+		searchGroup.GET("/cats", searchHandler.SearchCats)
+		searchGroup.GET("/cats/:id", searchHandler.GetCatByID)
+	}
+
+	// Suggestion routes (public)
+	suggestionsGroup := router.Group("/suggestions")
+	{
+		suggestionsGroup.GET("/similar/:cat_id", suggestionHandler.GetSimilarCats)
+		suggestionsGroup.GET("/nearby", suggestionHandler.GetNearbyCats)
+		suggestionsGroup.GET("/new", suggestionHandler.GetNewCats)
+	}
+
+	// Application routes (requires authentication)
+	applicationsGroup := router.Group("/applications")
+	applicationsGroup.Use(middleware.AuthMiddleware(cfg))
+	{
+		applicationsGroup.POST("", applicationHandler.CreateApplication)
+		applicationsGroup.GET("", applicationHandler.GetUserApplications)
+		applicationsGroup.GET("/stats", applicationHandler.GetApplicationStatusCounts)
+		applicationsGroup.GET("/:id", applicationHandler.GetApplication)
+		applicationsGroup.PUT("/:id/status", applicationHandler.UpdateApplicationStatus)
+		applicationsGroup.DELETE("/:id", applicationHandler.CancelApplication)
+	}
+
+	// Favorites and Preferences routes (requires authentication)
+	matchGroup := router.Group("/matches")
+	matchGroup.Use(middleware.AuthMiddleware(cfg))
+	{
 		// Favorites endpoints
 		matchGroup.POST("/favorites", favoritesHandler.AddFavorite)
 		matchGroup.GET("/favorites", favoritesHandler.GetFavorites)
