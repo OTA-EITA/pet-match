@@ -172,4 +172,4 @@ junit.xml
 /services/**/debug.exe
 /frontend/web-build/
 /scripts/local/
-/docs/generated/
+/docs/generated/services/match-service/match-service
