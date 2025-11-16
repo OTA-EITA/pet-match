@@ -1,0 +1,160 @@
+# OnlyCats Local Development Makefile
+# Kubernetes不要でローカルでサービスを起動
+
+.PHONY: help dev-start dev-stop dev-status dev-logs dev-clean
+
+# 色定義
+RED=\033[0;31m
+GREEN=\033[0;32m
+YELLOW=\033[1;33m
+BLUE=\033[0;34m
+CYAN=\033[0;36m
+NC=\033[0m
+
+# プロジェクトルート
+ROOT_DIR=$(shell pwd)
+LOG_DIR=$(ROOT_DIR)/.logs
+PID_DIR=$(ROOT_DIR)/.pids
+BIN_DIR=$(ROOT_DIR)/.bin
+
+# .envファイルを読み込み
+ifneq (,$(wildcard ./.env))
+    include .env
+    export
+endif
+
+help:
+	@echo "$(CYAN)OnlyCats ローカル開発環境$(NC)"
+	@echo "$(BLUE)==============================$(NC)"
+	@echo ""
+	@echo "$(GREEN)基本コマンド:$(NC)"
+	@echo "  make -f Makefile.local dev-start   - 全サービス起動"
+	@echo "  make -f Makefile.local dev-stop    - 全サービス停止"
+	@echo "  make -f Makefile.local dev-status  - サービス状態確認"
+	@echo "  make -f Makefile.local dev-logs    - ログ表示"
+	@echo "  make -f Makefile.local dev-clean   - クリーンアップ"
+	@echo ""
+
+# 全サービス起動
+dev-start:
+	@echo "$(CYAN)🚀 OnlyCats サービス起動中...$(NC)"
+	@mkdir -p $(LOG_DIR) $(PID_DIR) $(BIN_DIR)
+	@$(MAKE) -f Makefile.local _check-redis
+	@$(MAKE) -f Makefile.local _start-auth
+	@$(MAKE) -f Makefile.local _start-user
+	@$(MAKE) -f Makefile.local _start-pet
+	@$(MAKE) -f Makefile.local _start-match
+	@$(MAKE) -f Makefile.local _start-gateway
+	@sleep 2
+	@echo ""
+	@$(MAKE) -f Makefile.local dev-status
+	@echo ""
+	@echo "$(GREEN)✅ 起動完了!$(NC)"
+	@echo ""
+	@echo "$(YELLOW)アクセス:$(NC)"
+	@echo "  API Gateway:   http://localhost:8080"
+	@echo "  Auth Service:  http://localhost:18091"
+	@echo "  User Service:  http://localhost:18092"
+	@echo "  Pet Service:   http://localhost:8083"
+	@echo "  Match Service: http://localhost:8084"
+	@echo ""
+	@echo "$(YELLOW)ログ確認:$(NC) make -f Makefile.local dev-logs"
+	@echo "$(YELLOW)停止:$(NC)     make -f Makefile.local dev-stop"
+
+# 全サービス停止
+dev-stop:
+	@echo "$(YELLOW)🛑 サービス停止中...$(NC)"
+	@for pid_file in $(PID_DIR)/*.pid; do \
+		if [ -f "$$pid_file" ]; then \
+			service=$$(basename $$pid_file .pid); \
+			pid=$$(cat $$pid_file); \
+			if kill -0 $$pid 2>/dev/null; then \
+				echo "$(BLUE)  停止: $$service (PID: $$pid)$(NC)"; \
+				kill $$pid 2>/dev/null || true; \
+			fi; \
+			rm -f $$pid_file; \
+		fi; \
+	done
+	@echo "$(GREEN)✅ 停止完了$(NC)"
+
+# サービス状態確認
+dev-status:
+	@echo "$(CYAN)📊 サービス状態$(NC)"
+	@echo "$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
+	@printf "  API Gateway (8080):   "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8080/health 2>/dev/null | \
+		grep -q 200 && echo "$(GREEN)✓ OK$(NC)" || echo "$(RED)✗ DOWN$(NC)"
+	@printf "  Auth Service (18091): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:18091/health 2>/dev/null | \
+		grep -q 200 && echo "$(GREEN)✓ OK$(NC)" || echo "$(RED)✗ DOWN$(NC)"
+	@printf "  User Service (18092): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:18092/health 2>/dev/null | \
+		grep -q 200 && echo "$(GREEN)✓ OK$(NC)" || echo "$(RED)✗ DOWN$(NC)"
+	@printf "  Pet Service (8083):   "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8083/health 2>/dev/null | \
+		grep -q 200 && echo "$(GREEN)✓ OK$(NC)" || echo "$(RED)✗ DOWN$(NC)"
+	@printf "  Match Service (8084): "
+	@curl -s -o /dev/null -w "%{http_code}" http://localhost:8084/health 2>/dev/null | \
+		grep -q 200 && echo "$(GREEN)✓ OK$(NC)" || echo "$(RED)✗ DOWN$(NC)"
+	@echo "$(BLUE)━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(NC)"
+
+# ログ表示
+dev-logs:
+	@echo "$(CYAN)📝 最新ログ (Ctrl+C で終了)$(NC)"
+	@tail -f $(LOG_DIR)/*.log
+
+# クリーンアップ
+dev-clean:
+	@echo "$(YELLOW)🧹 クリーンアップ中...$(NC)"
+	@$(MAKE) -f Makefile.local dev-stop
+	@rm -rf $(LOG_DIR) $(PID_DIR) $(BIN_DIR)
+	@echo "$(GREEN)✅ クリーンアップ完了$(NC)"
+
+# ===========================
+# 内部ヘルパー
+# ===========================
+
+_check-redis:
+	@if nc -z localhost 6379 2>/dev/null; then \
+		echo "$(GREEN)✓ Redis 起動中 (localhost:6379)$(NC)"; \
+	else \
+		echo "$(RED)❌ Redis が起動していません$(NC)"; \
+		echo "$(YELLOW)   起動してください: redis-server$(NC)"; \
+		echo "$(YELLOW)   または: docker run -d -p 6379:6379 redis:7-alpine$(NC)"; \
+		exit 1; \
+	fi
+
+_start-auth:
+	@echo "$(BLUE)  Auth Service ビルド中...$(NC)"
+	@cd services/auth-service && go build -o $(BIN_DIR)/auth-service .
+	@echo "$(BLUE)  Auth Service 起動中... (ポート: 18091)$(NC)"
+	@PORT=18091 $(BIN_DIR)/auth-service > $(LOG_DIR)/auth-service.log 2>&1 & echo $$! > $(PID_DIR)/auth-service.pid
+
+_start-user:
+	@echo "$(BLUE)  User Service ビルド中...$(NC)"
+	@cd services/user-service && go build -o $(BIN_DIR)/user-service .
+	@echo "$(BLUE)  User Service 起動中... (ポート: 18092)$(NC)"
+	@PORT=18092 $(BIN_DIR)/user-service > $(LOG_DIR)/user-service.log 2>&1 & echo $$! > $(PID_DIR)/user-service.pid
+
+_start-pet:
+	@echo "$(BLUE)  Pet Service ビルド中...$(NC)"
+	@cd services/pet-service && go build -o $(BIN_DIR)/pet-service .
+	@echo "$(BLUE)  Pet Service 起動中... (ポート: 8083)$(NC)"
+	@PORT=8083 $(BIN_DIR)/pet-service > $(LOG_DIR)/pet-service.log 2>&1 & echo $$! > $(PID_DIR)/pet-service.pid
+
+_start-match:
+	@echo "$(BLUE)  Match Service ビルド中...$(NC)"
+	@cd services/match-service && go build -o $(BIN_DIR)/match-service .
+	@echo "$(BLUE)  Match Service 起動中... (ポート: 8084)$(NC)"
+	@PORT=8084 $(BIN_DIR)/match-service > $(LOG_DIR)/match-service.log 2>&1 & echo $$! > $(PID_DIR)/match-service.pid
+
+_start-gateway:
+	@echo "$(BLUE)  API Gateway ビルド中...$(NC)"
+	@cd services/api-gateway && go build -o $(BIN_DIR)/api-gateway .
+	@echo "$(BLUE)  API Gateway 起動中... (ポート: 8080)$(NC)"
+	@AUTH_SERVICE_URL=http://localhost:18091 \
+		USER_SERVICE_URL=http://localhost:18092 \
+		PET_SERVICE_URL=http://localhost:8083 \
+		MATCH_SERVICE_URL=http://localhost:8084 \
+		PORT=8080 \
+		$(BIN_DIR)/api-gateway > $(LOG_DIR)/api-gateway.log 2>&1 & echo $$! > $(PID_DIR)/api-gateway.pid
