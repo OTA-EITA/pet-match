@@ -43,9 +43,9 @@ func initializeServices(cfg *config.Config) error {
 		log.Printf("Warning: Failed to setup Redis indexes: %v", err)
 	}
 
-	// Initialize MinIO
+	// Initialize MinIO (optional for development)
 	if err := initMinIO(); err != nil {
-		return err
+		log.Printf("Warning: MinIO not available, image upload will be disabled: %v", err)
 	}
 
 	return nil
@@ -155,27 +155,32 @@ func healthCheckHandler(c *gin.Context) {
 		return
 	}
 
-	// Check MinIO health
+	// Check MinIO health (optional)
+	minioHealthy := true
 	if err := storage.HealthCheck(); err != nil {
-		c.JSON(http.StatusServiceUnavailable, gin.H{
-			"status": "unhealthy",
-			"error":  err.Error(),
-		})
-		return
+		log.Printf("MinIO health check failed: %v", err)
+		minioHealthy = false
 	}
 
-	c.JSON(http.StatusOK, gin.H{
+	response := gin.H{
 		"status":  "healthy",
 		"service": "pet-service",
 		"version": "1.0.0",
 		"features": []string{
 			"pet-crud",
-			"minio-image-upload",
 			"search-filter",
 		},
 		"storage": map[string]string{
 			"database": "redis",
-			"images":   "minio",
 		},
-	})
+	}
+
+	if minioHealthy {
+		response["features"] = append(response["features"].([]string), "minio-image-upload")
+		response["storage"].(map[string]string)["images"] = "minio"
+	} else {
+		response["storage"].(map[string]string)["images"] = "disabled"
+	}
+
+	c.JSON(http.StatusOK, response)
 }
