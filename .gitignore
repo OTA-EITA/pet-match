@@ -173,3 +173,6 @@ junit.xml
 /frontend/web-build/
 /scripts/local/
 /docs/generated/services/match-service/match-service
+.bin/
+.difference
+services/*/match-service
