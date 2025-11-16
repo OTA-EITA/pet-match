@@ -1,0 +1,202 @@
+version: '3.8'
+
+services:
+  # ========================================
+  # Infrastructure Services
+  # ========================================
+  
+  redis:
+    image: redis:7-alpine
+    container_name: onlycats-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --requirepass onlycats123
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_PASSWORD=onlycats123
+    networks:
+      - onlycats-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: onlycats-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=onlycats
+      - POSTGRES_USER=onlycats
+      - POSTGRES_PASSWORD=onlycats123
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - onlycats-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U onlycats"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ========================================
+  # Backend Services
+  # ========================================
+
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth-service/Dockerfile
+    container_name: onlycats-auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      - PORT=8081
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=onlycats123
+      - REDIS_DB=0
+      - JWT_ACCESS_SECRET=dev-access-secret-key-change-in-production
+      - JWT_REFRESH_SECRET=dev-refresh-secret-key-change-in-production
+      - JWT_ACCESS_EXPIRY=15m
+      - JWT_REFRESH_EXPIRY=7d
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
+  user-service:
+    build:
+      context: .
+      dockerfile: services/user-service/Dockerfile
+    container_name: onlycats-user-service
+    ports:
+      - "8082:8082"
+    environment:
+      - PORT=8082
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=onlycats123
+      - REDIS_DB=1
+      - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
+  pet-service:
+    build:
+      context: .
+      dockerfile: services/pet-service/Dockerfile
+    container_name: onlycats-pet-service
+    ports:
+      - "8083:8083"
+    environment:
+      - PORT=8083
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=onlycats123
+      - REDIS_DB=2
+      - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
+  match-service:
+    build:
+      context: .
+      dockerfile: services/match-service/Dockerfile
+    container_name: onlycats-match-service
+    ports:
+      - "8084:8084"
+    environment:
+      - PORT=8084
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=onlycats123
+      - REDIS_DB=3
+      - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
+  api-gateway:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    container_name: onlycats-api-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - PORT=8080
+      - APP_ENV=development
+      - JWT_SECRET=dev-access-secret-key-change-in-production
+      
+      # Service URLs (internal Docker network)
+      - AUTH_SERVICE_URL=http://auth-service:8081
+      - USER_SERVICE_URL=http://user-service:8082
+      - PET_SERVICE_URL=http://pet-service:8083
+      - MATCH_SERVICE_URL=http://match-service:8084
+      
+      # CORS
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+    depends_on:
+      - auth-service
+      - user-service
+      - pet-service
+      - match-service
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
+  # ========================================
+  # Frontend (Optional - can run separately)
+  # ========================================
+
+  # web-app:
+  #   build:
+  #     context: ./web-app
+  #     dockerfile: Dockerfile
+  #   container_name: onlycats-web-app
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - NEXT_PUBLIC_API_URL=http://localhost:8080
+  #     - NEXT_PUBLIC_AUTH_URL=http://localhost:8080
+  #   depends_on:
+  #     - api-gateway
+  #   networks:
+  #     - onlycats-network
+  #   restart: unless-stopped
+
+networks:
+  onlycats-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+  postgres_data:
