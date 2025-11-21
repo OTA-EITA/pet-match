@@ -1,0 +1,344 @@
+basePath: /
+definitions:
+  errors.AppError:
+    properties:
+      code:
+        $ref: '#/definitions/errors.ErrorCode'
+      details: {}
+      message:
+        type: string
+      request_id:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  errors.ErrorCode:
+    enum:
+    - AUTH_INVALID_CREDENTIALS
+    - AUTH_USER_NOT_FOUND
+    - AUTH_USER_ALREADY_EXISTS
+    - AUTH_INVALID_TOKEN
+    - AUTH_TOKEN_EXPIRED
+    - AUTH_UNAUTHORIZED
+    - AUTH_INSUFFICIENT_PERMISSIONS
+    - VALIDATION_FAILED
+    - VALIDATION_INVALID_EMAIL
+    - VALIDATION_INVALID_PASSWORD
+    - VALIDATION_PASSWORD_TOO_WEAK
+    - VALIDATION_INVALID_PHONE
+    - VALIDATION_INVALID_REQUEST_BODY
+    - VALIDATION_REQUIRED_FIELD_MISSING
+    - PET_NOT_FOUND
+    - PET_ALREADY_EXISTS
+    - PET_INVALID_STATUS
+    - PET_NOT_AVAILABLE
+    - USER_PROFILE_NOT_FOUND
+    - USER_UPDATE_FAILED
+    - APPLICATION_NOT_FOUND
+    - APPLICATION_DUPLICATE
+    - APPLICATION_CLOSED
+    - FILE_UPLOAD_FAILED
+    - FILE_TOO_LARGE
+    - FILE_INVALID_TYPE
+    - IMAGE_NOT_FOUND
+    - DATABASE_ERROR
+    - DATABASE_CONNECTION_FAILED
+    - DATABASE_QUERY_FAILED
+    - CACHE_ERROR
+    - CACHE_NOT_FOUND
+    - INTERNAL_SERVER_ERROR
+    - NOT_FOUND
+    - BAD_REQUEST
+    - FORBIDDEN
+    - CONFLICT
+    - RATE_LIMIT_EXCEEDED
+    - SERVICE_UNAVAILABLE
+    type: string
+    x-enum-varnames:
+    - ErrCodeInvalidCredentials
+    - ErrCodeUserNotFound
+    - ErrCodeUserAlreadyExists
+    - ErrCodeInvalidToken
+    - ErrCodeTokenExpired
+    - ErrCodeUnauthorized
+    - ErrCodeInsufficientPermissions
+    - ErrCodeValidationFailed
+    - ErrCodeInvalidEmail
+    - ErrCodeInvalidPassword
+    - ErrCodePasswordTooWeak
+    - ErrCodeInvalidPhoneNumber
+    - ErrCodeInvalidRequestBody
+    - ErrCodeRequiredFieldMissing
+    - ErrCodePetNotFound
+    - ErrCodePetAlreadyExists
+    - ErrCodeInvalidPetStatus
+    - ErrCodePetNotAvailable
+    - ErrCodeUserProfileNotFound
+    - ErrCodeUserUpdateFailed
+    - ErrCodeApplicationNotFound
+    - ErrCodeApplicationDuplicate
+    - ErrCodeApplicationClosed
+    - ErrCodeFileUploadFailed
+    - ErrCodeFileTooLarge
+    - ErrCodeInvalidFileType
+    - ErrCodeImageNotFound
+    - ErrCodeDatabaseError
+    - ErrCodeDatabaseConnectionFailed
+    - ErrCodeDatabaseQueryFailed
+    - ErrCodeCacheError
+    - ErrCodeCacheNotFound
+    - ErrCodeInternalServerError
+    - ErrCodeNotFound
+    - ErrCodeBadRequest
+    - ErrCodeForbidden
+    - ErrCodeConflict
+    - ErrCodeRateLimitExceeded
+    - ErrCodeServiceUnavailable
+  models.UserLoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  models.UserRegisterRequest:
+    properties:
+      address:
+        maxLength: 500
+        type: string
+      email:
+        maxLength: 255
+        type: string
+      name:
+        maxLength: 100
+        minLength: 2
+        type: string
+      password:
+        type: string
+      phone:
+        type: string
+      type:
+        enum:
+        - adopter
+        - shelter
+        - individual
+        type: string
+    required:
+    - email
+    - name
+    - password
+    - type
+    type: object
+host: localhost:8081
+info:
+  contact:
+    email: support@petmatch.com
+    name: PetMatch API Support
+  description: 認証・認可サービスAPI。ユーザー登録、ログイン、トークン管理を提供します。
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: PetMatch Auth Service API
+  version: "1.0"
+paths:
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: メールアドレスとパスワードでログインし、JWTトークンを発行します
+      parameters:
+      - description: ログイン情報
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserLoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Login successful
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: ユーザーログイン
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      consumes:
+      - application/json
+      description: 現在のユーザーをログアウトし、リフレッシュトークンを無効化します
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Logout successful
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - Bearer: []
+      summary: ログアウト
+      tags:
+      - auth
+  /auth/profile:
+    get:
+      consumes:
+      - application/json
+      description: 認証済みユーザーのプロフィール情報を取得します
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User profile
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - Bearer: []
+      summary: プロフィール取得
+      tags:
+      - auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: リフレッシュトークンを使用して新しいアクセストークンを発行します
+      parameters:
+      - description: リフレッシュトークン
+        in: body
+        name: request
+        required: true
+        schema:
+          properties:
+            refresh_token:
+              type: string
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token refreshed successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Invalid request body
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "401":
+          description: Invalid or expired refresh token
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: トークンリフレッシュ
+      tags:
+      - auth
+  /auth/register:
+    post:
+      consumes:
+      - application/json
+      description: 新規ユーザーを登録し、JWTトークンを発行します
+      parameters:
+      - description: 登録情報
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/models.UserRegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered successfully
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Validation error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "409":
+          description: User already exists
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      summary: ユーザー登録
+      tags:
+      - auth
+  /auth/verify:
+    get:
+      consumes:
+      - application/json
+      description: JWTトークンの有効性を検証し、ユーザー情報を返します
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Token is valid
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized or invalid token
+          schema:
+            $ref: '#/definitions/errors.AppError'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/errors.AppError'
+      security:
+      - Bearer: []
+      summary: トークン検証
+      tags:
+      - auth
+securityDefinitions:
+  Bearer:
+    description: Type "Bearer" followed by a space and JWT token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

@@ -26,6 +26,17 @@ func NewAuthHandler(authService *services.AuthService, cfg *config.Config) *Auth
 }
 
 // Register handles user registration
+// @Summary      ユーザー登録
+// @Description  新規ユーザーを登録し、JWTトークンを発行します
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body models.UserRegisterRequest true "登録情報"
+// @Success      201 {object} map[string]interface{} "User registered successfully"
+// @Failure      400 {object} errors.AppError "Validation error"
+// @Failure      409 {object} errors.AppError "User already exists"
+// @Failure      500 {object} errors.AppError "Internal server error"
+// @Router       /auth/register [post]
 func (h *AuthHandler) Register(c *gin.Context) {
 	var req models.UserRegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -66,6 +77,17 @@ func (h *AuthHandler) Register(c *gin.Context) {
 }
 
 // Login handles user login
+// @Summary      ユーザーログイン
+// @Description  メールアドレスとパスワードでログインし、JWTトークンを発行します
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body models.UserLoginRequest true "ログイン情報"
+// @Success      200 {object} map[string]interface{} "Login successful"
+// @Failure      400 {object} errors.AppError "Invalid request body"
+// @Failure      401 {object} errors.AppError "Invalid credentials"
+// @Failure      500 {object} errors.AppError "Internal server error"
+// @Router       /auth/login [post]
 func (h *AuthHandler) Login(c *gin.Context) {
 	var req models.UserLoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -89,6 +111,17 @@ func (h *AuthHandler) Login(c *gin.Context) {
 }
 
 // RefreshToken handles token refresh
+// @Summary      トークンリフレッシュ
+// @Description  リフレッシュトークンを使用して新しいアクセストークンを発行します
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Param        request body object{refresh_token=string} true "リフレッシュトークン"
+// @Success      200 {object} map[string]interface{} "Token refreshed successfully"
+// @Failure      400 {object} errors.AppError "Invalid request body"
+// @Failure      401 {object} errors.AppError "Invalid or expired refresh token"
+// @Failure      500 {object} errors.AppError "Internal server error"
+// @Router       /auth/refresh [post]
 func (h *AuthHandler) RefreshToken(c *gin.Context) {
 	var req struct {
 		RefreshToken string `json:"refresh_token" binding:"required"`
@@ -117,6 +150,16 @@ func (h *AuthHandler) RefreshToken(c *gin.Context) {
 }
 
 // Logout handles user logout
+// @Summary      ログアウト
+// @Description  現在のユーザーをログアウトし、リフレッシュトークンを無効化します
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     Bearer
+// @Success      200 {object} map[string]interface{} "Logout successful"
+// @Failure      401 {object} errors.AppError "Unauthorized"
+// @Failure      500 {object} errors.AppError "Internal server error"
+// @Router       /auth/logout [post]
 func (h *AuthHandler) Logout(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -134,6 +177,17 @@ func (h *AuthHandler) Logout(c *gin.Context) {
 }
 
 // GetProfile returns user profile
+// @Summary      プロフィール取得
+// @Description  認証済みユーザーのプロフィール情報を取得します
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     Bearer
+// @Success      200 {object} map[string]interface{} "User profile"
+// @Failure      401 {object} errors.AppError "Unauthorized"
+// @Failure      404 {object} errors.AppError "User not found"
+// @Failure      500 {object} errors.AppError "Internal server error"
+// @Router       /auth/profile [get]
 func (h *AuthHandler) GetProfile(c *gin.Context) {
 	userID := c.GetString("user_id")
 	if userID == "" {
@@ -154,6 +208,16 @@ func (h *AuthHandler) GetProfile(c *gin.Context) {
 }
 
 // VerifyToken verifies the current token and returns user info
+// @Summary      トークン検証
+// @Description  JWTトークンの有効性を検証し、ユーザー情報を返します
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     Bearer
+// @Success      200 {object} map[string]interface{} "Token is valid"
+// @Failure      401 {object} errors.AppError "Unauthorized or invalid token"
+// @Failure      500 {object} errors.AppError "Internal server error"
+// @Router       /auth/verify [get]
 func (h *AuthHandler) VerifyToken(c *gin.Context) {
 	userID := c.GetString("user_id")
 	userType := c.GetString("user_type")

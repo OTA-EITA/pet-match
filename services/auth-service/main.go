@@ -6,7 +6,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 
+	_ "github.com/petmatch/app/services/auth-service/docs"
 	"github.com/petmatch/app/services/auth-service/handlers"
 	"github.com/petmatch/app/services/auth-service/services"
 	"github.com/petmatch/app/shared/config"
@@ -15,6 +18,25 @@ import (
 	"github.com/petmatch/app/shared/utils"
 	customValidator "github.com/petmatch/app/shared/validator"
 )
+
+// @title           PetMatch Auth Service API
+// @version         1.0
+// @description     認証・認可サービスAPI。ユーザー登録、ログイン、トークン管理を提供します。
+// @termsOfService  http://swagger.io/terms/
+
+// @contact.name   PetMatch API Support
+// @contact.email  support@petmatch.com
+
+// @license.name  Apache 2.0
+// @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host      localhost:8081
+// @BasePath  /
+
+// @securityDefinitions.apikey Bearer
+// @in header
+// @name Authorization
+// @description Type "Bearer" followed by a space and JWT token.
 
 func main() {
 	// Load configuration
@@ -68,6 +90,9 @@ func main() {
 	router.Use(middleware.ErrorHandlerMiddleware())
 	router.Use(middleware.CORSMiddleware())
 	router.Use(middleware.StructuredLoggingMiddleware())
+
+	// Swagger documentation
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Health check
 	router.GET("/health", func(c *gin.Context) {

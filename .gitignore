@@ -176,3 +176,4 @@ junit.xml
 .bin/
 .difference
 services/*/match-service
+services/auth-service/auth-service
