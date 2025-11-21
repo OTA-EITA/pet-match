@@ -48,8 +48,11 @@ export interface RegisterRequest {
 }
 
 export interface AuthResponse {
-  access_token: string;
-  refresh_token: string;
+  tokens: {
+    access_token: string;
+    refresh_token: string;
+    expires_in: number;
+  };
   user: User;
 }
 
@@ -65,7 +68,7 @@ export const authApi = {
   async register(data: RegisterRequest): Promise<AuthResponse> {
     try {
       const response = await authClient.post<AuthResponse>('/auth/register', data);
-      await this.saveTokens(response.data.access_token, response.data.refresh_token);
+      await this.saveTokens(response.data.tokens.access_token, response.data.tokens.refresh_token);
       await this.saveUser(response.data.user);
       return response.data;
     } catch (error) {
@@ -78,7 +81,7 @@ export const authApi = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     try {
       const response = await authClient.post<AuthResponse>('/auth/login', data);
-      await this.saveTokens(response.data.access_token, response.data.refresh_token);
+      await this.saveTokens(response.data.tokens.access_token, response.data.tokens.refresh_token);
       await this.saveUser(response.data.user);
       return response.data;
     } catch (error) {
