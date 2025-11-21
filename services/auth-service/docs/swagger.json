@@ -1,7 +1,7 @@
 {
     "swagger": "2.0",
     "info": {
-        "description": "認証・認可サービスAPI。ユーザー登録、ログイン、トークン管理を提供します。",
+        "description": "認証・認可サービスAPI。ユーザー登録、ログイン、トークン管理を提供します。\n\n**APIバージョニング**:\n- 推奨: `/api/v1/auth/*` (新規実装はこちらを使用)\n- レガシー: `/auth/*` (2025年6月1日に廃止予定)\n\nすべてのレスポンスヘッダーに `X-API-Version: v1` が含まれます。",
         "title": "PetMatch Auth Service API",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
@@ -15,7 +15,7 @@
         "version": "1.0"
     },
     "host": "localhost:8081",
-    "basePath": "/",
+    "basePath": "/api/v1",
     "paths": {
         "/auth/login": {
             "post": {

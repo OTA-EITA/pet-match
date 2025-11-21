@@ -1,4 +1,4 @@
-basePath: /
+basePath: /api/v1
 definitions:
   errors.AppError:
     properties:
@@ -137,7 +137,14 @@ info:
   contact:
     email: support@petmatch.com
     name: PetMatch API Support
-  description: 認証・認可サービスAPI。ユーザー登録、ログイン、トークン管理を提供します。
+  description: |-
+    認証・認可サービスAPI。ユーザー登録、ログイン、トークン管理を提供します。
+
+    **APIバージョニング**:
+    - 推奨: `/api/v1/auth/*` (新規実装はこちらを使用)
+    - レガシー: `/auth/*` (2025年6月1日に廃止予定)
+
+    すべてのレスポンスヘッダーに `X-API-Version: v1` が含まれます。
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html

@@ -489,10 +489,10 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8081",
-	BasePath:         "/",
+	BasePath:         "/api/v1",
 	Schemes:          []string{},
 	Title:            "PetMatch Auth Service API",
-	Description:      "認証・認可サービスAPI。ユーザー登録、ログイン、トークン管理を提供します。",
+	Description:      "認証・認可サービスAPI。ユーザー登録、ログイン、トークン管理を提供します。\n\n**APIバージョニング**:\n- 推奨: `/api/v1/auth/*` (新規実装はこちらを使用)\n- レガシー: `/auth/*` (2025年6月1日に廃止予定)\n\nすべてのレスポンスヘッダーに `X-API-Version: v1` が含まれます。",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

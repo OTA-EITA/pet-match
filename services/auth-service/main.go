@@ -22,6 +22,12 @@ import (
 // @title           PetMatch Auth Service API
 // @version         1.0
 // @description     認証・認可サービスAPI。ユーザー登録、ログイン、トークン管理を提供します。
+// @description
+// @description     **APIバージョニング**:
+// @description     - 推奨: `/api/v1/auth/*` (新規実装はこちらを使用)
+// @description     - レガシー: `/auth/*` (2025年6月1日に廃止予定)
+// @description
+// @description     すべてのレスポンスヘッダーに `X-API-Version: v1` が含まれます。
 // @termsOfService  http://swagger.io/terms/
 
 // @contact.name   PetMatch API Support
@@ -31,7 +37,7 @@ import (
 // @license.url   http://www.apache.org/licenses/LICENSE-2.0.html
 
 // @host      localhost:8081
-// @BasePath  /
+// @BasePath  /api/v1
 
 // @securityDefinitions.apikey Bearer
 // @in header
@@ -91,27 +97,52 @@ func main() {
 	router.Use(middleware.CORSMiddleware())
 	router.Use(middleware.StructuredLoggingMiddleware())
 
+	// Middleware to add API version header
+	router.Use(func(c *gin.Context) {
+		c.Header("X-API-Version", "v1")
+		c.Next()
+	})
+
 	// Swagger documentation
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
-	// Health check
+	// Health check (no versioning for health endpoints)
 	router.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok", "service": "auth-service"})
+		c.JSON(200, gin.H{"status": "ok", "service": "auth-service", "version": "v1"})
 	})
 
 	router.GET("/ready", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ready", "service": "auth-service"})
+		c.JSON(200, gin.H{"status": "ready", "service": "auth-service", "version": "v1"})
 	})
 
-	// Auth routes
-	authGroup := router.Group("/auth")
+	// API v1 routes
+	v1 := router.Group("/api/v1")
 	{
-		authGroup.POST("/register", authHandler.Register)
-		authGroup.POST("/login", authHandler.Login)
-		authGroup.POST("/refresh", authHandler.RefreshToken)
-		authGroup.POST("/logout", middleware.AuthMiddleware(cfg), authHandler.Logout)
-		authGroup.GET("/profile", middleware.AuthMiddleware(cfg), authHandler.GetProfile)
-		authGroup.GET("/verify", middleware.AuthMiddleware(cfg), authHandler.VerifyToken) // トークン検証エンドポイントを追加
+		authGroup := v1.Group("/auth")
+		{
+			authGroup.POST("/register", authHandler.Register)
+			authGroup.POST("/login", authHandler.Login)
+			authGroup.POST("/refresh", authHandler.RefreshToken)
+			authGroup.POST("/logout", middleware.AuthMiddleware(cfg), authHandler.Logout)
+			authGroup.GET("/profile", middleware.AuthMiddleware(cfg), authHandler.GetProfile)
+			authGroup.GET("/verify", middleware.AuthMiddleware(cfg), authHandler.VerifyToken)
+		}
+	}
+
+	// Legacy routes (backward compatibility) - will be deprecated
+	legacyAuth := router.Group("/auth")
+	{
+		legacyAuth.Use(func(c *gin.Context) {
+			c.Header("Deprecation", "true")
+			c.Header("Sunset", "Sun, 01 Jun 2025 00:00:00 GMT")
+			c.Next()
+		})
+		legacyAuth.POST("/register", authHandler.Register)
+		legacyAuth.POST("/login", authHandler.Login)
+		legacyAuth.POST("/refresh", authHandler.RefreshToken)
+		legacyAuth.POST("/logout", middleware.AuthMiddleware(cfg), authHandler.Logout)
+		legacyAuth.GET("/profile", middleware.AuthMiddleware(cfg), authHandler.GetProfile)
+		legacyAuth.GET("/verify", middleware.AuthMiddleware(cfg), authHandler.VerifyToken)
 	}
 
 	// 404 handler
