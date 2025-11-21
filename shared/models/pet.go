@@ -11,41 +11,46 @@ import (
 
 // Pet represents a pet in the system
 type Pet struct {
-	ID          string      `json:"id" redis:"id"`
-	Name        string      `json:"name" redis:"name"`
-	Species     string      `json:"species" redis:"species"` // dog, cat, bird, etc.
-	Breed       string      `json:"breed" redis:"breed"`
-	AgeInfo     AgeInfo     `json:"age_info" redis:"age_info"` // 詳細な年齢情報
-	Gender      string      `json:"gender" redis:"gender"` // male, female, unknown
-	Size        string      `json:"size" redis:"size"`     // small, medium, large
-	Color       string      `json:"color" redis:"color"`
-	Personality []string    `json:"personality" redis:"personality"`
-	MedicalInfo MedicalInfo `json:"medical_info" redis:"medical_info"`
-	OwnerID     string      `json:"owner_id" redis:"owner_id"`
-	Status      string      `json:"status" redis:"status"`     // available, pending, adopted
-	Location    string      `json:"location" redis:"location"` // "lat,lng"
-	Images      []string    `json:"images" redis:"images"`
-	Description string      `json:"description" redis:"description"`
-	CreatedAt   time.Time   `json:"created_at" redis:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at" redis:"updated_at"`
+	ID          string      `json:"id" redis:"id" gorm:"type:uuid;primaryKey"`
+	Name        string      `json:"name" redis:"name" gorm:"type:varchar(255);not null"`
+	Species     string      `json:"species" redis:"species" gorm:"type:varchar(50);not null;index"` // dog, cat, bird, etc.
+	Breed       string      `json:"breed" redis:"breed" gorm:"type:varchar(255);index"`
+	AgeInfo     AgeInfo     `json:"age_info" redis:"age_info" gorm:"embedded;embeddedPrefix:age_"` // 詳細な年齢情報
+	Gender      string      `json:"gender" redis:"gender" gorm:"type:varchar(20);index"` // male, female, unknown
+	Size        string      `json:"size" redis:"size" gorm:"type:varchar(50);index"`     // small, medium, large
+	Color       string      `json:"color" redis:"color" gorm:"type:varchar(100)"`
+	Personality []string    `json:"personality" redis:"personality" gorm:"type:text[];serializer:json"`
+	MedicalInfo MedicalInfo `json:"medical_info" redis:"medical_info" gorm:"type:jsonb;serializer:json"`
+	OwnerID     string      `json:"owner_id" redis:"owner_id" gorm:"type:varchar(255);not null;index"`
+	Status      string      `json:"status" redis:"status" gorm:"type:varchar(50);not null;default:'available';index"`     // available, pending, adopted
+	Location    string      `json:"location" redis:"location" gorm:"type:varchar(255)"` // "lat,lng"
+	Images      []string    `json:"images" redis:"images" gorm:"type:text[];serializer:json"`
+	Description string      `json:"description" redis:"description" gorm:"type:text"`
+	CreatedAt   time.Time   `json:"created_at" redis:"created_at" gorm:"not null;autoCreateTime"`
+	UpdatedAt   time.Time   `json:"updated_at" redis:"updated_at" gorm:"not null;autoUpdateTime"`
+}
+
+// TableName overrides the table name for GORM
+func (Pet) TableName() string {
+	return "pets"
 }
 
 // AgeInfo represents detailed age information for pets
 type AgeInfo struct {
-	Years       int    `json:"years"`         // 年 (既存のageと同じ)
-	Months      int    `json:"months"`        // 追加の月数 (0-11)
-	TotalMonths int    `json:"total_months"`  // 総月齢
-	IsEstimated bool   `json:"is_estimated"`  // 推定年齢フラグ
-	AgeText     string `json:"age_text"`      // "4歳2ヶ月" 等の表示用
+	Years       int    `json:"years" gorm:"column:years;not null;default:0"`         // 年 (既存のageと同じ)
+	Months      int    `json:"months" gorm:"column:months;not null;default:0"`        // 追加の月数 (0-11)
+	TotalMonths int    `json:"total_months" gorm:"column:total_months;not null;default:0"`  // 総月齢
+	IsEstimated bool   `json:"is_estimated" gorm:"column:is_estimated;not null;default:false"`  // 推定年齢フラグ
+	AgeText     string `json:"age_text" gorm:"column:text;type:varchar(100)"`      // "4歳2ヶ月" 等の表示用
 }
 
 // MedicalInfo represents pet medical information
 type MedicalInfo struct {
-	Vaccinated   bool     `json:"vaccinated" redis:"vaccinated"`
-	Neutered     bool     `json:"neutered" redis:"neutered"`
-	HealthIssues []string `json:"health_issues" redis:"health_issues"`
-	LastCheckup  string   `json:"last_checkup" redis:"last_checkup"`
-	Medications  []string `json:"medications" redis:"medications"`
+	Vaccinated   bool     `json:"vaccinated"`
+	Neutered     bool     `json:"neutered"`
+	HealthIssues []string `json:"health_issues"`
+	LastCheckup  string   `json:"last_checkup"`
+	Medications  []string `json:"medications"`
 }
 
 // CalculateAgeInfo creates detailed age information from years and additional months

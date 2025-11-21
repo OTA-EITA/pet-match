@@ -11,6 +11,7 @@ import (
 	"github.com/petmatch/app/services/pet-service/middleware"
 	"github.com/petmatch/app/services/pet-service/storage"
 	"github.com/petmatch/app/shared/config"
+	"github.com/petmatch/app/shared/database"
 	sharedMiddleware "github.com/petmatch/app/shared/middleware"
 	"github.com/petmatch/app/shared/utils"
 )
@@ -33,7 +34,17 @@ func main() {
 }
 
 func initializeServices(cfg *config.Config) error {
-	// Initialize Redis
+	// Initialize PostgreSQL
+	if err := database.InitPostgreSQL(); err != nil {
+		return err
+	}
+
+	// Run database migrations
+	if err := database.AutoMigrate(); err != nil {
+		return err
+	}
+
+	// Initialize Redis (cache layer)
 	if err := utils.InitRedis(cfg); err != nil {
 		return err
 	}
@@ -166,6 +177,15 @@ func setupPetRoutes(r gin.IRouter, cfg *config.Config) {
 }
 
 func healthCheckHandler(c *gin.Context) {
+	// Check PostgreSQL health
+	if err := database.HealthCheck(); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status": "unhealthy",
+			"error":  err.Error(),
+		})
+		return
+	}
+
 	// Check Redis health
 	if err := utils.HealthCheck(); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
@@ -191,7 +211,8 @@ func healthCheckHandler(c *gin.Context) {
 			"search-filter",
 		},
 		"storage": map[string]string{
-			"database": "redis",
+			"database": "postgresql",
+			"cache":    "redis",
 		},
 	}
 

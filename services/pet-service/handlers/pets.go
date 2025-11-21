@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/petmatch/app/services/pet-service/repository"
 	"github.com/petmatch/app/shared/models"
 	"github.com/petmatch/app/shared/utils"
 )
@@ -19,18 +20,22 @@ var petCtx = context.Background()
 
 // isTestEnvironment checks if we're running in a test environment
 func isTestEnvironment() bool {
-	return os.Getenv("GO_ENV") == "test" || 
-		   (len(os.Args) > 0 && 
-		    (os.Args[0] == "/tmp/go-build" || 
+	return os.Getenv("GO_ENV") == "test" ||
+		   (len(os.Args) > 0 &&
+		    (os.Args[0] == "/tmp/go-build" ||
 		     os.Args[0] == "/_test/"))
 }
 
 // PetHandler handles pet-related operations
-type PetHandler struct{}
+type PetHandler struct {
+	repo *repository.PetRepository
+}
 
 // NewPetHandler creates a new pet handler
 func NewPetHandler() *PetHandler {
-	return &PetHandler{}
+	return &PetHandler{
+		repo: repository.NewPetRepository(),
+	}
 }
 
 // GetPets handles GET /pets
@@ -38,19 +43,27 @@ func (h *PetHandler) GetPets(c *gin.Context) {
 	// Parse query parameters
 	params := parsePetSearchParams(c)
 
-	// Fetch and filter pets
-	pets, err := fetchAndFilterPets(params)
+	// Use repository to fetch pets
+	pets, total, err := h.repo.List(repository.ListParams{
+		Species:  params.Species,
+		Breed:    params.Breed,
+		Gender:   params.Gender,
+		Size:     params.Size,
+		Status:   "available",
+		OwnerID:  params.OwnerID,
+		AgeMin:   params.AgeMin,
+		AgeMax:   params.AgeMax,
+		Limit:    params.Limit,
+		Offset:   params.Offset,
+	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch pets"})
 		return
 	}
 
-	// Apply pagination
-	result := applyPagination(pets, params.Offset, params.Limit)
-
 	c.JSON(http.StatusOK, gin.H{
-		"pets":   result,
-		"total":  len(pets),
+		"pets":   pets,
+		"total":  total,
 		"limit":  params.Limit,
 		"offset": params.Offset,
 	})
@@ -194,23 +207,11 @@ func applyPagination(pets []models.Pet, offset, limit int) []models.Pet {
 
 // GetPet handles GET /pets/:id
 func (h *PetHandler) GetPet(c *gin.Context) {
-	if utils.RedisClient == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection not available"})
-		return
-	}
-	
 	petID := c.Param("id")
-	key := utils.GetRedisKey("pet", petID)
 
-	petJSON, err := utils.RedisClient.Get(petCtx, key).Result()
+	pet, err := h.repo.GetByID(petID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Pet not found"})
-		return
-	}
-
-	var pet models.Pet
-	if err := json.Unmarshal([]byte(petJSON), &pet); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to parse pet data"})
 		return
 	}
 
@@ -234,8 +235,8 @@ func (h *PetHandler) CreatePet(c *gin.Context) {
 	// Create new pet
 	pet := createNewPetFromRequest(req, userID.(string))
 
-	// Save to Redis
-	if err := savePetToRedis(pet); err != nil {
+	// Save to database (dual-write: PostgreSQL + Redis)
+	if err := h.repo.Create(pet); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save pet"})
 		return
 	}
@@ -298,7 +299,7 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 	userID, _ := c.Get("user_id")
 
 	// Get existing pet
-	pet, err := getPetByID(petID)
+	pet, err := h.repo.GetByID(petID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Pet not found"})
 		return
@@ -319,8 +320,8 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 	// Update pet
 	updatePetFromRequest(pet, req)
 
-	// Save to Redis
-	if err := savePetToRedis(pet); err != nil {
+	// Save to database (write-through: update DB, invalidate cache)
+	if err := h.repo.Update(pet); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update pet"})
 		return
 	}
@@ -373,16 +374,11 @@ func updatePetFromRequest(pet *models.Pet, req models.PetCreateRequest) {
 
 // DeletePet handles DELETE /pets/:id
 func (h *PetHandler) DeletePet(c *gin.Context) {
-	if utils.RedisClient == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection not available"})
-		return
-	}
-	
 	petID := c.Param("id")
 	userID, _ := c.Get("user_id")
 
 	// Get existing pet
-	pet, err := getPetByID(petID)
+	pet, err := h.repo.GetByID(petID)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Pet not found"})
 		return
@@ -394,9 +390,8 @@ func (h *PetHandler) DeletePet(c *gin.Context) {
 		return
 	}
 
-	// Delete from Redis
-	key := utils.GetRedisKey("pet", petID)
-	if err := utils.RedisClient.Del(petCtx, key).Err(); err != nil {
+	// Delete from database (removes from DB and cache)
+	if err := h.repo.Delete(petID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to delete pet"})
 		return
 	}
