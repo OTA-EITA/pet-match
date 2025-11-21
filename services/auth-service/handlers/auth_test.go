@@ -1,10 +1,6 @@
 package handlers
 
 import (
-	"bytes"
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -73,7 +69,7 @@ func TestUserRegisterRequest_Validation(t *testing.T) {
 				Type:     "adopter",
 			},
 			shouldErr: true,
-			errorMsg:  "email",
+			errorMsg:  "Email",
 		},
 		{
 			name: "Missing password",
@@ -83,7 +79,7 @@ func TestUserRegisterRequest_Validation(t *testing.T) {
 				Type:  "adopter",
 			},
 			shouldErr: true,
-			errorMsg:  "password",
+			errorMsg:  "Password",
 		},
 		{
 			name: "Missing name",
@@ -93,7 +89,7 @@ func TestUserRegisterRequest_Validation(t *testing.T) {
 				Type:     "adopter",
 			},
 			shouldErr: true,
-			errorMsg:  "name",
+			errorMsg:  "Name",
 		},
 		{
 			name: "Invalid user type",
@@ -104,7 +100,7 @@ func TestUserRegisterRequest_Validation(t *testing.T) {
 				Type:     "invalid",
 			},
 			shouldErr: true,
-			errorMsg:  "type",
+			errorMsg:  "Type",
 		},
 		{
 			name: "Name too short",
@@ -115,7 +111,7 @@ func TestUserRegisterRequest_Validation(t *testing.T) {
 				Type:     "adopter",
 			},
 			shouldErr: true,
-			errorMsg:  "name",
+			errorMsg:  "Name",
 		},
 		{
 			name: "Valid with optional phone",
@@ -148,44 +144,45 @@ func TestUserRegisterRequest_Validation(t *testing.T) {
 	}
 }
 
-// TestValidationErrorMessage tests the getValidationErrorMessage function
+// TestGetValidationErrorMessage tests that validation errors are properly reported
 func TestGetValidationErrorMessage(t *testing.T) {
-	// This would require exposing getValidationErrorMessage or testing it indirectly
-	// For now, we'll test the actual validator behavior
+	// Test that validator properly reports errors for invalid data
+	validate := binding.Validator.Engine().(*validator.Validate)
 
 	testCases := []struct {
 		name      string
-		reqBody   map[string]interface{}
-		checkFunc func(*testing.T, *httptest.ResponseRecorder)
+		reqBody   models.UserRegisterRequest
+		shouldErr bool
 	}{
 		{
 			name: "Missing required field",
-			reqBody: map[string]interface{}{
-				"password": "Test@1234",
-				"name":     "Test User",
-				"type":     "adopter",
+			reqBody: models.UserRegisterRequest{
+				Password: "Test@1234",
+				Name:     "Test User",
+				Type:     "adopter",
 			},
-			checkFunc: func(t *testing.T, w *httptest.ResponseRecorder) {
-				assert.Equal(t, http.StatusBadRequest, w.Code)
+			shouldErr: true,
+		},
+		{
+			name: "All fields valid",
+			reqBody: models.UserRegisterRequest{
+				Email:    "test@example.com",
+				Password: "Test@1234",
+				Name:     "Test User",
+				Type:     "adopter",
 			},
+			shouldErr: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			jsonBody, _ := json.Marshal(tc.reqBody)
-			req := httptest.NewRequest(http.MethodPost, "/test", bytes.NewBuffer(jsonBody))
-			req.Header.Set("Content-Type", "application/json")
-			w := httptest.NewRecorder()
+			err := validate.Struct(tc.reqBody)
 
-			c, _ := gin.CreateTestContext(w)
-			c.Request = req
-
-			var model models.UserRegisterRequest
-			err := c.ShouldBindJSON(&model)
-
-			if err != nil {
-				tc.checkFunc(t, w)
+			if tc.shouldErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
 			}
 		})
 	}
