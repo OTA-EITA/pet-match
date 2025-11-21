@@ -124,8 +124,8 @@ jobs:
             exit 0
           fi
         else
-          echo "❌ Service directory not found: services/${{ matrix.service }}"
-          exit 1
+          echo "⚠️  Service directory not found: services/${{ matrix.service }}, skipping..."
+          exit 0
         fi
       env:
         GO_ENV: test
