@@ -247,7 +247,7 @@ port-check:
 
 pid-cleanup:
 	@echo "$(YELLOW)PIDファイルクリーンアップ中...$(NC)"
-	@rm -f .pet-service.pid .auth-service.pid .user-service.pid .match-service.pid .api-gateway.pid .docs-service.pid 2>/dev/null || true
+	@rm -f .pet-service.pid .auth-service.pid .user-service.pid .match-service.pid .api-gateway.pid 2>/dev/null || true
 	@echo "$(GREEN)PIDファイルクリーンアップ完了$(NC)"
 
 clean:
@@ -284,8 +284,6 @@ _start-port-forwards:
 	echo $$! > .match-service.pid && echo "  Match Service: 8084"
 	@kubectl port-forward service/api-gateway 8080:8080 -n petmatch >/dev/null 2>&1 & \
 	echo $$! > .api-gateway.pid && echo "  API Gateway: 8080"
-	@kubectl port-forward service/docs-service 8090:8090 -n petmatch >/dev/null 2>&1 & \
-	echo $$! > .docs-service.pid && echo "  Docs Service: 8090"
 	@sleep 3
 
 _stop-port-forwards:
@@ -310,10 +308,6 @@ _stop-port-forwards:
 		kill $$(cat .api-gateway.pid) 2>/dev/null || true; \
 		echo "$(GREEN)API Gateway ポートフォワード停止$(NC)"; \
 	fi
-	@if [ -f .docs-service.pid ]; then \
-		kill $$(cat .docs-service.pid) 2>/dev/null || true; \
-		echo "$(GREEN)Docs Service ポートフォワード停止$(NC)"; \
-	fi
 	@pkill -f "kubectl port-forward.*petmatch" 2>/dev/null || true
 
 _health-check-services:
@@ -327,17 +321,15 @@ _health-check-services:
 	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8084/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
 	@printf "API Gateway (8080): "
 	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8080/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
-	@printf "Docs Service (8090): "
-	@curl -s -o /dev/null -w "$(GREEN)Status %{http_code}$(NC)\n" "http://localhost:8090/health" 2>/dev/null || echo "$(RED)FAIL$(NC)"
 
 _show-access-info:
 	@echo ""
 	@echo "$(WHITE)アクセス情報:$(NC)"
 	@echo "Pet Service: http://localhost:8083"
 	@echo "Auth Service: http://localhost:18091"
+	@echo "  └─ Swagger UI: http://localhost:18091/swagger/index.html"
 	@echo "User Service: http://localhost:18092"
 	@echo "Match Service: http://localhost:8084"
 	@echo "API Gateway: http://localhost:8080"
-	@echo "Docs Service: http://localhost:8090"
 	@echo ""
 	@echo "停止方法: make stop"
