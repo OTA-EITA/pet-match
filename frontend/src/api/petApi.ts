@@ -7,12 +7,12 @@ import { authApi } from './authApi';
 const getApiBaseUrl = () => {
   if (__DEV__) {
     if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:18081/api/v1';
+      return 'http://10.0.2.2:18081/api';
     }
     // iOS Simulatorまたは実機の場合
-    return 'http://192.168.3.22:18081/api/v1';
+    return 'http://192.168.3.22:18081/api';
   }
-  return 'https://api.petmatch.example.com/api/v1';
+  return 'https://api.petmatch.example.com/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
