@@ -194,57 +194,38 @@ func main() {
 			Species: "cat",
 			Limit: 5,
 		}
-		
+
 		// Call search service directly
 		response, err := searchService.SearchCats(c.Request.Context(), testQuery)
 		if err != nil {
 			c.JSON(500, gin.H{"error": "Search failed", "details": err.Error()})
 			return
 		}
-		
+
 		c.JSON(200, response)
 	})
 
-	// Search routes (public)
-	searchGroup := router.Group("/search")
+	// Add API version header
+	router.Use(func(c *gin.Context) {
+		c.Header("X-API-Version", "v1")
+		c.Next()
+	})
+
+	// API v1 routes
+	v1 := router.Group("/api/v1")
 	{
-		searchGroup.GET("/cats", searchHandler.SearchCats)
-		searchGroup.GET("/cats/:id", searchHandler.GetCatByID)
+		setupMatchRoutes(v1, cfg, searchHandler, suggestionHandler, applicationHandler, favoritesHandler, preferencesHandler)
 	}
 
-	// Suggestion routes (public)
-	suggestionsGroup := router.Group("/suggestions")
+	// Legacy routes (backward compatibility)
+	legacy := router.Group("")
+	legacy.Use(func(c *gin.Context) {
+		c.Header("Deprecation", "true")
+		c.Header("Sunset", "Sun, 01 Jun 2025 00:00:00 GMT")
+		c.Next()
+	})
 	{
-		suggestionsGroup.GET("/similar/:cat_id", suggestionHandler.GetSimilarCats)
-		suggestionsGroup.GET("/nearby", suggestionHandler.GetNearbyCats)
-		suggestionsGroup.GET("/new", suggestionHandler.GetNewCats)
-	}
-
-	// Application routes (requires authentication)
-	applicationsGroup := router.Group("/applications")
-	applicationsGroup.Use(middleware.AuthMiddleware(cfg))
-	{
-		applicationsGroup.POST("", applicationHandler.CreateApplication)
-		applicationsGroup.GET("", applicationHandler.GetUserApplications)
-		applicationsGroup.GET("/stats", applicationHandler.GetApplicationStatusCounts)
-		applicationsGroup.GET("/:id", applicationHandler.GetApplication)
-		applicationsGroup.PUT("/:id/status", applicationHandler.UpdateApplicationStatus)
-		applicationsGroup.DELETE("/:id", applicationHandler.CancelApplication)
-	}
-
-	// Favorites and Preferences routes (requires authentication)
-	matchGroup := router.Group("/matches")
-	matchGroup.Use(middleware.AuthMiddleware(cfg))
-	{
-		// Favorites endpoints
-		matchGroup.POST("/favorites", favoritesHandler.AddFavorite)
-		matchGroup.GET("/favorites", favoritesHandler.GetFavorites)
-		matchGroup.DELETE("/favorites/:pet_id", favoritesHandler.RemoveFavorite)
-		
-		// Preferences endpoints
-		matchGroup.POST("/preferences", preferencesHandler.SetPreferences)
-		matchGroup.GET("/preferences", preferencesHandler.GetPreferences)
-		matchGroup.PUT("/preferences", preferencesHandler.UpdatePreferences)
+		setupMatchRoutes(legacy, cfg, searchHandler, suggestionHandler, applicationHandler, favoritesHandler, preferencesHandler)
 	}
 
 	// Start server
@@ -256,5 +237,49 @@ func main() {
 	log.Printf("Match service starting on port %s", port)
 	if err := router.Run(":" + port); err != nil {
 		log.Fatal("Failed to start server:", err)
+	}
+}
+
+func setupMatchRoutes(r gin.IRouter, cfg *config.Config, searchHandler *handlers.SearchHandler, suggestionHandler *handlers.SuggestionHandler, applicationHandler *handlers.ApplicationHandler, favoritesHandler *handlers.FavoritesHandler, preferencesHandler *handlers.PreferencesHandler) {
+	// Search routes (public)
+	searchGroup := r.Group("/search")
+	{
+		searchGroup.GET("/cats", searchHandler.SearchCats)
+		searchGroup.GET("/cats/:id", searchHandler.GetCatByID)
+	}
+
+	// Suggestion routes (public)
+	suggestionsGroup := r.Group("/suggestions")
+	{
+		suggestionsGroup.GET("/similar/:cat_id", suggestionHandler.GetSimilarCats)
+		suggestionsGroup.GET("/nearby", suggestionHandler.GetNearbyCats)
+		suggestionsGroup.GET("/new", suggestionHandler.GetNewCats)
+	}
+
+	// Application routes (requires authentication)
+	applicationsGroup := r.Group("/applications")
+	applicationsGroup.Use(middleware.AuthMiddleware(cfg))
+	{
+		applicationsGroup.POST("", applicationHandler.CreateApplication)
+		applicationsGroup.GET("", applicationHandler.GetUserApplications)
+		applicationsGroup.GET("/stats", applicationHandler.GetApplicationStatusCounts)
+		applicationsGroup.GET("/:id", applicationHandler.GetApplication)
+		applicationsGroup.PUT("/:id/status", applicationHandler.UpdateApplicationStatus)
+		applicationsGroup.DELETE("/:id", applicationHandler.CancelApplication)
+	}
+
+	// Favorites and Preferences routes (requires authentication)
+	matchGroup := r.Group("/matches")
+	matchGroup.Use(middleware.AuthMiddleware(cfg))
+	{
+		// Favorites endpoints
+		matchGroup.POST("/favorites", favoritesHandler.AddFavorite)
+		matchGroup.GET("/favorites", favoritesHandler.GetFavorites)
+		matchGroup.DELETE("/favorites/:pet_id", favoritesHandler.RemoveFavorite)
+
+		// Preferences endpoints
+		matchGroup.POST("/preferences", preferencesHandler.SetPreferences)
+		matchGroup.GET("/preferences", preferencesHandler.GetPreferences)
+		matchGroup.PUT("/preferences", preferencesHandler.UpdatePreferences)
 	}
 }

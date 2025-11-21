@@ -105,11 +105,31 @@ func setupRoutes(r *gin.Engine, cfg *config.Config) {
 	// Static file serving for uploaded images (legacy support)
 	r.Static("/uploads", "./uploads")
 
-	// Pet routes
-	setupPetRoutes(r, cfg)
+	// Add API version header
+	r.Use(func(c *gin.Context) {
+		c.Header("X-API-Version", "v1")
+		c.Next()
+	})
+
+	// API v1 routes
+	v1 := r.Group("/api/v1")
+	{
+		setupPetRoutes(v1, cfg)
+	}
+
+	// Legacy routes (backward compatibility)
+	legacy := r.Group("")
+	legacy.Use(func(c *gin.Context) {
+		c.Header("Deprecation", "true")
+		c.Header("Sunset", "Sun, 01 Jun 2025 00:00:00 GMT")
+		c.Next()
+	})
+	{
+		setupPetRoutes(legacy, cfg)
+	}
 }
 
-func setupPetRoutes(r *gin.Engine, cfg *config.Config) {
+func setupPetRoutes(r gin.IRouter, cfg *config.Config) {
 	// Initialize handlers
 	petHandler := handlers.NewPetHandler()
 	imageHandler := handlers.NewImageHandler("./uploads") // uploadDir not used for MinIO

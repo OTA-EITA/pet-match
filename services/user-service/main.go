@@ -47,14 +47,41 @@ func main() {
 		c.JSON(200, gin.H{"status": "ready", "service": "user-service"})
 	})
 
-	// User routes (protected)
-	userGroup := router.Group("/users", middleware.AuthMiddleware(cfg))
+	// Add API version header
+	router.Use(func(c *gin.Context) {
+		c.Header("X-API-Version", "v1")
+		c.Next()
+	})
+
+	// API v1 routes
+	v1 := router.Group("/api/v1")
 	{
-		userGroup.GET("/profile", userHandler.GetProfile)
-		userGroup.PUT("/profile", userHandler.UpdateProfile)
-		userGroup.GET("/", userHandler.ListUsers)
-		userGroup.GET("/:id", userHandler.GetUser)
-		userGroup.DELETE("/:id", userHandler.DeleteUser)
+		userGroup := v1.Group("/users", middleware.AuthMiddleware(cfg))
+		{
+			userGroup.GET("/profile", userHandler.GetProfile)
+			userGroup.PUT("/profile", userHandler.UpdateProfile)
+			userGroup.GET("/", userHandler.ListUsers)
+			userGroup.GET("/:id", userHandler.GetUser)
+			userGroup.DELETE("/:id", userHandler.DeleteUser)
+		}
+	}
+
+	// Legacy routes (backward compatibility)
+	legacy := router.Group("")
+	legacy.Use(func(c *gin.Context) {
+		c.Header("Deprecation", "true")
+		c.Header("Sunset", "Sun, 01 Jun 2025 00:00:00 GMT")
+		c.Next()
+	})
+	{
+		userGroup := legacy.Group("/users", middleware.AuthMiddleware(cfg))
+		{
+			userGroup.GET("/profile", userHandler.GetProfile)
+			userGroup.PUT("/profile", userHandler.UpdateProfile)
+			userGroup.GET("/", userHandler.ListUsers)
+			userGroup.GET("/:id", userHandler.GetUser)
+			userGroup.DELETE("/:id", userHandler.DeleteUser)
+		}
 	}
 
 	// Start server
