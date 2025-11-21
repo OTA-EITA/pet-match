@@ -60,10 +60,10 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
       <View style={styles.info}>
         <Text style={styles.breed}>{pet.breed}</Text>
         <Text style={styles.age}>{pet.age_info.age_text}</Text>
-        <Text style={styles.color}>毛色: {pet.color}</Text>
+        {pet.color && <Text style={styles.color}>毛色: {pet.color}</Text>}
       </View>
 
-      {pet.personality.length > 0 && (
+      {pet.personality && pet.personality.length > 0 && (
         <View style={styles.personality}>
           <Text style={styles.personalityLabel}>性格:</Text>
           {pet.personality.slice(0, 2).map((trait, index) => (

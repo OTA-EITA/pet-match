@@ -116,7 +116,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
         {/* Version Info */}
         <View style={styles.footer}>
-          <Text style={styles.versionText}>PetMatch v1.0.0</Text>
+          <Text style={styles.versionText}>OnlyCats v1.0.0</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

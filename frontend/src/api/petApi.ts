@@ -12,7 +12,7 @@ const getApiBaseUrl = () => {
     // iOS Simulatorまたは実機の場合
     return 'http://192.168.3.22:18081/api';
   }
-  return 'https://api.petmatch.example.com/api';
+  return 'https://api.onlycats.example.com/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();

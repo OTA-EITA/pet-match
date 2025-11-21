@@ -61,9 +61,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.content}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.logo}>🐾</Text>
-              <Text style={styles.title}>PetMatch</Text>
-              <Text style={styles.subtitle}>ペットとの出会いをサポート</Text>
+              <Text style={styles.logo}>🐱</Text>
+              <Text style={styles.title}>OnlyCats</Text>
+              <Text style={styles.subtitle}>猫との素敵な出会いを</Text>
             </View>
 
             {/* Form */}

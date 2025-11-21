@@ -17,7 +17,7 @@ const getApiBaseUrl = () => {
     return 'http://192.168.3.22:18081/api';
   }
   // 本番環境では実際のAPIエンドポイントを指定
-  return 'https://api.petmatch.example.com/api';
+  return 'https://api.onlycats.example.com/api';
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -31,9 +31,9 @@ const authClient = axios.create({
 });
 
 // Storage keys
-const TOKEN_KEY = '@petmatch_access_token';
-const REFRESH_TOKEN_KEY = '@petmatch_refresh_token';
-const USER_KEY = '@petmatch_user';
+const TOKEN_KEY = '@onlycats_access_token';
+const REFRESH_TOKEN_KEY = '@onlycats_refresh_token';
+const USER_KEY = '@onlycats_user';
 
 export interface LoginRequest {
   email: string;
@@ -67,12 +67,16 @@ export const authApi = {
   // Register
   async register(data: RegisterRequest): Promise<AuthResponse> {
     try {
+      console.log('🔍 DEBUG: Registration data being sent:', JSON.stringify(data));
       const response = await authClient.post<AuthResponse>('/auth/register', data);
+      console.log('✅ DEBUG: Registration response received:', JSON.stringify(response.data));
       await this.saveTokens(response.data.tokens.access_token, response.data.tokens.refresh_token);
       await this.saveUser(response.data.user);
       return response.data;
-    } catch (error) {
-      console.error('Registration failed:', error);
+    } catch (error: any) {
+      console.error('❌ Registration failed:', error);
+      console.error('❌ Error response data:', JSON.stringify(error.response?.data));
+      console.error('❌ Error response status:', error.response?.status);
       throw error;
     }
   },
