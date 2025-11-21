@@ -1,5 +1,6 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { Pet, PetResponse } from '../types/Pet';
+import { authApi } from './authApi';
 
 // API Gateway経由でアクセス
 // const API_BASE_URL = 'http://localhost:8080/api/v1';  // デフォルト
@@ -13,12 +14,36 @@ const apiClient = axios.create({
   },
 });
 
-// リクエストインターセプター（将来的な認証用）
+// Track if we're currently refreshing the token to avoid multiple refresh requests
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (value?: any) => void;
+  reject: (reason?: any) => void;
+}> = [];
+
+const processQueue = (error: AxiosError | null, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+
+  failedQueue = [];
+};
+
+// リクエストインターセプター - 認証トークンを自動で追加
 apiClient.interceptors.request.use(
-  (config) => {
-    // 開発用: DEV_TOKENを追加
-    // config.headers.Authorization = 'Bearer DEV_TOKEN';
+  async (config: InternalAxiosRequestConfig) => {
     console.log('API Request:', config.method?.toUpperCase(), config.url);
+
+    // Get access token from storage
+    const token = await authApi.getAccessToken();
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     return config;
   },
   (error) => {
@@ -26,14 +51,58 @@ apiClient.interceptors.request.use(
   }
 );
 
-// レスポンスインターセプター
+// レスポンスインターセプター - 401エラー時に自動でトークンをリフレッシュ
 apiClient.interceptors.response.use(
   (response) => {
     console.log('API Response:', response.status, response.data);
     return response;
   },
-  (error) => {
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
     console.error('API Error:', error.response?.status, error.message);
+
+    // If 401 Unauthorized and we haven't retried yet
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
+      if (isRefreshing) {
+        // If already refreshing, queue this request
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(token => {
+            if (originalRequest.headers) {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+            }
+            return apiClient(originalRequest);
+          })
+          .catch(err => {
+            return Promise.reject(err);
+          });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        // Try to refresh the token
+        const newToken = await authApi.refreshToken();
+        processQueue(null, newToken);
+
+        // Retry the original request with the new token
+        if (originalRequest.headers) {
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        }
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        processQueue(refreshError as AxiosError, null);
+        // Token refresh failed - user needs to login again
+        await authApi.clearAuth();
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
+    }
+
     return Promise.reject(error);
   }
 );

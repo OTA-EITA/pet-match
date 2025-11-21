@@ -1,7 +1,10 @@
 // Navigation types for the app
 export type RootStackParamList = {
+  Login: undefined;
+  Signup: undefined;
   PetList: undefined;
   PetDetail: { petId: string };
+  Profile: undefined;
 };
 
 declare global {
