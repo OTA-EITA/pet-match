@@ -1,10 +1,21 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
+import { Platform } from 'react-native';
 import { Pet, PetResponse } from '../types/Pet';
 import { authApi } from './authApi';
 
-// API Gateway経由でアクセス
-// const API_BASE_URL = 'http://localhost:8080/api/v1';  // デフォルト
-const API_BASE_URL = 'http://localhost:18081/api/v1';  // port-forward用
+// React Nativeでは、実行環境に応じてAPIのベースURLを変更する必要がある
+const getApiBaseUrl = () => {
+  if (__DEV__) {
+    if (Platform.OS === 'android') {
+      return 'http://10.0.2.2:18081/api/v1';
+    }
+    // iOS Simulatorまたは実機の場合
+    return 'http://192.168.3.22:18081/api/v1';
+  }
+  return 'https://api.petmatch.example.com/api/v1';
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
