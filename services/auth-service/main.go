@@ -4,17 +4,28 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 
 	"github.com/petmatch/app/services/auth-service/handlers"
 	"github.com/petmatch/app/services/auth-service/services"
 	"github.com/petmatch/app/shared/config"
 	"github.com/petmatch/app/shared/middleware"
 	"github.com/petmatch/app/shared/utils"
+	customValidator "github.com/petmatch/app/shared/validator"
 )
 
 func main() {
 	// Load configuration
 	cfg := config.Load()
+
+	// Register custom validators
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		if err := customValidator.RegisterCustomValidators(v); err != nil {
+			log.Fatalf("Failed to register custom validators: %v", err)
+		}
+		log.Println("Custom validators registered successfully")
+	}
 
 	// Initialize Redis connection
 	redisClient := utils.NewRedisClient(cfg)

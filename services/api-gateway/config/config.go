@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
@@ -67,9 +68,7 @@ func LoadConfig() *Config {
 		ChatServiceURL:  getEnv("CHAT_SERVICE_URL", "http://localhost:8085"),
 		FileServiceURL:  getEnv("FILE_SERVICE_URL", "http://localhost:8087"),
 
-		CORSAllowedOrigins: []string{
-			getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001"),
-		},
+		CORSAllowedOrigins: parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001")),
 		CORSAllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		CORSAllowedHeaders: []string{
 			"Content-Type",
@@ -152,4 +151,23 @@ func (c *Config) IsDevelopment() bool {
 // IsTest - テスト環境かどうか
 func (c *Config) IsTest() bool {
 	return c.AppEnv == "test"
+}
+
+// parseOrigins - カンマ区切りの文字列をスライスに変換
+func parseOrigins(origins string) []string {
+	if origins == "" {
+		return []string{}
+	}
+
+	parts := strings.Split(origins, ",")
+	result := make([]string, 0, len(parts))
+
+	for _, part := range parts {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+
+	return result
 }

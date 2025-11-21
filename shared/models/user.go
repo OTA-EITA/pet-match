@@ -38,12 +38,12 @@ func NewUser(email, name, userType string) *User {
 
 // UserRegisterRequest represents user registration request
 type UserRegisterRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required,min=6"`
-	Name     string `json:"name" binding:"required"`
+	Email    string `json:"email" binding:"required,email_strict,max=255"`
+	Password string `json:"password" binding:"required,password_strength"`
+	Name     string `json:"name" binding:"required,min=2,max=100,sanitized"`
 	Type     string `json:"type" binding:"required,oneof=adopter shelter individual"`
-	Phone    string `json:"phone"`
-	Address  string `json:"address"`
+	Phone    string `json:"phone" binding:"omitempty,phone_jp"`
+	Address  string `json:"address" binding:"omitempty,max=500,sanitized"`
 }
 
 // UserLoginRequest represents user login request

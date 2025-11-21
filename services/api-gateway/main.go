@@ -145,16 +145,41 @@ func setupDevelopmentRoutes(r *gin.Engine, authMiddleware *middleware.AuthMiddle
 
 func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
 	return gin.HandlerFunc(func(c *gin.Context) {
-		// 開発環境では常に全てのOriginを許可
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		origin := c.Request.Header.Get("Origin")
+
+		// オリジンの検証と設定
+		if isOriginAllowed(origin, cfg) {
+			c.Writer.Header().Set("Access-Control-Allow-Origin", origin)
+			c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		} else if cfg.IsDevelopment() && origin == "" {
+			// 開発環境でOriginヘッダーがない場合（curlなど）は許可
+			c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		} else if origin != "" && !isOriginAllowed(origin, cfg) {
+			// 未許可のオリジンからのリクエスト
+			log.Printf("CORS: Blocked request from unauthorized origin: %s", origin)
+			c.AbortWithStatusJSON(403, gin.H{
+				"error":   "forbidden",
+				"message": "Origin not allowed",
+			})
+			return
+		}
+
+		// その他のCORSヘッダー
 		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
 		c.Writer.Header().Set("Access-Control-Max-Age", "86400")
 
+		// セキュリティヘッダーの追加
+		if cfg.IsProduction() {
+			c.Writer.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+			c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
+			c.Writer.Header().Set("X-Frame-Options", "DENY")
+			c.Writer.Header().Set("X-XSS-Protection", "1; mode=block")
+		}
+
 		// デバッグログ
 		if cfg.IsDevelopment() {
-			log.Printf("CORS: %s %s from %s", c.Request.Method, c.Request.URL.Path, c.Request.Header.Get("Origin"))
+			log.Printf("CORS: %s %s from %s (allowed: %v)", c.Request.Method, c.Request.URL.Path, origin, isOriginAllowed(origin, cfg))
 		}
 
 		// プリフライトリクエストの処理
@@ -168,4 +193,19 @@ func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
 
 		c.Next()
 	})
+}
+
+// isOriginAllowed - オリジンが許可されているかチェック
+func isOriginAllowed(origin string, cfg *config.Config) bool {
+	if origin == "" {
+		return false
+	}
+
+	for _, allowed := range cfg.CORSAllowedOrigins {
+		if origin == allowed {
+			return true
+		}
+	}
+
+	return false
 }
