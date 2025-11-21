@@ -10,6 +10,7 @@ import (
 	"github.com/petmatch/app/services/auth-service/handlers"
 	"github.com/petmatch/app/services/auth-service/services"
 	"github.com/petmatch/app/shared/config"
+	"github.com/petmatch/app/shared/logger"
 	"github.com/petmatch/app/shared/middleware"
 	"github.com/petmatch/app/shared/utils"
 	customValidator "github.com/petmatch/app/shared/validator"
@@ -19,12 +20,29 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
+	// Initialize structured logger
+	logLevel := logger.InfoLevel
+	if cfg.Env == "development" {
+		logLevel = logger.DebugLevel
+	}
+
+	if err := logger.Initialize(logger.Config{
+		Level:      logLevel,
+		JSONFormat: cfg.Env == "production",
+		Service:    "auth-service",
+	}); err != nil {
+		log.Fatalf("Failed to initialize logger: %v", err)
+	}
+	defer logger.Close()
+
+	logger.Info("Auth service starting", logger.String("env", cfg.Env), logger.String("port", cfg.Port))
+
 	// Register custom validators
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		if err := customValidator.RegisterCustomValidators(v); err != nil {
-			log.Fatalf("Failed to register custom validators: %v", err)
+			logger.Fatal("Failed to register custom validators", logger.Err(err))
 		}
-		log.Println("Custom validators registered successfully")
+		logger.Info("Custom validators registered successfully")
 	}
 
 	// Initialize Redis connection
@@ -46,9 +64,10 @@ func main() {
 	router := gin.Default()
 
 	// Apply middleware
+	router.Use(middleware.RequestIDMiddleware())
+	router.Use(middleware.ErrorHandlerMiddleware())
 	router.Use(middleware.CORSMiddleware())
-	router.Use(middleware.LoggingMiddleware())
-	router.Use(middleware.ErrorHandlingMiddleware())
+	router.Use(middleware.StructuredLoggingMiddleware())
 
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
@@ -69,6 +88,9 @@ func main() {
 		authGroup.GET("/profile", middleware.AuthMiddleware(cfg), authHandler.GetProfile)
 		authGroup.GET("/verify", middleware.AuthMiddleware(cfg), authHandler.VerifyToken) // トークン検証エンドポイントを追加
 	}
+
+	// 404 handler
+	router.NoRoute(middleware.NotFoundHandler())
 
 	// Start server
 	port := cfg.Port

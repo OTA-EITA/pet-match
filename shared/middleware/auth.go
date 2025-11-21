@@ -110,12 +110,7 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-// LoggingMiddleware logs requests
-func LoggingMiddleware() gin.HandlerFunc {
-	return gin.Logger()
-}
-
-// ErrorHandlingMiddleware handles errors
+// ErrorHandlingMiddleware handles errors (deprecated - use ErrorHandlerMiddleware)
 func ErrorHandlingMiddleware() gin.HandlerFunc {
 	return gin.Recovery()
 }
