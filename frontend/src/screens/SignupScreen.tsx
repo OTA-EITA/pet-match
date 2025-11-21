@@ -52,6 +52,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
         name: name.trim(),
         email: email.trim(),
         password,
+        type: 'adopter', // Default user type
       });
       // Navigation will be handled by AuthContext
     } catch (error: any) {

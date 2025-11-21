@@ -44,6 +44,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   name: string;
+  type: 'adopter' | 'shelter'; // User type: adopter or shelter
 }
 
 export interface AuthResponse {
