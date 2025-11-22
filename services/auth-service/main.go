@@ -125,6 +125,8 @@ func main() {
 			authGroup.POST("/refresh", authHandler.RefreshToken)
 			authGroup.POST("/logout", middleware.AuthMiddleware(cfg), authHandler.Logout)
 			authGroup.GET("/profile", middleware.AuthMiddleware(cfg), authHandler.GetProfile)
+			authGroup.PUT("/profile", middleware.AuthMiddleware(cfg), authHandler.UpdateProfile)
+			authGroup.PUT("/password", middleware.AuthMiddleware(cfg), authHandler.UpdatePassword)
 			authGroup.GET("/verify", middleware.AuthMiddleware(cfg), authHandler.VerifyToken)
 		}
 	}

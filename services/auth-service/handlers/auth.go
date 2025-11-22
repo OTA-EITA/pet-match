@@ -239,6 +239,99 @@ func (h *AuthHandler) VerifyToken(c *gin.Context) {
 	})
 }
 
+// UpdateProfile updates user profile
+// @Summary      プロフィール更新
+// @Description  ユーザープロフィール情報を更新します
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     Bearer
+// @Param        request body models.UpdateProfileRequest true "更新情報"
+// @Success      200 {object} map[string]interface{} "Profile updated successfully"
+// @Failure      400 {object} errors.AppError "Invalid request body"
+// @Failure      401 {object} errors.AppError "Unauthorized"
+// @Failure      500 {object} errors.AppError "Internal server error"
+// @Router       /auth/profile [put]
+func (h *AuthHandler) UpdateProfile(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		middleware.AbortWithError(c, errors.ErrUnauthorized)
+		return
+	}
+
+	var req models.UpdateProfileRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			fieldErrors := make(map[string]string)
+			for _, fieldErr := range validationErrs {
+				fieldErrors[fieldErr.Field()] = getValidationErrorMessage(fieldErr)
+			}
+			middleware.RespondWithValidationError(c, fieldErrors)
+			return
+		}
+		middleware.AbortWithError(c, errors.ErrInvalidRequestBody.WithDetails(err.Error()))
+		return
+	}
+
+	user, err := h.authService.UpdateProfile(userID, &req)
+	if err != nil {
+		middleware.AbortWithError(c, errors.ErrInternalServerError.WithDetails(err.Error()))
+		return
+	}
+
+	middleware.RespondWithSuccess(c, http.StatusOK, gin.H{
+		"message": "Profile updated successfully",
+		"user":    user,
+	})
+}
+
+// UpdatePassword updates user password
+// @Summary      パスワード変更
+// @Description  ユーザーパスワードを変更します
+// @Tags         auth
+// @Accept       json
+// @Produce      json
+// @Security     Bearer
+// @Param        request body models.UpdatePasswordRequest true "パスワード情報"
+// @Success      200 {object} map[string]interface{} "Password updated successfully"
+// @Failure      400 {object} errors.AppError "Invalid request body or current password incorrect"
+// @Failure      401 {object} errors.AppError "Unauthorized"
+// @Failure      500 {object} errors.AppError "Internal server error"
+// @Router       /auth/password [put]
+func (h *AuthHandler) UpdatePassword(c *gin.Context) {
+	userID := c.GetString("user_id")
+	if userID == "" {
+		middleware.AbortWithError(c, errors.ErrUnauthorized)
+		return
+	}
+
+	var req models.UpdatePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		if validationErrs, ok := err.(validator.ValidationErrors); ok {
+			fieldErrors := make(map[string]string)
+			for _, fieldErr := range validationErrs {
+				fieldErrors[fieldErr.Field()] = getValidationErrorMessage(fieldErr)
+			}
+			middleware.RespondWithValidationError(c, fieldErrors)
+			return
+		}
+		middleware.AbortWithError(c, errors.ErrInvalidRequestBody.WithDetails(err.Error()))
+		return
+	}
+
+	err := h.authService.UpdatePassword(userID, &req)
+	if err != nil {
+		if err.Error() == "current password is incorrect" {
+			middleware.AbortWithError(c, errors.ErrInvalidCredentials.WithDetails("Current password is incorrect"))
+			return
+		}
+		middleware.AbortWithError(c, errors.ErrInternalServerError.WithDetails(err.Error()))
+		return
+	}
+
+	middleware.RespondWithMessage(c, http.StatusOK, "Password updated successfully")
+}
+
 // getValidationErrorMessage returns a user-friendly error message for validation errors
 func getValidationErrorMessage(fe validator.FieldError) string {
 	switch fe.Tag() {

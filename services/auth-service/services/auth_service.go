@@ -142,6 +142,56 @@ func (s *AuthService) GetProfile(userID string) (*models.User, error) {
 	return s.userService.GetByID(userID)
 }
 
+// UpdateProfile updates user profile information
+func (s *AuthService) UpdateProfile(userID string, req *models.UpdateProfileRequest) (*models.User, error) {
+	user, err := s.userService.GetByID(userID)
+	if err != nil {
+		return nil, fmt.Errorf("user not found")
+	}
+
+	if req.Name != "" {
+		user.Name = req.Name
+	}
+	if req.Phone != "" {
+		user.Phone = req.Phone
+	}
+	if req.Address != "" {
+		user.Address = req.Address
+	}
+
+	err = s.userService.Update(user)
+	if err != nil {
+		return nil, fmt.Errorf("failed to update profile: %v", err)
+	}
+
+	return user, nil
+}
+
+// UpdatePassword changes user password
+func (s *AuthService) UpdatePassword(userID string, req *models.UpdatePasswordRequest) error {
+	storedHash, err := s.userService.GetPasswordHash(userID)
+	if err != nil {
+		return fmt.Errorf("failed to get current password")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(req.CurrentPassword))
+	if err != nil {
+		return fmt.Errorf("current password is incorrect")
+	}
+
+	newHash, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("failed to hash new password: %v", err)
+	}
+
+	err = s.userService.UpdatePassword(userID, string(newHash))
+	if err != nil {
+		return fmt.Errorf("failed to update password: %v", err)
+	}
+
+	return nil
+}
+
 // generateTokens creates access and refresh tokens
 func (s *AuthService) generateTokens(userID, email, userType string) (*models.AuthTokens, error) {
 	accessToken, err := utils.GenerateAccessToken(userID, email, userType, s.cfg)

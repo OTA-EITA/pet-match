@@ -58,3 +58,16 @@ type AuthTokens struct {
 	RefreshToken string `json:"refresh_token"`
 	ExpiresIn    int    `json:"expires_in"`
 }
+
+// UpdateProfileRequest represents profile update request
+type UpdateProfileRequest struct {
+	Name    string `json:"name" binding:"omitempty,min=2,max=100,sanitized"`
+	Phone   string `json:"phone" binding:"omitempty,phone_jp"`
+	Address string `json:"address" binding:"omitempty,max=500,sanitized"`
+}
+
+// UpdatePasswordRequest represents password update request
+type UpdatePasswordRequest struct {
+	CurrentPassword string `json:"current_password" binding:"required"`
+	NewPassword     string `json:"new_password" binding:"required,password_strength"`
+}

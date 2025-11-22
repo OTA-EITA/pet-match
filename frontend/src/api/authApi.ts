@@ -139,14 +139,51 @@ export const authApi = {
         throw new Error('No access token available');
       }
 
-      const response = await authClient.get<User>('/auth/profile', {
+      const response = await authClient.get<{ user: User }>('/auth/profile', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      await this.saveUser(response.data);
-      return response.data;
+      await this.saveUser(response.data.user);
+      return response.data.user;
     } catch (error) {
       console.error('Failed to fetch profile:', error);
+      throw error;
+    }
+  },
+
+  // Update Profile
+  async updateProfile(data: { name?: string; phone?: string; address?: string }): Promise<User> {
+    try {
+      const token = await this.getAccessToken();
+      if (!token) {
+        throw new Error('No access token available');
+      }
+
+      const response = await authClient.put<{ user: User }>('/auth/profile', data, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      await this.saveUser(response.data.user);
+      return response.data.user;
+    } catch (error) {
+      console.error('Failed to update profile:', error);
+      throw error;
+    }
+  },
+
+  // Update Password
+  async updatePassword(data: { current_password: string; new_password: string }): Promise<void> {
+    try {
+      const token = await this.getAccessToken();
+      if (!token) {
+        throw new Error('No access token available');
+      }
+
+      await authClient.put('/auth/password', data, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+    } catch (error) {
+      console.error('Failed to update password:', error);
       throw error;
     }
   },

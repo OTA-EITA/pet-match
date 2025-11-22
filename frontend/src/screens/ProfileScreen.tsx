@@ -84,9 +84,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>設定</Text>
 
-          <TouchableOpacity style={styles.menuItem} onPress={() => {
-            Alert.alert('未実装', 'プロフィール編集機能は今後実装予定です');
-          }}>
+          <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ProfileEdit')}>
             <Text style={styles.menuIcon}>✏️</Text>
             <Text style={styles.menuText}>プロフィール編集</Text>
             <Text style={styles.menuArrow}>›</Text>

@@ -159,6 +159,16 @@ func (s *UserService) GetPasswordHash(userID string) (string, error) {
 	return hash, nil
 }
 
+// UpdatePassword updates password hash for user
+func (s *UserService) UpdatePassword(userID, passwordHash string) error {
+	passwordKey := fmt.Sprintf("user:password:%s", userID)
+	err := s.redisClient.Set(s.ctx, passwordKey, passwordHash, 0).Err()
+	if err != nil {
+		return fmt.Errorf("failed to update password: %v", err)
+	}
+	return nil
+}
+
 // StoreRefreshToken stores refresh token for user
 func (s *UserService) StoreRefreshToken(userID, refreshToken string) error {
 	refreshKey := fmt.Sprintf("user:refresh:%s", userID)
