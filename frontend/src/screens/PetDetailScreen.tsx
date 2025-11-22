@@ -15,6 +15,7 @@ import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 import { Pet } from '../types/Pet';
 import { petApi } from '../api/petApi';
+import { favoriteApi } from '../api/favoriteApi';
 
 type Props = StackScreenProps<RootStackParamList, 'PetDetail'>;
 
@@ -26,17 +27,23 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
 
   const fetchPetDetail = async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       console.log(`Fetching pet detail for ID: ${petId}`);
       const petData = await petApi.getPet(petId);
       console.log('Pet detail received:', petData);
-      
+
       setPet(petData);
+
+      // Check if pet is favorited
+      const favorited = await favoriteApi.isFavorited(petId);
+      setIsFavorited(favorited);
     } catch (error) {
       console.error('Failed to fetch pet detail:', error);
       setError('ペット情報の取得に失敗しました');
@@ -67,13 +74,30 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   };
 
-  const handleFavoritePress = () => {
-    console.log('Favorite button pressed!');
-    Alert.alert(
-      'お気に入り',
-      'お気に入り機能は認証システムの実装後に利用可能になります。',
-      [{ text: 'OK' }]
-    );
+  const handleFavoritePress = async () => {
+    if (!pet) return;
+
+    try {
+      setFavoriteLoading(true);
+
+      if (isFavorited) {
+        // Remove from favorites
+        await favoriteApi.removeFavorite(pet.id);
+        setIsFavorited(false);
+        Alert.alert('お気に入り解除', `${pet.name}をお気に入りから削除しました`);
+      } else {
+        // Add to favorites
+        await favoriteApi.addFavorite(pet.id);
+        setIsFavorited(true);
+        Alert.alert('お気に入り追加', `${pet.name}をお気に入りに追加しました`);
+      }
+    } catch (error: any) {
+      console.error('Failed to toggle favorite:', error);
+      const action = isFavorited ? '削除' : '追加';
+      Alert.alert('エラー', `お気に入りの${action}に失敗しました`);
+    } finally {
+      setFavoriteLoading(false);
+    }
   };
 
   const renderImageGallery = () => {
@@ -229,11 +253,16 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.petName}>{pet.name}</Text>
               <Text style={styles.ageText}>{pet.age_info.age_text}</Text>
             </View>
-            <TouchableOpacity 
-              style={styles.favoriteButton}
+            <TouchableOpacity
+              style={[styles.favoriteButton, isFavorited && styles.favoriteButtonActive]}
               onPress={handleFavoritePress}
+              disabled={favoriteLoading}
             >
-              <Text style={styles.favoriteIcon}>🤍</Text>
+              {favoriteLoading ? (
+                <ActivityIndicator size="small" color={isFavorited ? '#fff' : '#f44336'} />
+              ) : (
+                <Text style={styles.favoriteIcon}>{isFavorited ? '❤️' : '🤍'}</Text>
+              )}
             </TouchableOpacity>
           </View>
 
@@ -391,6 +420,9 @@ const styles = StyleSheet.create({
   },
   favoriteIcon: {
     fontSize: 24,
+  },
+  favoriteButtonActive: {
+    backgroundColor: '#f44336',
   },
   section: {
     backgroundColor: '#fff',

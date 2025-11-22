@@ -5,6 +5,7 @@ export type RootStackParamList = {
   PetList: undefined;
   PetDetail: { petId: string };
   Profile: undefined;
+  Favorites: undefined;
 };
 
 declare global {

@@ -11,6 +11,7 @@ import SignupScreen from '../screens/SignupScreen';
 import PetListScreen from '../screens/PetListScreen';
 import PetDetailScreen from '../screens/PetDetailScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import FavoritesScreen from '../screens/FavoritesScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -96,6 +97,14 @@ const Navigation: React.FC = () => {
               component={ProfileScreen}
               options={{
                 title: 'プロフィール',
+                headerBackTitle: '戻る',
+              }}
+            />
+            <Stack.Screen
+              name="Favorites"
+              component={FavoritesScreen}
+              options={{
+                title: 'お気に入り',
                 headerBackTitle: '戻る',
               }}
             />

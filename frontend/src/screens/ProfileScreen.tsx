@@ -93,7 +93,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
-            Alert.alert('未実装', 'お気に入り機能は今後実装予定です');
+            navigation.navigate('Favorites');
           }}>
             <Text style={styles.menuIcon}>❤️</Text>
             <Text style={styles.menuText}>お気に入り</Text>
