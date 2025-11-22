@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { authApi, User, LoginRequest, RegisterRequest } from '../api/authApi';
+import { StorageService } from '../services/StorageService';
 
 interface AuthContextType {
   user: User | null;
@@ -25,11 +26,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const initializeAuth = async () => {
     try {
       setIsLoading(true);
-      const isAuth = await authApi.isAuthenticated();
+      const isAuth = await StorageService.isAuthenticated();
 
       if (isAuth) {
         // Try to get user from storage first
-        const storedUser = await authApi.getUser();
+        const storedUser = await StorageService.getUser();
         if (storedUser) {
           setUser(storedUser);
         } else {
@@ -40,13 +41,13 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           } catch (error) {
             console.error('Failed to fetch profile:', error);
             // Token might be invalid, clear auth
-            await authApi.clearAuth();
+            await StorageService.clearAll();
           }
         }
       }
     } catch (error) {
       console.error('Auth initialization failed:', error);
-      await authApi.clearAuth();
+      await StorageService.clearAll();
     } finally {
       setIsLoading(false);
     }

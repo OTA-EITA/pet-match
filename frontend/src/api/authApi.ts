@@ -1,13 +1,8 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../config/api';
+import { StorageService } from '../services/StorageService';
 
 const authClient = axios.create(API_CONFIG);
-
-// Storage keys
-const TOKEN_KEY = '@onlycats_access_token';
-const REFRESH_TOKEN_KEY = '@onlycats_refresh_token';
-const USER_KEY = '@onlycats_user';
 
 export interface LoginRequest {
   email: string;
@@ -44,8 +39,8 @@ export const authApi = {
       console.log('🔍 DEBUG: Registration data being sent:', JSON.stringify(data));
       const response = await authClient.post<AuthResponse>('/auth/register', data);
       console.log('✅ DEBUG: Registration response received:', JSON.stringify(response.data));
-      await this.saveTokens(response.data.tokens.access_token, response.data.tokens.refresh_token);
-      await this.saveUser(response.data.user);
+      await StorageService.saveTokens(response.data.tokens.access_token, response.data.tokens.refresh_token);
+      await StorageService.saveUser(response.data.user);
       return response.data;
     } catch (error: any) {
       console.error('❌ Registration failed:', error);
@@ -59,8 +54,8 @@ export const authApi = {
   async login(data: LoginRequest): Promise<AuthResponse> {
     try {
       const response = await authClient.post<AuthResponse>('/auth/login', data);
-      await this.saveTokens(response.data.tokens.access_token, response.data.tokens.refresh_token);
-      await this.saveUser(response.data.user);
+      await StorageService.saveTokens(response.data.tokens.access_token, response.data.tokens.refresh_token);
+      await StorageService.saveUser(response.data.user);
       return response.data;
     } catch (error) {
       console.error('Login failed:', error);
@@ -71,7 +66,7 @@ export const authApi = {
   // Refresh Token
   async refreshToken(): Promise<string> {
     try {
-      const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+      const refreshToken = await StorageService.getRefreshToken();
       if (!refreshToken) {
         throw new Error('No refresh token available');
       }
@@ -80,11 +75,11 @@ export const authApi = {
         refresh_token: refreshToken,
       });
 
-      await AsyncStorage.setItem(TOKEN_KEY, response.data.access_token);
+      await StorageService.saveTokens(response.data.access_token, refreshToken);
       return response.data.access_token;
     } catch (error) {
       console.error('Token refresh failed:', error);
-      await this.clearAuth();
+      await StorageService.clearAll();
       throw error;
     }
   },
@@ -92,7 +87,7 @@ export const authApi = {
   // Logout
   async logout(): Promise<void> {
     try {
-      const token = await this.getAccessToken();
+      const token = await StorageService.getAccessToken();
       if (token) {
         await authClient.post('/auth/logout', {}, {
           headers: { Authorization: `Bearer ${token}` },
@@ -101,14 +96,14 @@ export const authApi = {
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
-      await this.clearAuth();
+      await StorageService.clearAll();
     }
   },
 
   // Get Profile
   async getProfile(): Promise<User> {
     try {
-      const token = await this.getAccessToken();
+      const token = await StorageService.getAccessToken();
       if (!token) {
         throw new Error('No access token available');
       }
@@ -117,7 +112,7 @@ export const authApi = {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      await this.saveUser(response.data.user);
+      await StorageService.saveUser(response.data.user);
       return response.data.user;
     } catch (error) {
       console.error('Failed to fetch profile:', error);
@@ -128,7 +123,7 @@ export const authApi = {
   // Update Profile
   async updateProfile(data: { name?: string; phone?: string; address?: string }): Promise<User> {
     try {
-      const token = await this.getAccessToken();
+      const token = await StorageService.getAccessToken();
       if (!token) {
         throw new Error('No access token available');
       }
@@ -137,7 +132,7 @@ export const authApi = {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      await this.saveUser(response.data.user);
+      await StorageService.saveUser(response.data.user);
       return response.data.user;
     } catch (error) {
       console.error('Failed to update profile:', error);
@@ -148,7 +143,7 @@ export const authApi = {
   // Update Password
   async updatePassword(data: { current_password: string; new_password: string }): Promise<void> {
     try {
-      const token = await this.getAccessToken();
+      const token = await StorageService.getAccessToken();
       if (!token) {
         throw new Error('No access token available');
       }
@@ -160,43 +155,6 @@ export const authApi = {
       console.error('Failed to update password:', error);
       throw error;
     }
-  },
-
-  // Token management
-  async saveTokens(accessToken: string, refreshToken: string): Promise<void> {
-    await AsyncStorage.multiSet([
-      [TOKEN_KEY, accessToken],
-      [REFRESH_TOKEN_KEY, refreshToken],
-    ]);
-  },
-
-  async getAccessToken(): Promise<string | null> {
-    return await AsyncStorage.getItem(TOKEN_KEY);
-  },
-
-  async getRefreshToken(): Promise<string | null> {
-    return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
-  },
-
-  // User management
-  async saveUser(user: User): Promise<void> {
-    await AsyncStorage.setItem(USER_KEY, JSON.stringify(user));
-  },
-
-  async getUser(): Promise<User | null> {
-    const userStr = await AsyncStorage.getItem(USER_KEY);
-    return userStr ? JSON.parse(userStr) : null;
-  },
-
-  // Clear all auth data
-  async clearAuth(): Promise<void> {
-    await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY, USER_KEY]);
-  },
-
-  // Check if user is authenticated
-  async isAuthenticated(): Promise<boolean> {
-    const token = await this.getAccessToken();
-    return !!token;
   },
 };
 
