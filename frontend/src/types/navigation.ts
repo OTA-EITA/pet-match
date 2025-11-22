@@ -7,6 +7,8 @@ export type RootStackParamList = {
   Profile: undefined;
   ProfileEdit: undefined;
   Favorites: undefined;
+  InquiryForm: { petId: string };
+  InquiryHistory: undefined;
 };
 
 declare global {

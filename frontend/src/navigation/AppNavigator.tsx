@@ -13,6 +13,8 @@ import PetDetailScreen from '../screens/PetDetailScreen';
 import ProfileScreen from '../screens/ProfileScreen';
 import ProfileEditScreen from '../screens/ProfileEditScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
+import InquiryFormScreen from '../screens/InquiryFormScreen';
+import InquiryHistoryScreen from '../screens/InquiryHistoryScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -114,6 +116,22 @@ const Navigation: React.FC = () => {
               component={FavoritesScreen}
               options={{
                 title: 'お気に入り',
+                headerBackTitle: '戻る',
+              }}
+            />
+            <Stack.Screen
+              name="InquiryForm"
+              component={InquiryFormScreen}
+              options={{
+                title: '問い合わせ',
+                headerBackTitle: '戻る',
+              }}
+            />
+            <Stack.Screen
+              name="InquiryHistory"
+              component={InquiryHistoryScreen}
+              options={{
+                title: '問い合わせ履歴',
                 headerBackTitle: '戻る',
               }}
             />

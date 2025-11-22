@@ -49,12 +49,13 @@ func main() {
 	authProxy := handlers.NewAuthProxy(cfg.AuthServiceURL)
 	petProxy := handlers.NewPetProxy(cfg.PetServiceURL)
 	matchProxy := handlers.NewMatchProxy(cfg.MatchServiceURL)
+	inquiryProxy := handlers.NewInquiryProxy(cfg.InquiryServiceURL)
 
 	// 認証ミドルウェアの初期化
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
 
 	// ルートの設定
-	setupRoutes(r, cfg, authProxy, petProxy, matchProxy, authMiddleware)
+	setupRoutes(r, cfg, authProxy, petProxy, matchProxy, inquiryProxy, authMiddleware)
 
 	// サーバー起動
 	log.Printf("🚀 API Gateway starting on port %s", cfg.Port)
@@ -62,6 +63,7 @@ func main() {
 	log.Printf("🔗 Auth Service: %s", cfg.AuthServiceURL)
 	log.Printf("🐾 Pet Service: %s", cfg.PetServiceURL)
 	log.Printf("💕 Match Service: %s", cfg.MatchServiceURL)
+	log.Printf("📧 Inquiry Service: %s", cfg.InquiryServiceURL)
 
 	if err := r.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("Failed to start server: %v", err)
@@ -74,6 +76,7 @@ func setupRoutes(
 	authProxy *handlers.AuthProxy,
 	petProxy *handlers.PetProxy,
 	matchProxy *handlers.MatchProxy,
+	inquiryProxy *handlers.InquiryProxy,
 	authMiddleware *middleware.AuthMiddleware,
 ) {
 	// ヘルスチェックルート
@@ -87,6 +90,9 @@ func setupRoutes(
 
 	// Match Service ルート
 	routes.SetupMatchRoutes(r, matchProxy, authMiddleware)
+
+	// Inquiry Service ルート
+	routes.SetupInquiryRoutes(r, inquiryProxy, authMiddleware)
 
 	// 開発環境でのテストエンドポイント
 	if cfg.IsDevelopment() {

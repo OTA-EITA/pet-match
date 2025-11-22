@@ -99,7 +99,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.menuItem} onPress={() => {
-            Alert.alert('未実装', '問い合わせ履歴機能は今後実装予定です');
+            navigation.navigate('InquiryHistory');
           }}>
             <Text style={styles.menuIcon}>📞</Text>
             <Text style={styles.menuText}>問い合わせ履歴</Text>

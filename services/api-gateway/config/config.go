@@ -21,12 +21,13 @@ type Config struct {
 	JWTRefreshHours     int
 
 	// サービスURL
-	PetServiceURL   string
-	UserServiceURL  string
-	AuthServiceURL  string
-	MatchServiceURL string
-	ChatServiceURL  string
-	FileServiceURL  string
+	PetServiceURL     string
+	UserServiceURL    string
+	AuthServiceURL    string
+	MatchServiceURL   string
+	ChatServiceURL    string
+	FileServiceURL    string
+	InquiryServiceURL string
 
 	// CORS設定
 	CORSAllowedOrigins []string
@@ -61,12 +62,13 @@ func LoadConfig() *Config {
 		JWTExpirationHours: getEnvAsInt("JWT_EXPIRATION_HOURS", 24),
 		JWTRefreshHours:    getEnvAsInt("JWT_REFRESH_HOURS", 168), // 7 days
 
-		PetServiceURL:   getEnv("PET_SERVICE_URL", "http://localhost:8083"),
-		UserServiceURL:  getEnv("USER_SERVICE_URL", "http://localhost:8082"),
-		AuthServiceURL:  getEnv("AUTH_SERVICE_URL", "http://localhost:8081"),
-		MatchServiceURL: getEnv("MATCH_SERVICE_URL", "http://localhost:8084"),
-		ChatServiceURL:  getEnv("CHAT_SERVICE_URL", "http://localhost:8085"),
-		FileServiceURL:  getEnv("FILE_SERVICE_URL", "http://localhost:8087"),
+		PetServiceURL:     getEnv("PET_SERVICE_URL", "http://localhost:8083"),
+		UserServiceURL:    getEnv("USER_SERVICE_URL", "http://localhost:8082"),
+		AuthServiceURL:    getEnv("AUTH_SERVICE_URL", "http://localhost:8081"),
+		MatchServiceURL:   getEnv("MATCH_SERVICE_URL", "http://localhost:8084"),
+		ChatServiceURL:    getEnv("CHAT_SERVICE_URL", "http://localhost:8085"),
+		FileServiceURL:    getEnv("FILE_SERVICE_URL", "http://localhost:8087"),
+		InquiryServiceURL: getEnv("INQUIRY_SERVICE_URL", "http://localhost:8086"),
 
 		CORSAllowedOrigins: parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001")),
 		CORSAllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

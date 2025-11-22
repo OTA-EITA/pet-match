@@ -66,12 +66,8 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   }, [petId]);
 
   const handleContactPress = () => {
-    console.log('Contact button pressed!');
-    Alert.alert(
-      'お問い合わせ',
-      'お問い合わせ機能は認証システムの実装後に利用可能になります。',
-      [{ text: 'OK' }]
-    );
+    if (!pet) return;
+    navigation.navigate('InquiryForm', { petId: pet.id });
   };
 
   const handleFavoritePress = async () => {
