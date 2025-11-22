@@ -9,12 +9,16 @@ import {
   Alert,
   SafeAreaView,
   StatusBar,
+  TextInput,
+  TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 import { Pet } from '../types/Pet';
-import { petApi } from '../api/petApi';
+import { petApi, PetSearchParams } from '../api/petApi';
 import PetCard from '../components/PetCard';
+import FilterModal, { FilterOptions } from '../components/FilterModal';
 
 type Props = StackScreenProps<RootStackParamList, 'PetList'>;
 
@@ -23,31 +27,69 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+
+  // Search and filter state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filters, setFilters] = useState<FilterOptions>({});
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   const fetchPets = async (showLoading = true) => {
     try {
       if (showLoading) setLoading(true);
       setError(null);
-      
-      console.log('=== Starting API call ===');
-      console.log('Fetching pets from API Gateway...');
-      const response = await petApi.getPets(20, 0);
-      
-      console.log('=== API Response received ===');
-      console.log('Response object:', response);
-      console.log('Pets array:', response.pets);
-      console.log('Pets length:', response.pets.length);
-      console.log('Total count:', response.total);
-      
+
+      // Build search parameters from filters
+      const searchParams: PetSearchParams = {
+        limit: 20,
+        offset: 0,
+        species: 'cat', // OnlyCatsなので猫のみ
+      };
+
+      // Apply gender filter
+      if (filters.gender) {
+        searchParams.gender = filters.gender;
+      }
+
+      // Apply size filter
+      if (filters.size) {
+        searchParams.size = filters.size;
+      }
+
+      // Apply age range filter
+      if (filters.ageRange) {
+        switch (filters.ageRange) {
+          case 'kitten':
+            searchParams.age_min = 0;
+            searchParams.age_max = 12; // 0-1歳（月単位）
+            break;
+          case 'young':
+            searchParams.age_min = 12;
+            searchParams.age_max = 36; // 1-3歳
+            break;
+          case 'adult':
+            searchParams.age_min = 36;
+            searchParams.age_max = 84; // 3-7歳
+            break;
+          case 'senior':
+            searchParams.age_min = 84; // 7歳以上
+            break;
+        }
+      }
+
+      // Apply breed filter
+      if (filters.breed) {
+        searchParams.breed = filters.breed;
+      }
+
+      console.log('Fetching pets with filters:', searchParams);
+      const response = await petApi.getPets(searchParams);
+
       console.log(`Fetched ${response.pets.length} pets (total: ${response.total})`);
       setPets(response.pets);
-      
-      console.log('=== State updated ===');
-      console.log('Pets state should now contain:', response.pets);
+      setTotal(response.total);
     } catch (error) {
-      console.error('=== API Error ===');
       console.error('Failed to fetch pets:', error);
-      console.error('Error details:', error.response?.data || error.message);
       setError('ペット情報の取得に失敗しました');
       Alert.alert(
         'エラー',
@@ -57,7 +99,6 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
     } finally {
       setLoading(false);
       setRefreshing(false);
-      console.log('=== API call completed ===');
     }
   };
 
@@ -84,30 +125,133 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
     console.log('PetListScreen mounted');
     checkApiHealth();
     fetchPets();
-  }, []);
+  }, [filters]);
+
+  const handleApplyFilters = (newFilters: FilterOptions) => {
+    setFilters(newFilters);
+    setShowFilterModal(false);
+  };
+
+  const handleClearFilters = () => {
+    setFilters({});
+    setShowFilterModal(false);
+  };
+
+  const removeFilter = (filterKey: keyof FilterOptions) => {
+    const newFilters = { ...filters };
+    delete newFilters[filterKey];
+    setFilters(newFilters);
+  };
+
+  const getFilterLabel = (key: keyof FilterOptions, value: string): string => {
+    switch (key) {
+      case 'gender':
+        return value === 'male' ? 'オス' : 'メス';
+      case 'size':
+        return value === 'small' ? '小型' : value === 'medium' ? '中型' : '大型';
+      case 'ageRange':
+        return value === 'kitten' ? '子猫' : value === 'young' ? '若猫' : value === 'adult' ? '成猫' : 'シニア';
+      case 'breed':
+        return value;
+      default:
+        return value;
+    }
+  };
 
   const renderPetCard = ({ item }: { item: Pet }) => (
     <PetCard pet={item} onPress={onPetPress} />
   );
 
-  const renderEmpty = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyEmoji}>🐾</Text>
-      <Text style={styles.emptyText}>ペットが見つかりませんでした</Text>
-      <Text style={styles.emptySubtext}>
-        API Gateway (localhost:18081) との接続を確認してください
-      </Text>
-    </View>
-  );
+  const renderEmpty = () => {
+    const hasActiveFilters = Object.keys(filters).length > 0;
 
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <Text style={styles.title}>里親募集中のペット</Text>
-      <Text style={styles.subtitle}>
-        {pets.length > 0 ? `${pets.length}匹の可愛いペットたち` : 'ロード中...'}
-      </Text>
-    </View>
-  );
+    return (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyEmoji}>🐾</Text>
+        <Text style={styles.emptyText}>
+          {hasActiveFilters ? '条件に合う猫が見つかりませんでした' : 'ペットが見つかりませんでした'}
+        </Text>
+        <Text style={styles.emptySubtext}>
+          {hasActiveFilters
+            ? 'フィルター条件を変更してみてください'
+            : 'API Gateway (localhost:18081) との接続を確認してください'}
+        </Text>
+        {hasActiveFilters && (
+          <TouchableOpacity style={styles.clearFiltersButton} onPress={handleClearFilters}>
+            <Text style={styles.clearFiltersButtonText}>フィルターをクリア</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    );
+  };
+
+  const renderHeader = () => {
+    const activeFilterCount = Object.keys(filters).length;
+
+    return (
+      <>
+        <View style={styles.header}>
+          <Text style={styles.title}>里親募集中のペット</Text>
+          <Text style={styles.subtitle}>
+            {total > 0 ? `${total}匹の可愛いペットたち` : 'ロード中...'}
+          </Text>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Text style={styles.searchIcon}>🔍</Text>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="猫の名前や品種で検索..."
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor="#999"
+            />
+          </View>
+
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setShowFilterModal(true)}
+          >
+            <Text style={styles.filterIcon}>⚙️</Text>
+            {activeFilterCount > 0 && (
+              <View style={styles.filterBadge}>
+                <Text style={styles.filterBadgeText}>{activeFilterCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {activeFilterCount > 0 && (
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.filterChipsContainer}
+            contentContainerStyle={styles.filterChipsContent}
+          >
+            {Object.entries(filters).map(([key, value]) => (
+              <TouchableOpacity
+                key={key}
+                style={styles.filterChip}
+                onPress={() => removeFilter(key as keyof FilterOptions)}
+              >
+                <Text style={styles.filterChipText}>
+                  {getFilterLabel(key as keyof FilterOptions, value)}
+                </Text>
+                <Text style={styles.filterChipClose}>×</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={styles.clearAllButton}
+              onPress={handleClearFilters}
+            >
+              <Text style={styles.clearAllText}>すべてクリア</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
+      </>
+    );
+  };
 
   if (loading) {
     return (
@@ -140,6 +284,14 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
         }
         contentContainerStyle={pets.length === 0 ? styles.emptyContent : undefined}
         showsVerticalScrollIndicator={false}
+      />
+
+      <FilterModal
+        visible={showFilterModal}
+        filters={filters}
+        onClose={() => setShowFilterModal(false)}
+        onApply={handleApplyFilters}
+        onClear={handleClearFilters}
       />
     </SafeAreaView>
   );
@@ -202,6 +354,115 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     lineHeight: 20,
+  },
+  clearFiltersButton: {
+    marginTop: 20,
+    backgroundColor: '#2196F3',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  clearFiltersButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    gap: 12,
+  },
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    height: 44,
+  },
+  searchIcon: {
+    fontSize: 18,
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    padding: 0,
+  },
+  filterButton: {
+    width: 44,
+    height: 44,
+    backgroundColor: '#2196F3',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  filterIcon: {
+    fontSize: 20,
+  },
+  filterBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#f44336',
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  filterBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  filterChipsContainer: {
+    backgroundColor: '#fff',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  filterChipsContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e3f2fd',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    marginRight: 8,
+  },
+  filterChipText: {
+    fontSize: 14,
+    color: '#1976d2',
+    marginRight: 4,
+  },
+  filterChipClose: {
+    fontSize: 18,
+    color: '#1976d2',
+    fontWeight: 'bold',
+  },
+  clearAllButton: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 16,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+  },
+  clearAllText: {
+    fontSize: 14,
+    color: '#666',
   },
 });
 

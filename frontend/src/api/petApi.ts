@@ -118,12 +118,37 @@ apiClient.interceptors.response.use(
   }
 );
 
+export interface PetSearchParams {
+  limit?: number;
+  offset?: number;
+  species?: string;
+  breed?: string;
+  gender?: 'male' | 'female';
+  size?: 'small' | 'medium' | 'large';
+  age_min?: number;
+  age_max?: number;
+  search?: string;
+}
+
 export const petApi = {
   // ペット一覧取得
-  async getPets(limit: number = 20, offset: number = 0): Promise<PetResponse> {
+  async getPets(params?: PetSearchParams): Promise<PetResponse> {
     try {
+      const searchParams: any = {
+        limit: params?.limit || 20,
+        offset: params?.offset || 0,
+      };
+
+      // Add optional filter parameters
+      if (params?.species) searchParams.species = params.species;
+      if (params?.breed) searchParams.breed = params.breed;
+      if (params?.gender) searchParams.gender = params.gender;
+      if (params?.size) searchParams.size = params.size;
+      if (params?.age_min !== undefined) searchParams.age_min = params.age_min;
+      if (params?.age_max !== undefined) searchParams.age_max = params.age_max;
+
       const response = await apiClient.get<PetResponse>('/pets', {
-        params: { limit, offset }
+        params: searchParams
       });
       return response.data;
     } catch (error) {
