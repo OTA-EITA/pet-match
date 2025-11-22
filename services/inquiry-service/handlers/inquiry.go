@@ -11,6 +11,7 @@ import (
 	"github.com/petmatch/app/shared/errors"
 	"github.com/petmatch/app/shared/middleware"
 	"github.com/petmatch/app/shared/models"
+	sharedvalidator "github.com/petmatch/app/shared/validator"
 )
 
 type InquiryHandler struct {
@@ -50,7 +51,7 @@ func (h *InquiryHandler) CreateInquiry(c *gin.Context) {
 		if validationErrs, ok := err.(validator.ValidationErrors); ok {
 			fieldErrors := make(map[string]string)
 			for _, fieldErr := range validationErrs {
-				fieldErrors[fieldErr.Field()] = getValidationErrorMessage(fieldErr)
+				fieldErrors[fieldErr.Field()] = sharedvalidator.GetValidationErrorMessage(fieldErr)
 			}
 			middleware.RespondWithValidationError(c, fieldErrors)
 			return
@@ -107,24 +108,3 @@ func (h *InquiryHandler) GetUserInquiries(c *gin.Context) {
 	})
 }
 
-// getValidationErrorMessage returns a user-friendly error message for validation errors
-func getValidationErrorMessage(fe validator.FieldError) string {
-	switch fe.Tag() {
-	case "required":
-		return "This field is required"
-	case "uuid":
-		return "Invalid UUID format"
-	case "min":
-		return "Must be at least " + fe.Param() + " characters"
-	case "max":
-		return "Must be at most " + fe.Param() + " characters"
-	case "phone_jp":
-		return "Invalid phone number format"
-	case "sanitized":
-		return "Contains invalid characters"
-	case "oneof":
-		return "Must be one of: " + fe.Param()
-	default:
-		return "Invalid value"
-	}
-}

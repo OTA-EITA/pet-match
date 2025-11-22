@@ -1,34 +1,8 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { API_CONFIG } from '../config/api';
 
-// React Nativeでは、実行環境に応じてAPIのベースURLを変更する必要がある
-// - iOS Simulator: localhost でOK
-// - Android Emulator: 10.0.2.2 (エミュレータからホストマシンへのアクセス)
-// - 実機: 開発マシンのローカルネットワークIP
-const getApiBaseUrl = () => {
-  if (__DEV__) {
-    if (Platform.OS === 'android') {
-      // Androidエミュレータの場合
-      return 'http://10.0.2.2:18081/api';
-    }
-    // iOS Simulatorまたは実機の場合は開発マシンのIPを使用
-    // Expoが使用しているIPと同じものを使う
-    return 'http://192.168.3.22:18081/api';
-  }
-  // 本番環境では実際のAPIエンドポイントを指定
-  return 'https://api.onlycats.example.com/api';
-};
-
-const API_BASE_URL = getApiBaseUrl();
-
-const authClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const authClient = axios.create(API_CONFIG);
 
 // Storage keys
 const TOKEN_KEY = '@onlycats_access_token';

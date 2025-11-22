@@ -1,26 +1,8 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { API_CONFIG } from '../config/api';
 
-const getApiBaseUrl = () => {
-  if (__DEV__) {
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:18081/api';
-    }
-    return 'http://192.168.3.22:18081/api';
-  }
-  return 'https://api.onlycats.example.com/api';
-};
-
-const API_BASE_URL = getApiBaseUrl();
-
-const inquiryClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const inquiryClient = axios.create(API_CONFIG);
 
 const TOKEN_KEY = '@onlycats_access_token';
 

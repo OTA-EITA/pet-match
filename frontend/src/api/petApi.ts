@@ -1,29 +1,9 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { Platform } from 'react-native';
 import { Pet, PetResponse } from '../types/Pet';
 import { authApi } from './authApi';
+import { API_CONFIG } from '../config/api';
 
-// React Nativeでは、実行環境に応じてAPIのベースURLを変更する必要がある
-const getApiBaseUrl = () => {
-  if (__DEV__) {
-    if (Platform.OS === 'android') {
-      return 'http://10.0.2.2:18081/api';
-    }
-    // iOS Simulatorまたは実機の場合
-    return 'http://192.168.3.22:18081/api';
-  }
-  return 'https://api.onlycats.example.com/api';
-};
-
-const API_BASE_URL = getApiBaseUrl();
-
-const apiClient = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+const apiClient = axios.create(API_CONFIG);
 
 // Track if we're currently refreshing the token to avoid multiple refresh requests
 let isRefreshing = false;
@@ -171,7 +151,7 @@ export const petApi = {
   // ヘルスチェック（開発用）
   async healthCheck(): Promise<any> {
     try {
-      const response = await axios.get(`${API_BASE_URL.replace('/api/v1', '')}/health`);
+      const response = await axios.get(`${API_CONFIG.baseURL.replace('/api', '')}/health`);
       return response.data;
     } catch (error) {
       console.error('Health check failed:', error);
