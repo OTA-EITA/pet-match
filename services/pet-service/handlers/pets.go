@@ -3,7 +3,6 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"strconv"
@@ -110,101 +109,6 @@ func parsePetSearchParams(c *gin.Context) petSearchParams {
 	}
 }
 
-func fetchAndFilterPets(params petSearchParams) ([]models.Pet, error) {
-	// Check if Redis client is initialized
-	if utils.RedisClient == nil {
-		return nil, fmt.Errorf("redis client not initialized")
-	}
-	
-	// Get all pet keys from Redis
-	keys, err := utils.RedisClient.Keys(petCtx, "pet:*").Result()
-	if err != nil {
-		return nil, err
-	}
-
-	var pets []models.Pet
-	for _, key := range keys {
-		pet, err := fetchPetFromRedis(key)
-		if err != nil {
-			continue
-		}
-
-		if matchesSearchCriteria(pet, params) {
-			pets = append(pets, pet)
-		}
-	}
-
-	return pets, nil
-}
-
-func fetchPetFromRedis(key string) (models.Pet, error) {
-	if utils.RedisClient == nil {
-		return models.Pet{}, fmt.Errorf("redis client not initialized")
-	}
-	
-	petJSON, err := utils.RedisClient.Get(petCtx, key).Result()
-	if err != nil {
-		return models.Pet{}, err
-	}
-
-	var pet models.Pet
-	err = json.Unmarshal([]byte(petJSON), &pet)
-	if err != nil {
-		return models.Pet{}, err
-	}
-	
-	// Migration: supplement age_info for existing data
-	pet.MigrateAgeInfo()
-	
-	// Save migrated data for persistence only in production
-	// Skip async save in test environment to avoid race conditions
-	if !isTestEnvironment() && utils.RedisClient != nil {
-		saveMigratedPetToRedis(&pet, key)
-	}
-	
-	return pet, nil
-}
-
-func matchesSearchCriteria(pet models.Pet, params petSearchParams) bool {
-	if params.Species != "" && pet.Species != params.Species {
-		return false
-	}
-	if params.Breed != "" && pet.Breed != params.Breed {
-		return false
-	}
-	if params.Gender != "" && pet.Gender != params.Gender {
-		return false
-	}
-	if params.Size != "" && pet.Size != params.Size {
-		return false
-	}
-	if params.AgeMin > 0 && pet.AgeInfo.Years < params.AgeMin {
-		return false
-	}
-	if params.AgeMax > 0 && pet.AgeInfo.Years > params.AgeMax {
-		return false
-	}
-	// Owner filtering
-	if params.OwnerID != "" && pet.OwnerID != params.OwnerID {
-		return false
-	}
-	return true
-}
-
-func applyPagination(pets []models.Pet, offset, limit int) []models.Pet {
-	start := offset
-	end := offset + limit
-
-	if start > len(pets) {
-		start = len(pets)
-	}
-	if end > len(pets) {
-		end = len(pets)
-	}
-
-	return pets[start:end]
-}
-
 // GetPet handles GET /pets/:id
 func (h *PetHandler) GetPet(c *gin.Context) {
 	petID := c.Param("id")
@@ -248,51 +152,6 @@ func createNewPetFromRequest(req models.PetCreateRequest, userID string) *models
 	return models.NewPetFromRequest(req, userID)
 }
 
-func savePetToRedis(pet *models.Pet) error {
-	if utils.RedisClient == nil {
-		return fmt.Errorf("redis client not initialized")
-	}
-	
-	petJSON, err := json.Marshal(pet)
-	if err != nil {
-		return err
-	}
-
-	key := utils.GetRedisKey("pet", pet.ID)
-	return utils.RedisClient.Set(petCtx, key, petJSON, 0).Err()
-}
-
-// saveMigratedPetToRedis saves migrated pet data back to Redis (async, best effort)
-func saveMigratedPetToRedis(pet *models.Pet, key string) {
-	// Check if Redis client is available before starting goroutine
-	if utils.RedisClient == nil {
-		return // Silent fail if Redis client is not available
-	}
-	
-	// In test environment, skip async operations to avoid race conditions
-	if isTestEnvironment() {
-		return
-	}
-	
-	// Save migrated data asynchronously
-	go func() {
-		// Double check inside goroutine as well
-		if utils.RedisClient == nil {
-			return // Silent fail if Redis client is not available
-		}
-		
-		petJSON, err := json.Marshal(pet)
-		if err != nil {
-			return // Silent fail for migration saves
-		}
-		
-		// Additional safety check before Redis operation
-		if utils.RedisClient != nil {
-			utils.RedisClient.Set(petCtx, key, petJSON, 0)
-		}
-	}()
-}
-
 // UpdatePet handles PUT /pets/:id
 func (h *PetHandler) UpdatePet(c *gin.Context) {
 	petID := c.Param("id")
@@ -327,34 +186,6 @@ func (h *PetHandler) UpdatePet(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, pet)
-}
-
-func getPetByID(petID string) (*models.Pet, error) {
-	if utils.RedisClient == nil {
-		return nil, fmt.Errorf("redis client not initialized")
-	}
-	
-	key := utils.GetRedisKey("pet", petID)
-	petJSON, err := utils.RedisClient.Get(petCtx, key).Result()
-	if err != nil {
-		return nil, err
-	}
-
-	var pet models.Pet
-	if err := json.Unmarshal([]byte(petJSON), &pet); err != nil {
-		return nil, err
-	}
-	
-	// Migration: supplement age_info for existing data
-	pet.MigrateAgeInfo()
-	
-	// Save migrated data for persistence only in production
-	// Skip async save in test environment to avoid race conditions
-	if !isTestEnvironment() && utils.RedisClient != nil {
-		saveMigratedPetToRedis(&pet, key)
-	}
-
-	return &pet, nil
 }
 
 func updatePetFromRequest(pet *models.Pet, req models.PetCreateRequest) {
