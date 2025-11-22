@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"os"
 	"strconv"
@@ -11,8 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/petmatch/app/services/pet-service/repository"
+	"github.com/petmatch/app/services/pet-service/services"
 	"github.com/petmatch/app/shared/models"
-	"github.com/petmatch/app/shared/utils"
 )
 
 var petCtx = context.Background()
@@ -232,57 +231,18 @@ func (h *PetHandler) DeletePet(c *gin.Context) {
 
 // MigrateAllPets handles POST /pets/migrate - migrates all existing pets
 func (h *PetHandler) MigrateAllPets(c *gin.Context) {
-	if utils.RedisClient == nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Database connection not available"})
-		return
-	}
-	
-	// Get all pet keys from Redis
-	keys, err := utils.RedisClient.Keys(petCtx, "pet:*").Result()
+	migrationService := services.NewMigrationService()
+
+	result, err := migrationService.MigrateAllPets()
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch pet keys"})
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to migrate pets"})
 		return
-	}
-
-	migratedCount := 0
-	errorCount := 0
-
-	for _, key := range keys {
-		petJSON, err := utils.RedisClient.Get(petCtx, key).Result()
-		if err != nil {
-			errorCount++
-			continue
-		}
-
-		var pet models.Pet
-		if err := json.Unmarshal([]byte(petJSON), &pet); err != nil {
-			errorCount++
-			continue
-		}
-
-		// Apply migration
-		oldTotalMonths := pet.AgeInfo.TotalMonths
-		pet.MigrateAgeInfo()
-
-		// Save if migration was applied
-		if pet.AgeInfo.TotalMonths != oldTotalMonths || pet.AgeInfo.AgeText == "" {
-			migratedJSON, err := json.Marshal(pet)
-			if err != nil {
-				errorCount++
-				continue
-			}
-			if err := utils.RedisClient.Set(petCtx, key, migratedJSON, 0).Err(); err != nil {
-				errorCount++
-				continue
-			}
-			migratedCount++
-		}
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Migration completed",
-		"total_pets": len(keys),
-		"migrated": migratedCount,
-		"errors": errorCount,
+		"message":    "Migration completed",
+		"total_pets": result.TotalPets,
+		"migrated":   result.MigratedCount,
+		"errors":     result.ErrorCount,
 	})
 }
