@@ -3,6 +3,7 @@ import { Pet, PetResponse } from '@/types/Pet';
 import { tokenStorage } from '@/lib/auth';
 import { API_CONFIG } from '@/lib/config';
 import { logger } from '@/lib/logger';
+import { cache, createCacheKey, withCache } from '@/lib/cache';
 
 const apiClient = axios.create({
   baseURL: API_CONFIG.API_URL,
@@ -118,23 +119,39 @@ export const petsApi = {
     return response.data;
   },
 
-  // Get all pets
+  // Get all pets (with caching)
   getPets: async (limit = 20, offset = 0): Promise<PetResponse> => {
-    const response = await apiClient.get(API_CONFIG.ENDPOINTS.PETS.LIST, {
-      params: { limit, offset }
-    });
-    return response.data;
+    const cacheKey = createCacheKey(API_CONFIG.ENDPOINTS.PETS.LIST, { limit, offset });
+    return withCache(
+      cacheKey,
+      async () => {
+        const response = await apiClient.get(API_CONFIG.ENDPOINTS.PETS.LIST, {
+          params: { limit, offset }
+        });
+        return response.data;
+      },
+      2 * 60 * 1000 // 2 minutes cache
+    );
   },
 
-  // Get single pet
+  // Get single pet (with caching)
   getPet: async (id: string): Promise<Pet> => {
-    const response = await apiClient.get(API_CONFIG.ENDPOINTS.PETS.DETAIL(id));
-    return response.data;
+    const cacheKey = createCacheKey(API_CONFIG.ENDPOINTS.PETS.DETAIL(id));
+    return withCache(
+      cacheKey,
+      async () => {
+        const response = await apiClient.get(API_CONFIG.ENDPOINTS.PETS.DETAIL(id));
+        return response.data;
+      },
+      5 * 60 * 1000 // 5 minutes cache
+    );
   },
 
   // Create new pet
   createPet: async (petData: PetCreateRequest): Promise<Pet> => {
     const response = await apiClient.post(API_CONFIG.ENDPOINTS.PETS.LIST, petData);
+    // Invalidate pets list cache
+    cache.clear();
     return response.data;
   },
 
@@ -149,12 +166,17 @@ export const petsApi = {
   // Update pet
   updatePet: async (id: string, petData: Partial<PetCreateRequest>): Promise<Pet> => {
     const response = await apiClient.put(API_CONFIG.ENDPOINTS.PETS.DETAIL(id), petData);
+    // Invalidate specific pet cache
+    cache.delete(createCacheKey(API_CONFIG.ENDPOINTS.PETS.DETAIL(id)));
     return response.data;
   },
 
   // Delete pet
   deletePet: async (id: string): Promise<void> => {
     await apiClient.delete(API_CONFIG.ENDPOINTS.PETS.DETAIL(id));
+    // Invalidate caches
+    cache.delete(createCacheKey(API_CONFIG.ENDPOINTS.PETS.DETAIL(id)));
+    cache.clear(); // Clear list caches
   },
 
   // Image management
