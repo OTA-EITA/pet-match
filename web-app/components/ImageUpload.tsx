@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useCallback, useRef } from 'react'
-import { petApi } from '@/lib/api'
+import { petsApi } from '@/lib/api'
 
 export interface UploadedImage {
   id: string
@@ -54,8 +54,8 @@ export default function ImageUpload({ petId, onImageUploaded, onError, disabled 
     try {
       console.log('Starting image upload for petId:', petId);
       
-      // Use petApi instead of direct fetch
-      const result = await petApi.images.uploadPetImage(petId, file);
+      // Use petsApi instead of direct fetch
+      const result = await petsApi.images.uploadPetImage(petId, file);
       
       console.log('Upload successful:', result);
       

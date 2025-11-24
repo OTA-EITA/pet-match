@@ -93,18 +93,40 @@ export default function CatDetailPage() {
           </div>
         </div>
 
-        {/* 応募ボタン（固定フッター スマホ） */}
+        {/* アクションボタン（固定フッター スマホ） */}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-neutral-200 p-4 sm:hidden safe-area-padding-bottom z-30">
-          <button className="w-full bg-primary-500 hover:bg-primary-600 text-white py-4 rounded-2xl font-bold text-lg touchable transition-colors">
-            この子に応募する
-          </button>
+          <div className="flex gap-3">
+            <Link
+              href={`/cats/${id}/inquiry`}
+              className="flex-1 bg-white border-2 border-primary-500 text-primary-500 py-4 rounded-2xl font-bold text-lg touchable transition-colors text-center"
+            >
+              問い合わせ
+            </Link>
+            <Link
+              href={`/cats/${id}/apply`}
+              className="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-4 rounded-2xl font-bold text-lg touchable transition-colors text-center"
+            >
+              応募する
+            </Link>
+          </div>
         </div>
 
-        {/* 応募ボタン（PC） */}
+        {/* アクションボタン（PC） */}
         <div className="hidden sm:block">
-          <button className="w-full bg-primary-500 hover:bg-primary-600 text-white py-4 rounded-2xl font-bold text-lg transition-colors">
-            この子に応募する
-          </button>
+          <div className="flex gap-4">
+            <Link
+              href={`/cats/${id}/inquiry`}
+              className="flex-1 bg-white border-2 border-primary-500 text-primary-500 py-4 rounded-2xl font-bold text-lg transition-colors text-center hover:bg-primary-50"
+            >
+              問い合わせ
+            </Link>
+            <Link
+              href={`/cats/${id}/apply`}
+              className="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-4 rounded-2xl font-bold text-lg transition-colors text-center"
+            >
+              応募する
+            </Link>
+          </div>
         </div>
       </div>
     </div>

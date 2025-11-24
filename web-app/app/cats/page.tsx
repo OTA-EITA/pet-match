@@ -21,24 +21,34 @@ interface Cat {
   images?: string[];
 }
 
+type AgeFilter = 'all' | 'kitten' | 'adult';
+type GenderFilter = 'all' | 'male' | 'female';
+
 export default function CatsPage() {
   const [cats, setCats] = useState<Cat[]>([]);
+  const [filteredCats, setFilteredCats] = useState<Cat[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [ageFilter, setAgeFilter] = useState<AgeFilter>('all');
+  const [genderFilter, setGenderFilter] = useState<GenderFilter>('all');
 
   useEffect(() => {
     fetchCats();
   }, []);
 
+  useEffect(() => {
+    applyFilters();
+  }, [cats, ageFilter, genderFilter]);
+
   const fetchCats = async () => {
     try {
       setLoading(true);
       setError(null);
-      
+
       const response = await axios.get(`${API_CONFIG.API_URL}${API_CONFIG.ENDPOINTS.PETS.LIST}?species=cat`);
-      
+
       console.log('API Response:', response.data);
-      
+
       if (response.data.pets) {
         setCats(response.data.pets);
       } else {
@@ -50,6 +60,24 @@ export default function CatsPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const applyFilters = () => {
+    let filtered = [...cats];
+
+    // Age filter
+    if (ageFilter === 'kitten') {
+      filtered = filtered.filter(cat => (cat.age_info?.years || 0) < 1);
+    } else if (ageFilter === 'adult') {
+      filtered = filtered.filter(cat => (cat.age_info?.years || 0) >= 1);
+    }
+
+    // Gender filter
+    if (genderFilter !== 'all') {
+      filtered = filtered.filter(cat => cat.gender === genderFilter);
+    }
+
+    setFilteredCats(filtered);
   };
 
   if (loading) {
@@ -90,28 +118,66 @@ export default function CatsPage() {
             🐱 猫を探す
           </h1>
           <p className="text-sm sm:text-base text-neutral-600 mt-1">
-            {cats.length}匹の猫があなたを待っています
+            {filteredCats.length}匹の猫があなたを待っています
+            {filteredCats.length !== cats.length && (
+              <span className="text-neutral-400"> (全{cats.length}匹)</span>
+            )}
           </p>
         </div>
       </div>
 
-      {/* フィルター（TODO: 実装予定） */}
+      {/* フィルター */}
       <div className="bg-white border-b border-neutral-200 px-4 sm:px-6 lg:px-8 py-3">
         <div className="max-w-7xl mx-auto">
           <div className="flex gap-2 overflow-x-auto scrollable-x">
-            <button className="px-4 py-2 rounded-full bg-primary-500 text-white font-medium whitespace-nowrap touchable">
+            <button
+              onClick={() => { setAgeFilter('all'); setGenderFilter('all'); }}
+              className={`px-4 py-2 rounded-full font-medium whitespace-nowrap touchable ${
+                ageFilter === 'all' && genderFilter === 'all'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+              }`}
+            >
               すべて
             </button>
-            <button className="px-4 py-2 rounded-full bg-neutral-100 text-neutral-700 font-medium whitespace-nowrap touchable hover:bg-neutral-200">
+            <button
+              onClick={() => setAgeFilter('kitten')}
+              className={`px-4 py-2 rounded-full font-medium whitespace-nowrap touchable ${
+                ageFilter === 'kitten'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+              }`}
+            >
               子猫
             </button>
-            <button className="px-4 py-2 rounded-full bg-neutral-100 text-neutral-700 font-medium whitespace-nowrap touchable hover:bg-neutral-200">
+            <button
+              onClick={() => setAgeFilter('adult')}
+              className={`px-4 py-2 rounded-full font-medium whitespace-nowrap touchable ${
+                ageFilter === 'adult'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+              }`}
+            >
               成猫
             </button>
-            <button className="px-4 py-2 rounded-full bg-neutral-100 text-neutral-700 font-medium whitespace-nowrap touchable hover:bg-neutral-200">
+            <button
+              onClick={() => setGenderFilter('male')}
+              className={`px-4 py-2 rounded-full font-medium whitespace-nowrap touchable ${
+                genderFilter === 'male'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+              }`}
+            >
               オス
             </button>
-            <button className="px-4 py-2 rounded-full bg-neutral-100 text-neutral-700 font-medium whitespace-nowrap touchable hover:bg-neutral-200">
+            <button
+              onClick={() => setGenderFilter('female')}
+              className={`px-4 py-2 rounded-full font-medium whitespace-nowrap touchable ${
+                genderFilter === 'female'
+                  ? 'bg-primary-500 text-white'
+                  : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+              }`}
+            >
               メス
             </button>
           </div>
@@ -120,15 +186,25 @@ export default function CatsPage() {
 
       {/* 猫一覧グリッド */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {cats.length === 0 ? (
+        {filteredCats.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-6xl mb-4">😺</div>
             <h3 className="text-xl font-bold text-neutral-900 mb-2">猫がいません</h3>
-            <p className="text-neutral-600">条件に合う猫が見つかりませんでした</p>
+            <p className="text-neutral-600">
+              {cats.length === 0 ? '猫が見つかりませんでした' : '条件に合う猫が見つかりませんでした'}
+            </p>
+            {cats.length > 0 && (
+              <button
+                onClick={() => { setAgeFilter('all'); setGenderFilter('all'); }}
+                className="mt-4 px-6 py-2 bg-primary-500 text-white rounded-lg font-medium hover:bg-primary-600 touchable"
+              >
+                フィルターをリセット
+              </button>
+            )}
           </div>
         ) : (
           <div className="cat-grid">
-            {cats.map((cat) => (
+            {filteredCats.map((cat) => (
               <Link
                 key={cat.id}
                 href={`/cats/${cat.id}`}

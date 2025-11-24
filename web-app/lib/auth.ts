@@ -190,6 +190,28 @@ export const authApi = {
       throw new AuthError('Auth service unavailable');
     }
   },
+
+  updateProfile: async (data: { name?: string; phone?: string; address?: string }): Promise<User> => {
+    try {
+      const token = tokenStorage.getAccessToken();
+      if (!token) {
+        throw new AuthError('No access token available');
+      }
+
+      const response = await authClient.put('/auth/profile', data, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      return response.data.user;
+    } catch (error: any) {
+      const errorData: APIErrorResponse = error.response?.data;
+      throw new AuthError(
+        errorData?.message || 'Failed to update profile',
+        error.response?.status,
+        errorData?.path
+      );
+    }
+  },
 };
 
 // Development token utilities

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { petApi } from '@/lib/api';
+import { petsApi } from '@/lib/api';
 import { Pet } from '@/types/Pet';
 import ImageUpload, { UploadedImage } from '@/components/ImageUpload';
 import ImageGallery from '@/components/ImageGallery';
@@ -28,7 +28,7 @@ export default function PetDetailPage() {
       setError(null);
       
       console.log(`Fetching pet detail for ID: ${petId}`);
-      const petData = await petApi.getPet(petId);
+      const petData = await petsApi.getPet(petId);
       console.log('Pet detail received:', petData);
       
       setPet(petData);
@@ -45,7 +45,7 @@ export default function PetDetailPage() {
       setLoadingImages(true);
       console.log(`Fetching images for pet ID: ${petId}`);
       
-      const response = await petApi.images.getPetImages(petId);
+      const response = await petsApi.images.getPetImages(petId);
       console.log('Pet images response:', response);
       
       setUploadedImages(response.images || []);

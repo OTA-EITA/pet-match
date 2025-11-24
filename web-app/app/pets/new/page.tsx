@@ -76,10 +76,10 @@ export default function NewPetPage() {
     setError(null)
 
     try {
-      const { petApi } = await import('@/lib/api')
+      const { petsApi } = await import('@/lib/api')
       
       // Create pet via API
-      const newPet = await petApi.createPet(formData)
+      const newPet = await petsApi.createPet(formData)
       
       alert(`${newPet.name}の登録が完了しました！`)
       router.push('/my-pets')

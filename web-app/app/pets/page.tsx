@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { petApi } from '@/lib/api';
+import { petsApi } from '@/lib/api';
 import { Pet } from '@/types/Pet';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 
@@ -19,7 +19,7 @@ export default function PetsPage() {
       
       console.log('=== Starting API call ===');
       console.log('Fetching pets from API Gateway...');
-      const response = await petApi.getPets(20, 0);
+      const response = await petsApi.getPets(20, 0);
       
       console.log('=== API Response received ===');
       console.log('Response object:', response);
@@ -47,7 +47,7 @@ export default function PetsPage() {
 
   const checkApiHealth = async () => {
     try {
-      const health = await petApi.healthCheck();
+      const health = await petsApi.healthCheck();
       console.log('API Gateway Health:', health);
     } catch (error) {
       console.error('API Gateway not accessible:', error);

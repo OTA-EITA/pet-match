@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { petApi } from '@/lib/api';
+import { petsApi } from '@/lib/api';
 import { authApi } from '@/lib/auth';
 
 export default function DevStatusPage() {
@@ -13,7 +13,7 @@ export default function DevStatusPage() {
   const checkServices = async () => {
     // Check Pet Service
     try {
-      await petApi.healthCheck();
+      await petsApi.healthCheck();
       setServiceStatus(prev => ({
         ...prev,
         pet: { status: 'online', message: 'Pet Service is accessible' }

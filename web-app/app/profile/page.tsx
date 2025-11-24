@@ -1,24 +1,47 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { authApi } from '@/lib/auth';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     name: user?.name || '',
-    bio: '猫が大好きです！',
-    location: '東京都',
+    phone: user?.phone || '',
+    address: user?.address || '',
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        phone: user.phone || '',
+        address: user.address || '',
+      });
+    }
+  }, [user]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleSave = () => {
-    // TODO: API連携
-    setIsEditing(false);
+  const handleSave = async () => {
+    try {
+      setIsSaving(true);
+      setError(null);
+      await authApi.updateProfile(formData);
+      await refreshUser();
+      setIsEditing(false);
+    } catch (err: any) {
+      console.error('Failed to update profile:', err);
+      setError(err.message || 'プロフィールの更新に失敗しました');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -40,7 +63,7 @@ export default function ProfilePage() {
               <div className="inline-block bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-sm font-medium mb-3">
                 {user?.type === 'shelter' ? '🏢 保護団体' : '🏠 里親希望'}
               </div>
-              <p className="text-primary-50">{formData.location}</p>
+              <p className="text-primary-50">{formData.address || '地域未設定'}</p>
             </div>
 
             {/* 編集ボタン */}
@@ -62,7 +85,13 @@ export default function ProfilePage() {
           /* 編集モード */
           <div className="card p-6 sm:p-8">
             <h2 className="text-xl font-bold text-neutral-900 mb-6">プロフィール編集</h2>
-            
+
+            {error && (
+              <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                {error}
+              </div>
+            )}
+
             <div className="space-y-5">
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
@@ -79,26 +108,28 @@ export default function ProfilePage() {
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  自己紹介
+                  電話番号
                 </label>
-                <textarea
-                  name="bio"
-                  value={formData.bio}
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
                   onChange={handleChange}
-                  rows={4}
-                  className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition resize-none"
+                  placeholder="090-1234-5678"
+                  className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition"
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-neutral-700 mb-2">
-                  地域
+                  住所
                 </label>
                 <input
                   type="text"
-                  name="location"
-                  value={formData.location}
+                  name="address"
+                  value={formData.address}
                   onChange={handleChange}
+                  placeholder="東京都渋谷区"
                   className="w-full px-4 py-3 border border-neutral-300 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition"
                 />
               </div>
@@ -106,13 +137,15 @@ export default function ProfilePage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={handleSave}
-                  className="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-xl font-bold transition touchable"
+                  disabled={isSaving}
+                  className="flex-1 bg-primary-500 hover:bg-primary-600 text-white py-3 rounded-xl font-bold transition touchable disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  保存
+                  {isSaving ? '保存中...' : '保存'}
                 </button>
                 <button
                   onClick={() => setIsEditing(false)}
-                  className="flex-1 bg-white border-2 border-neutral-300 text-neutral-700 py-3 rounded-xl font-medium hover:bg-neutral-50 transition touchable"
+                  disabled={isSaving}
+                  className="flex-1 bg-white border-2 border-neutral-300 text-neutral-700 py-3 rounded-xl font-medium hover:bg-neutral-50 transition touchable disabled:opacity-50"
                 >
                   キャンセル
                 </button>
@@ -122,10 +155,27 @@ export default function ProfilePage() {
         ) : (
           /* 表示モード */
           <div className="space-y-6">
-            {/* 自己紹介 */}
+            {/* プロフィール情報 */}
             <div className="card p-6">
-              <h2 className="text-lg font-bold text-neutral-900 mb-3">自己紹介</h2>
-              <p className="text-neutral-700 leading-relaxed">{formData.bio}</p>
+              <h2 className="text-lg font-bold text-neutral-900 mb-4">プロフィール情報</h2>
+              <div className="space-y-3">
+                <div>
+                  <span className="text-sm text-neutral-600">メールアドレス</span>
+                  <p className="text-neutral-900">{user?.email}</p>
+                </div>
+                {formData.phone && (
+                  <div>
+                    <span className="text-sm text-neutral-600">電話番号</span>
+                    <p className="text-neutral-900">{formData.phone}</p>
+                  </div>
+                )}
+                {formData.address && (
+                  <div>
+                    <span className="text-sm text-neutral-600">住所</span>
+                    <p className="text-neutral-900">{formData.address}</p>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* 統計 */}

@@ -80,7 +80,7 @@ export interface PetCreateRequest {
   };
 }
 
-export const petApi = {
+export const petsApi = {
   // Health check
   healthCheck: async () => {
     const response = await apiClient.get(API_CONFIG.ENDPOINTS.PETS.HEALTH);

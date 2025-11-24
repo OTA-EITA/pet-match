@@ -181,14 +181,21 @@ const Header = () => {
 
                     {user?.type === 'adopter' && (
                       <>
-                        <Link 
+                        <Link
                           href="/favorites"
                           onClick={() => setMobileMenuOpen(false)}
                           className="block text-neutral-700 hover:bg-primary-50 hover:text-primary-600 px-4 py-3 rounded-lg text-base font-medium transition touchable"
                         >
                           ❤️ お気に入り
                         </Link>
-                        <Link 
+                        <Link
+                          href="/inquiries"
+                          onClick={() => setMobileMenuOpen(false)}
+                          className="block text-neutral-700 hover:bg-primary-50 hover:text-primary-600 px-4 py-3 rounded-lg text-base font-medium transition touchable"
+                        >
+                          💌 問い合わせ
+                        </Link>
+                        <Link
                           href="/applications"
                           onClick={() => setMobileMenuOpen(false)}
                           className="block text-neutral-700 hover:bg-primary-50 hover:text-primary-600 px-4 py-3 rounded-lg text-base font-medium transition touchable"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { petApi } from '@/lib/api';
+import { petsApi } from '@/lib/api';
 import { authApi } from '@/lib/auth';
 
 interface HealthStatus {
@@ -30,7 +30,7 @@ export default function DevStatusPanel() {
       {
         service: 'API Gateway',
         url: baseUrl,
-        checkFn: () => petApi.healthCheck()
+        checkFn: () => petsApi.healthCheck()
       },
       {
         service: 'Auth Service', 
@@ -68,7 +68,7 @@ export default function DevStatusPanel() {
     
     try {
       // Test pets endpoint
-      const petsResponse = await petApi.getPets(5, 0);
+      const petsResponse = await petsApi.getPets(5, 0);
       tests.push({
         endpoint: 'GET /api/pets',
         status: 'ok',

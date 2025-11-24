@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/hooks/useAuth'
 import ProtectedRoute from '@/components/auth/ProtectedRoute'
 import { Pet } from '@/types/Pet'
-import { petApi } from '@/lib/api'
+import { petsApi } from '@/lib/api'
 
 export default function MyPetsPage() {
   const { user } = useAuth()
@@ -20,7 +20,7 @@ export default function MyPetsPage() {
       
       // Try to get pets filtered by owner first
       // If backend doesn't support owner filtering, it will get all pets
-      const response = await petApi.getMyPets()
+      const response = await petsApi.getMyPets()
       
       // Filter by current user if backend doesn't support owner filtering
       let myPets = response.pets
@@ -50,7 +50,7 @@ export default function MyPetsPage() {
     }
 
     try {
-      await petApi.deletePet(petId)
+      await petsApi.deletePet(petId)
       setPets(prev => prev.filter(pet => pet.id !== petId))
       alert(`${petName}を削除しました。`)
     } catch (err: any) {

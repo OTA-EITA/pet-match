@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import Image from 'next/image'
 import { UploadedImage } from './ImageUpload'
-import { petApi } from '@/lib/api'
+import { petsApi } from '@/lib/api'
 import { API_CONFIG } from '@/lib/config'
 
 interface ImageGalleryProps {
@@ -34,8 +34,8 @@ export default function ImageGallery({
     try {
       console.log('Deleting image:', imageId, 'for pet:', petId);
       
-      // Use petApi instead of direct fetch
-      await petApi.images.deletePetImage(petId, imageId);
+      // Use petsApi instead of direct fetch
+      await petsApi.images.deletePetImage(petId, imageId);
       
       console.log('Delete successful');
       onImageDeleted(imageId)

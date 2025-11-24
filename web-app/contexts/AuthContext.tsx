@@ -9,6 +9,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (email: string, password: string, name: string, type: 'adopter' | 'shelter') => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
 }
 
@@ -123,12 +124,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(null);
   };
 
+  // Refresh user data
+  const refreshUser = async (): Promise<void> => {
+    const accessToken = tokenStorage.getAccessToken();
+    if (!accessToken) return;
+
+    try {
+      const userData = await authApi.verifyToken(accessToken);
+      setUser(userData);
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     loading,
     login,
     register,
     logout,
+    refreshUser,
     isAuthenticated,
   };
 
