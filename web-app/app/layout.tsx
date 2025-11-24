@@ -5,6 +5,7 @@ import AuthProvider from '@/contexts/AuthContext'
 import Header from '@/components/layout/Header'
 import DevAuthPanel from '@/components/dev/DevAuthPanel'
 import DevStatusPanel from '@/components/dev/DevStatusPanel'
+import SkipToContent from '@/components/SkipToContent'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -33,13 +34,14 @@ export default function RootLayout({
     <html lang="ja" className="scroll-smooth">
       <body className={`${inter.className} min-h-screen bg-cream-100 antialiased`}>
         <AuthProvider>
+          <SkipToContent />
           <Header />
-          
-          <main className="min-h-screen pt-16 sm:pt-20 pb-safe safe-area-padding">
+
+          <main id="main-content" className="min-h-screen pt-16 sm:pt-20 pb-safe safe-area-padding" role="main">
             {children}
           </main>
           
-          <footer className="bg-neutral-900 text-white py-6 sm:py-8">
+          <footer className="bg-neutral-900 text-white py-6 sm:py-8" role="contentinfo">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
               <div className="text-center sm:hidden">
                 <p className="text-sm text-neutral-400">
@@ -57,23 +59,23 @@ export default function RootLayout({
                     </p>
                   </div>
                   
-                  <div>
+                  <nav aria-label="サービスメニュー">
                     <h4 className="text-sm font-semibold mb-3 text-neutral-300">サービス</h4>
                     <ul className="space-y-2 text-sm text-neutral-400">
-                      <li><a href="/cats" className="hover:text-primary-300 transition">猫を探す</a></li>
-                      <li><a href="/portal" className="hover:text-primary-300 transition">猫図鑑</a></li>
-                      <li><a href="/community" className="hover:text-primary-300 transition">コミュニティ</a></li>
+                      <li><a href="/cats" className="hover:text-primary-300 transition focus:outline-none focus:ring-2 focus:ring-primary-300 rounded">猫を探す</a></li>
+                      <li><a href="/portal" className="hover:text-primary-300 transition focus:outline-none focus:ring-2 focus:ring-primary-300 rounded">猫図鑑</a></li>
+                      <li><a href="/community" className="hover:text-primary-300 transition focus:outline-none focus:ring-2 focus:ring-primary-300 rounded">コミュニティ</a></li>
                     </ul>
-                  </div>
-                  
-                  <div>
+                  </nav>
+
+                  <nav aria-label="サポートメニュー">
                     <h4 className="text-sm font-semibold mb-3 text-neutral-300">サポート</h4>
                     <ul className="space-y-2 text-sm text-neutral-400">
-                      <li><a href="/about" className="hover:text-primary-300 transition">運営について</a></li>
-                      <li><a href="/terms" className="hover:text-primary-300 transition">利用規約</a></li>
-                      <li><a href="/privacy" className="hover:text-primary-300 transition">プライバシー</a></li>
+                      <li><a href="/about" className="hover:text-primary-300 transition focus:outline-none focus:ring-2 focus:ring-primary-300 rounded">運営について</a></li>
+                      <li><a href="/terms" className="hover:text-primary-300 transition focus:outline-none focus:ring-2 focus:ring-primary-300 rounded">利用規約</a></li>
+                      <li><a href="/privacy" className="hover:text-primary-300 transition focus:outline-none focus:ring-2 focus:ring-primary-300 rounded">プライバシー</a></li>
                     </ul>
-                  </div>
+                  </nav>
                 </div>
                 
                 <div className="mt-6 pt-6 border-t border-neutral-800 text-center text-sm text-neutral-500">
