@@ -2,6 +2,7 @@ import axios from 'axios';
 import { Pet, PetResponse } from '@/types/Pet';
 import { tokenStorage } from '@/lib/auth';
 import { API_CONFIG } from '@/lib/config';
+import { logger } from '@/lib/logger';
 
 const apiClient = axios.create({
   baseURL: API_CONFIG.API_URL,
@@ -11,43 +12,73 @@ const apiClient = axios.create({
   },
 });
 
-// Request interceptor with JWT auto-injection
+// Request interceptor with JWT auto-injection and logging
 apiClient.interceptors.request.use(
   (config) => {
     const token = tokenStorage.getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Log API request
+    logger.apiRequest(
+      config.method?.toUpperCase() || 'UNKNOWN',
+      config.url || 'UNKNOWN',
+      config.data
+    );
+
     return config;
   },
-  (error) => Promise.reject(error)
+  (error) => {
+    logger.error('Request interceptor error', error);
+    return Promise.reject(error);
+  }
 );
 
-// Response interceptor with automatic token refresh
+// Response interceptor with automatic token refresh and logging
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Log API response
+    logger.apiResponse(
+      response.config.method?.toUpperCase() || 'UNKNOWN',
+      response.config.url || 'UNKNOWN',
+      response.status,
+      response.data
+    );
+    return response;
+  },
   async (error) => {
     const originalRequest = error.config;
-    
+
+    // Log API error
+    logger.apiError(
+      originalRequest?.method?.toUpperCase() || 'UNKNOWN',
+      originalRequest?.url || 'UNKNOWN',
+      error
+    );
+
     // Handle 401 Unauthorized - try token refresh
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       const refreshToken = tokenStorage.getRefreshToken();
       if (refreshToken) {
         try {
+          logger.info('Attempting token refresh');
           const refreshResponse = await axios.post(
             `${API_CONFIG.AUTH_URL}${API_CONFIG.ENDPOINTS.AUTH.REFRESH}`,
             { refresh_token: refreshToken }
           );
-          
+
           const newAccessToken = refreshResponse.data.access_token;
           tokenStorage.setTokens(newAccessToken, refreshToken);
-          
+          logger.info('Token refresh successful');
+
           originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
           return apiClient(originalRequest);
-          
+
         } catch (refreshError) {
+          logger.error('Token refresh failed', refreshError);
           tokenStorage.clearTokens();
           if (typeof window !== 'undefined') {
             window.location.href = '/login';
@@ -55,7 +86,7 @@ apiClient.interceptors.response.use(
         }
       }
     }
-    
+
     return Promise.reject(error);
   }
 );
