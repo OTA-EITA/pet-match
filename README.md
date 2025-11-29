@@ -1,15 +1,25 @@
-# PetMatch
+# OnlyCats (PetMatch)
 
-ペットの里親マッチングプラットフォーム - マイクロサービスアーキテクチャ
+猫の里親マッチング＆猫好きSNSプラットフォーム
 
 ## 概要
 
-PetMatchは、保護施設と里親希望者を繋ぐマイクロサービスベースのプラットフォームです。
+OnlyCatsは、保護猫・ブリーダー猫との出会いと、猫好きのためのコミュニティを提供するマイクロサービスベースのプラットフォームです。
+
+### 主な機能
+
+- 猫の里親募集・検索
+- お気に入り機能
+- 問い合わせ・応募機能
+- 猫図鑑（品種情報）
+- コミュニティ機能
+- シェルター向け管理機能
 
 ### 技術スタック
 
-- **Backend**: Go 1.21 + Gin Framework
-- **Frontend**: Next.js 15, React 18, TypeScript, Tailwind CSS
+- **Backend**: Go 1.24 + Gin Framework
+- **Web App**: Next.js 15, React 18, TypeScript, Tailwind CSS
+- **Mobile App**: React Native + Expo SDK
 - **Database**: PostgreSQL 15, Redis 7
 - **Storage**: MinIO (S3互換)
 - **Container**: Docker, Kubernetes
@@ -87,7 +97,13 @@ cd ../pet-service && go mod download
 # ... 他のサービスも同様
 ```
 
-#### フロントエンド
+#### Web App (Next.js)
+```bash
+cd web-app
+npm install
+```
+
+#### Mobile App (React Native)
 ```bash
 cd frontend
 npm install
@@ -116,13 +132,18 @@ cd services/auth-service && go run main.go
 cd services/pet-service && go run main.go
 ```
 
-#### フロントエンド
+#### Web App
 ```bash
-cd frontend
+cd web-app
 npm run dev
 ```
-
 アクセス: http://localhost:3000
+
+#### Mobile App
+```bash
+cd frontend
+npm run start
+```
 
 ## 開発ガイド
 
@@ -130,17 +151,25 @@ npm run dev
 
 ```
 pet-match/
-├── services/           # バックエンドサービス
-│   ├── api-gateway/   # APIゲートウェイ (8080)
-│   ├── auth-service/  # 認証サービス (8081)
-│   ├── pet-service/   # ペット管理 (8083)
-│   ├── user-service/  # ユーザー管理 (8082)
-│   ├── match-service/ # マッチング (8084)
-│   └── chat-service/  # チャット (8085)
-├── frontend/          # Next.jsフロントエンド
-├── k8s/               # Kubernetes設定
-├── scripts/           # 便利スクリプト
-└── docs/              # ドキュメント
+├── services/              # バックエンドサービス
+│   ├── api-gateway/      # APIゲートウェイ (8080)
+│   ├── auth-service/     # 認証サービス (8081)
+│   ├── pet-service/      # ペット管理 (8083)
+│   ├── user-service/     # ユーザー管理 (8082)
+│   ├── match-service/    # マッチング (8084)
+│   ├── inquiry-service/  # 問い合わせ (8086)
+│   └── docs-service/     # ドキュメント (8087)
+├── shared/               # 共有ライブラリ
+│   ├── config/          # 設定
+│   ├── middleware/      # ミドルウェア
+│   ├── errors/          # エラー定義
+│   ├── logger/          # ロギング
+│   └── validator/       # バリデーション
+├── web-app/              # Next.js Webアプリ
+├── frontend/             # React Native モバイルアプリ
+├── k8s/                  # Kubernetes設定
+├── scripts/              # 便利スクリプト
+└── docs/                 # ドキュメント
 ```
 
 ### コーディング規約
