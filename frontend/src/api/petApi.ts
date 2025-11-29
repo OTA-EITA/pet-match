@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { Pet, PetResponse } from '../types/Pet';
 import { authApi } from './authApi';
+import { StorageService } from '../services/StorageService';
 import { API_CONFIG } from '../config/api';
 
 const apiClient = axios.create(API_CONFIG);
@@ -30,7 +31,7 @@ apiClient.interceptors.request.use(
     console.log('API Request:', config.method?.toUpperCase(), config.url);
 
     // Get access token from storage
-    const token = await authApi.getAccessToken();
+    const token = await StorageService.getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -87,7 +88,7 @@ apiClient.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError as AxiosError, null);
         // Token refresh failed - user needs to login again
-        await authApi.clearAuth();
+        await StorageService.clearAll();
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;
