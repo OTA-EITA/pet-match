@@ -12,6 +12,7 @@ import {
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 import { useAuth } from '../context/AuthContext';
+import AdBanner from '../components/AdBanner';
 
 type Props = StackScreenProps<RootStackParamList, 'Profile'>;
 
@@ -53,6 +54,9 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Top Ad Banner */}
+      <AdBanner />
+
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
         <View style={styles.header}>
@@ -107,6 +111,31 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
+        {/* Shelter/Individual Menu Section */}
+        {(user?.type === 'shelter' || user?.type === 'individual') && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>譲渡管理</Text>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('MyPets')}>
+              <Text style={styles.menuIcon}>🐱</Text>
+              <Text style={styles.menuText}>登録したペット</Text>
+              <Text style={styles.menuArrow}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('PetRegister')}>
+              <Text style={styles.menuIcon}>➕</Text>
+              <Text style={styles.menuText}>新規ペット登録</Text>
+              <Text style={styles.menuArrow}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ReceivedInquiries')}>
+              <Text style={styles.menuIcon}>📬</Text>
+              <Text style={styles.menuText}>受信した問い合わせ</Text>
+              <Text style={styles.menuArrow}>›</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Logout Button */}
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <Text style={styles.logoutButtonText}>ログアウト</Text>
@@ -116,6 +145,9 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.footer}>
           <Text style={styles.versionText}>OnlyCats v1.0.0</Text>
         </View>
+
+        {/* Bottom Ad Banner */}
+        <AdBanner />
       </ScrollView>
     </SafeAreaView>
   );
