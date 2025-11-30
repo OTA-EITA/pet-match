@@ -15,6 +15,11 @@ import ProfileEditScreen from '../screens/ProfileEditScreen';
 import FavoritesScreen from '../screens/FavoritesScreen';
 import InquiryFormScreen from '../screens/InquiryFormScreen';
 import InquiryHistoryScreen from '../screens/InquiryHistoryScreen';
+// Shelter/Individual user screens
+import PetRegisterScreen from '../screens/PetRegisterScreen';
+import PetEditScreen from '../screens/PetEditScreen';
+import MyPetsScreen from '../screens/MyPetsScreen';
+import ReceivedInquiriesScreen from '../screens/ReceivedInquiriesScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -132,6 +137,39 @@ const Navigation: React.FC = () => {
               component={InquiryHistoryScreen}
               options={{
                 title: '問い合わせ履歴',
+                headerBackTitle: '戻る',
+              }}
+            />
+            {/* Shelter/Individual user screens */}
+            <Stack.Screen
+              name="PetRegister"
+              component={PetRegisterScreen}
+              options={{
+                title: 'ペット登録',
+                headerBackTitle: '戻る',
+              }}
+            />
+            <Stack.Screen
+              name="PetEdit"
+              component={PetEditScreen}
+              options={{
+                title: 'ペット編集',
+                headerBackTitle: '戻る',
+              }}
+            />
+            <Stack.Screen
+              name="MyPets"
+              component={MyPetsScreen}
+              options={{
+                title: '登録したペット',
+                headerBackTitle: '戻る',
+              }}
+            />
+            <Stack.Screen
+              name="ReceivedInquiries"
+              component={ReceivedInquiriesScreen}
+              options={{
+                title: '受信した問い合わせ',
                 headerBackTitle: '戻る',
               }}
             />
