@@ -9,6 +9,11 @@ export type RootStackParamList = {
   Favorites: undefined;
   InquiryForm: { petId: string };
   InquiryHistory: undefined;
+  // Shelter/Individual user screens
+  PetRegister: undefined;
+  PetEdit: { petId: string };
+  MyPets: undefined;
+  ReceivedInquiries: undefined;
 };
 
 declare global {
