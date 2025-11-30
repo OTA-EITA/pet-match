@@ -103,6 +103,48 @@ export interface PetSearchParams {
   age_min?: number;
   age_max?: number;
   search?: string;
+  owner?: string; // 'me' for own pets
+}
+
+export interface PetCreateRequest {
+  name: string;
+  species: string;
+  breed: string;
+  age_years: number;
+  age_months?: number;
+  is_age_estimated?: boolean;
+  gender: 'male' | 'female';
+  size?: 'small' | 'medium' | 'large';
+  weight?: number; // 体重 (kg)
+  color?: string;
+  personality?: string[];
+  vaccinated?: boolean;
+  neutered?: boolean;
+  health_issues?: string[];
+  location?: string;
+  images?: string[];
+  description?: string;
+}
+
+export interface PetUpdateRequest {
+  name?: string;
+  species?: string;
+  breed?: string;
+  age_years?: number;
+  age_months?: number;
+  is_age_estimated?: boolean;
+  gender?: 'male' | 'female';
+  size?: 'small' | 'medium' | 'large';
+  weight?: number; // 体重 (kg)
+  color?: string;
+  personality?: string[];
+  vaccinated?: boolean;
+  neutered?: boolean;
+  health_issues?: string[];
+  location?: string;
+  images?: string[];
+  description?: string;
+  status?: 'available' | 'adopted' | 'pending';
 }
 
 export const petApi = {
@@ -121,6 +163,7 @@ export const petApi = {
       if (params?.size) searchParams.size = params.size;
       if (params?.age_min !== undefined) searchParams.age_min = params.age_min;
       if (params?.age_max !== undefined) searchParams.age_max = params.age_max;
+      if (params?.owner) searchParams.owner = params.owner;
 
       const response = await apiClient.get<PetResponse>('/pets', {
         params: searchParams
@@ -139,6 +182,43 @@ export const petApi = {
       return response.data;
     } catch (error) {
       console.error(`Failed to fetch pet ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // 自分のペット一覧取得
+  async getMyPets(): Promise<PetResponse> {
+    return this.getPets({ owner: 'me' });
+  },
+
+  // ペット登録
+  async createPet(data: PetCreateRequest): Promise<Pet> {
+    try {
+      const response = await apiClient.post<{ message: string; pet: Pet }>('/pets', data);
+      return response.data.pet;
+    } catch (error) {
+      console.error('Failed to create pet:', error);
+      throw error;
+    }
+  },
+
+  // ペット更新
+  async updatePet(id: string, data: PetUpdateRequest): Promise<Pet> {
+    try {
+      const response = await apiClient.put<{ message: string; pet: Pet }>(`/pets/${id}`, data);
+      return response.data.pet;
+    } catch (error) {
+      console.error(`Failed to update pet ${id}:`, error);
+      throw error;
+    }
+  },
+
+  // ペット削除
+  async deletePet(id: string): Promise<void> {
+    try {
+      await apiClient.delete(`/pets/${id}`);
+    } catch (error) {
+      console.error(`Failed to delete pet ${id}:`, error);
       throw error;
     }
   },

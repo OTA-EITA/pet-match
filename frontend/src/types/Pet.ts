@@ -21,7 +21,8 @@ export interface Pet {
   breed: string;
   age_info: AgeInfo;
   gender: 'male' | 'female';
-  size: 'small' | 'medium' | 'large';
+  size?: 'small' | 'medium' | 'large';
+  weight?: number; // 体重 (kg)
   color: string;
   personality: string[];
   medical_info: MedicalInfo;

@@ -138,6 +138,44 @@ func (m *AuthMiddleware) RequireRole(requiredType string) gin.HandlerFunc {
 	})
 }
 
+// RequireRoles - 複数のロールのいずれかが必要なエンドポイント用
+func (m *AuthMiddleware) RequireRoles(allowedRoles ...string) gin.HandlerFunc {
+	return gin.HandlerFunc(func(c *gin.Context) {
+		userType, exists := c.Get("user_type")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "user_type_missing",
+				"message": "User type not found in context",
+			})
+			c.Abort()
+			return
+		}
+
+		userTypeStr, ok := userType.(string)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error":   "invalid_user_type",
+				"message": "User type is invalid",
+			})
+			c.Abort()
+			return
+		}
+
+		for _, allowedRole := range allowedRoles {
+			if userTypeStr == allowedRole {
+				c.Next()
+				return
+			}
+		}
+
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":   "insufficient_permissions",
+			"message": fmt.Sprintf("Required roles: %v, current role: %s", allowedRoles, userTypeStr),
+		})
+		c.Abort()
+	})
+}
+
 // OptionalAuth - 認証があれば情報を設定するが、なくても通す
 func (m *AuthMiddleware) OptionalAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {

@@ -10,22 +10,23 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Platform,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
+import { petApi, PetCreateRequest } from '../api/petApi';
 import AdBanner from '../components/AdBanner';
 
 type Props = StackScreenProps<RootStackParamList, 'PetRegister'>;
 
 type Gender = 'male' | 'female';
-type Size = 'small' | 'medium' | 'large';
 
 interface PetFormData {
   name: string;
   breed: string;
   age: string;
   gender: Gender;
-  size: Size;
+  weight: string; // 体重 (kg)
   description: string;
   medical_history: string;
   personality: string;
@@ -38,7 +39,7 @@ const PetRegisterScreen: React.FC<Props> = ({ navigation }) => {
     breed: '',
     age: '',
     gender: 'male',
-    size: 'medium',
+    weight: '',
     description: '',
     medical_history: '',
     personality: '',
@@ -53,55 +54,100 @@ const PetRegisterScreen: React.FC<Props> = ({ navigation }) => {
 
   const handleAddImage = () => {
     // TODO: Implement image picker
-    Alert.alert('準備中', '画像アップロード機能は準備中です');
+    if (Platform.OS === 'web') {
+      window.alert('準備中\n画像アップロード機能は準備中です');
+    } else {
+      Alert.alert('準備中', '画像アップロード機能は準備中です');
+    }
+  };
+
+  const showAlert = (title: string, message: string, onOk?: () => void) => {
+    if (Platform.OS === 'web') {
+      window.alert(`${title}\n${message}`);
+      if (onOk) onOk();
+    } else {
+      Alert.alert(title, message, onOk ? [{ text: 'OK', onPress: onOk }] : undefined);
+    }
+  };
+
+  const submitPet = async () => {
+    try {
+      setLoading(true);
+
+      // Convert age from months to years/months
+      const ageInMonths = parseInt(formData.age, 10) || 0;
+      const ageYears = Math.floor(ageInMonths / 12);
+      const ageMonths = ageInMonths % 12;
+
+      // Parse personality as array
+      const personality = formData.personality
+        .split(/[,、]/)
+        .map((s) => s.trim())
+        .filter((s) => s.length > 0);
+
+      // Parse weight
+      const weight = parseFloat(formData.weight) || undefined;
+
+      const createRequest: PetCreateRequest = {
+        name: formData.name.trim(),
+        species: 'cat',
+        breed: formData.breed.trim(),
+        age_years: ageYears,
+        age_months: ageMonths,
+        is_age_estimated: true,
+        gender: formData.gender,
+        weight: weight,
+        personality: personality.length > 0 ? personality : undefined,
+        description: formData.description.trim(),
+        images: images.length > 0 ? images : undefined,
+      };
+
+      await petApi.createPet(createRequest);
+
+      showAlert('登録完了', 'ペットを登録しました', () => navigation.goBack());
+    } catch (error: any) {
+      console.error('Failed to create pet:', error);
+      showAlert('エラー', error.response?.data?.error || 'ペットの登録に失敗しました');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
-      Alert.alert('エラー', '名前を入力してください');
+      showAlert('エラー', '名前を入力してください');
       return;
     }
     if (!formData.breed.trim()) {
-      Alert.alert('エラー', '品種を入力してください');
+      showAlert('エラー', '品種を入力してください');
       return;
     }
     if (!formData.age.trim()) {
-      Alert.alert('エラー', '年齢を入力してください');
+      showAlert('エラー', '年齢を入力してください');
       return;
     }
     if (!formData.description.trim() || formData.description.length < 20) {
-      Alert.alert('エラー', '説明は20文字以上入力してください');
+      showAlert('エラー', '説明は20文字以上入力してください');
       return;
     }
 
-    Alert.alert(
-      '確認',
-      'ペットを登録しますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: '登録',
-          onPress: async () => {
-            try {
-              setLoading(true);
-              // TODO: Call API to register pet
-              // await petApi.registerPet(formData);
-
-              // Mock success for now
-              await new Promise((resolve) => setTimeout(resolve, 1000));
-
-              Alert.alert('登録完了', 'ペットを登録しました', [
-                { text: 'OK', onPress: () => navigation.goBack() },
-              ]);
-            } catch (error: any) {
-              Alert.alert('エラー', error.response?.data?.message || 'ペットの登録に失敗しました');
-            } finally {
-              setLoading(false);
-            }
-          },
-        },
-      ]
-    );
+    // Web では window.confirm を使用
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('ペットを登録しますか？');
+      if (confirmed) {
+        await submitPet();
+      }
+    } else {
+      // iOS/Android では Alert.alert を使用
+      Alert.alert(
+        '確認',
+        'ペットを登録しますか？',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          { text: '登録', onPress: submitPet },
+        ]
+      );
+    }
   };
 
   return (
@@ -127,7 +173,7 @@ const PetRegisterScreen: React.FC<Props> = ({ navigation }) => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>基本情報</Text>
 
-          <Text style={styles.label}>名前 *</Text>
+          <Text style={styles.label}>名前 <Text style={styles.required}>*必須</Text></Text>
           <TextInput
             style={styles.input}
             value={formData.name}
@@ -135,7 +181,7 @@ const PetRegisterScreen: React.FC<Props> = ({ navigation }) => {
             placeholder="ミケ"
           />
 
-          <Text style={styles.label}>品種 *</Text>
+          <Text style={styles.label}>品種 <Text style={styles.required}>*必須</Text></Text>
           <TextInput
             style={styles.input}
             value={formData.breed}
@@ -143,7 +189,7 @@ const PetRegisterScreen: React.FC<Props> = ({ navigation }) => {
             placeholder="ミックス / アメリカンショートヘア など"
           />
 
-          <Text style={styles.label}>年齢（月齢） *</Text>
+          <Text style={styles.label}>年齢（月齢） <Text style={styles.required}>*必須</Text></Text>
           <TextInput
             style={styles.input}
             value={formData.age}
@@ -172,27 +218,21 @@ const PetRegisterScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>サイズ</Text>
-          <View style={styles.buttonGroup}>
-            {(['small', 'medium', 'large'] as Size[]).map((size) => (
-              <TouchableOpacity
-                key={size}
-                style={[styles.sizeButton, formData.size === size && styles.sizeButtonActive]}
-                onPress={() => updateField('size', size)}
-              >
-                <Text style={[styles.sizeButtonText, formData.size === size && styles.sizeButtonTextActive]}>
-                  {size === 'small' ? '小型' : size === 'medium' ? '中型' : '大型'}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.label}>体重 (kg)</Text>
+          <TextInput
+            style={styles.input}
+            value={formData.weight}
+            onChangeText={(v) => updateField('weight', v)}
+            placeholder="4.5"
+            keyboardType="decimal-pad"
+          />
         </View>
 
         {/* Description Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>詳細情報</Text>
 
-          <Text style={styles.label}>説明 *</Text>
+          <Text style={styles.label}>説明 <Text style={styles.required}>*必須（20文字以上）</Text></Text>
           <TextInput
             style={[styles.input, styles.textArea]}
             value={formData.description}
@@ -307,6 +347,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 12,
   },
+  required: {
+    color: '#f44336',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
   input: {
     backgroundColor: '#f5f5f5',
     borderRadius: 8,
@@ -348,28 +393,6 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   genderButtonTextActive: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  sizeButton: {
-    flex: 1,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    backgroundColor: '#fff',
-    alignItems: 'center',
-  },
-  sizeButtonActive: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
-  },
-  sizeButtonText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  sizeButtonTextActive: {
     color: '#fff',
     fontWeight: 'bold',
   },

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -11,86 +11,25 @@ import {
   Alert,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
+import { inquiryApi, Inquiry } from '../api/inquiryApi';
 import AdBanner from '../components/AdBanner';
 
 type Props = StackScreenProps<RootStackParamList, 'ReceivedInquiries'>;
 
-interface ReceivedInquiry {
-  id: string;
-  pet_id: string;
-  pet_name: string;
-  user_id: string;
-  user_name: string;
-  user_email: string;
-  message: string;
-  type: 'question' | 'interview' | 'adoption';
-  contact_method: 'email' | 'phone';
-  phone?: string;
-  status: 'new' | 'replied' | 'scheduled' | 'completed' | 'rejected';
-  created_at: string;
-  updated_at: string;
-}
-
-// Mock data for development
-const MOCK_INQUIRIES: ReceivedInquiry[] = [
-  {
-    id: 'inq-1',
-    pet_id: 'my-pet-1',
-    pet_name: 'ミケ',
-    user_id: 'user-1',
-    user_name: '田中太郎',
-    user_email: 'tanaka@example.com',
-    message: 'ミケちゃんに興味があります。一度会いに行くことは可能でしょうか？家族で猫を飼うのは初めてですが、責任を持って育てたいと思っています。',
-    type: 'interview',
-    contact_method: 'email',
-    status: 'new',
-    created_at: '2024-03-15T10:00:00Z',
-    updated_at: '2024-03-15T10:00:00Z',
-  },
-  {
-    id: 'inq-2',
-    pet_id: 'my-pet-2',
-    pet_name: 'トラ',
-    user_id: 'user-2',
-    user_name: '鈴木花子',
-    user_email: 'suzuki@example.com',
-    message: 'トラくんの健康状態について詳しく教えていただけますか？ワクチン接種の状況なども知りたいです。',
-    type: 'question',
-    contact_method: 'phone',
-    phone: '090-1234-5678',
-    status: 'replied',
-    created_at: '2024-03-14T15:30:00Z',
-    updated_at: '2024-03-14T16:00:00Z',
-  },
-  {
-    id: 'inq-3',
-    pet_id: 'my-pet-1',
-    pet_name: 'ミケ',
-    user_id: 'user-3',
-    user_name: '佐藤一郎',
-    user_email: 'sato@example.com',
-    message: 'ミケちゃんの譲渡を正式に申し込みたいです。必要な書類等があれば教えてください。',
-    type: 'adoption',
-    contact_method: 'email',
-    status: 'scheduled',
-    created_at: '2024-03-13T09:00:00Z',
-    updated_at: '2024-03-13T12:00:00Z',
-  },
-];
+type InquiryStatus = 'sent' | 'replied' | 'scheduled' | 'completed' | 'rejected';
 
 const ReceivedInquiriesScreen: React.FC<Props> = ({ navigation }) => {
-  const [inquiries, setInquiries] = useState<ReceivedInquiry[]>([]);
+  const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'new' | 'in_progress' | 'completed'>('all');
 
   const loadInquiries = useCallback(async () => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await inquiryApi.getReceivedInquiries();
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setInquiries(MOCK_INQUIRIES);
+      const response = await inquiryApi.getReceivedInquiries();
+      setInquiries(response || []);
     } catch (error) {
       console.error('Failed to load inquiries:', error);
       Alert.alert('エラー', '問い合わせの取得に失敗しました');
@@ -100,16 +39,19 @@ const ReceivedInquiriesScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, []);
 
-  useEffect(() => {
-    loadInquiries();
-  }, [loadInquiries]);
+  // Reload when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadInquiries();
+    }, [loadInquiries])
+  );
 
   const handleRefresh = () => {
     setIsRefreshing(true);
     loadInquiries();
   };
 
-  const handleUpdateStatus = (inquiry: ReceivedInquiry, newStatus: ReceivedInquiry['status']) => {
+  const handleUpdateStatus = (inquiry: Inquiry, newStatus: InquiryStatus) => {
     Alert.alert(
       'ステータス変更',
       `ステータスを「${getStatusLabel(newStatus)}」に変更しますか？`,
@@ -119,14 +61,14 @@ const ReceivedInquiriesScreen: React.FC<Props> = ({ navigation }) => {
           text: '変更',
           onPress: async () => {
             try {
-              // TODO: Call API to update status
-              // await inquiryApi.updateInquiryStatus(inquiry.id, newStatus);
+              await inquiryApi.updateInquiryStatus(inquiry.id, newStatus);
               setInquiries((prev) =>
                 prev.map((inq) =>
                   inq.id === inquiry.id ? { ...inq, status: newStatus } : inq
                 )
               );
             } catch (error) {
+              console.error('Failed to update status:', error);
               Alert.alert('エラー', 'ステータスの更新に失敗しました');
             }
           },
@@ -163,7 +105,7 @@ const ReceivedInquiriesScreen: React.FC<Props> = ({ navigation }) => {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'new':
+      case 'sent':
         return '新着';
       case 'replied':
         return '返信済み';
@@ -180,7 +122,7 @@ const ReceivedInquiriesScreen: React.FC<Props> = ({ navigation }) => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'new':
+      case 'sent':
         return '#f44336';
       case 'replied':
         return '#2196F3';
@@ -197,17 +139,17 @@ const ReceivedInquiriesScreen: React.FC<Props> = ({ navigation }) => {
 
   const filteredInquiries = inquiries.filter((inq) => {
     if (filter === 'all') return true;
-    if (filter === 'new') return inq.status === 'new';
+    if (filter === 'new') return inq.status === 'sent';
     if (filter === 'in_progress') return ['replied', 'scheduled'].includes(inq.status);
     if (filter === 'completed') return ['completed', 'rejected'].includes(inq.status);
     return true;
   });
 
-  const renderInquiry = ({ item }: { item: ReceivedInquiry }) => (
+  const renderInquiry = ({ item }: { item: Inquiry }) => (
     <View style={styles.inquiryCard}>
       <View style={styles.inquiryHeader}>
         <View style={styles.petInfo}>
-          <Text style={styles.petName}>{item.pet_name}</Text>
+          <Text style={styles.petName}>Pet ID: {item.pet_id.substring(0, 8)}...</Text>
           <View style={[styles.typeBadge, { backgroundColor: getTypeColor(item.type) }]}>
             <Text style={styles.typeBadgeText}>{getTypeLabel(item.type)}</Text>
           </View>
@@ -218,8 +160,8 @@ const ReceivedInquiriesScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       <View style={styles.userInfo}>
-        <Text style={styles.userName}>{item.user_name}</Text>
-        <Text style={styles.userEmail}>{item.user_email}</Text>
+        <Text style={styles.userName}>User ID: {item.user_id.substring(0, 8)}...</Text>
+        <Text style={styles.userEmail}>{item.contact_method === 'email' ? 'Email連絡希望' : 'TEL連絡希望'}</Text>
         {item.phone && <Text style={styles.userPhone}>TEL: {item.phone}</Text>}
       </View>
 
@@ -227,12 +169,19 @@ const ReceivedInquiriesScreen: React.FC<Props> = ({ navigation }) => {
         {item.message}
       </Text>
 
+      {item.reply && (
+        <View style={styles.replySection}>
+          <Text style={styles.replyLabel}>返信:</Text>
+          <Text style={styles.replyText}>{item.reply}</Text>
+        </View>
+      )}
+
       <View style={styles.inquiryFooter}>
         <Text style={styles.date}>
           {new Date(item.created_at).toLocaleDateString('ja-JP')}
         </Text>
         <View style={styles.actionButtons}>
-          {item.status === 'new' && (
+          {item.status === 'sent' && (
             <TouchableOpacity
               style={styles.replyButton}
               onPress={() => handleUpdateStatus(item, 'replied')}
@@ -282,10 +231,10 @@ const ReceivedInquiriesScreen: React.FC<Props> = ({ navigation }) => {
           <Text style={[styles.filterButtonText, filter === f && styles.filterButtonTextActive]}>
             {f === 'all' ? 'すべて' : f === 'new' ? '新着' : f === 'in_progress' ? '対応中' : '完了'}
           </Text>
-          {f === 'new' && inquiries.filter((i) => i.status === 'new').length > 0 && (
+          {f === 'new' && inquiries.filter((i) => i.status === 'sent').length > 0 && (
             <View style={styles.newBadge}>
               <Text style={styles.newBadgeText}>
-                {inquiries.filter((i) => i.status === 'new').length}
+                {inquiries.filter((i) => i.status === 'sent').length}
               </Text>
             </View>
           )}
@@ -482,6 +431,23 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 20,
     marginBottom: 12,
+  },
+  replySection: {
+    backgroundColor: '#E3F2FD',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+  },
+  replyLabel: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#2196F3',
+    marginBottom: 4,
+  },
+  replyText: {
+    fontSize: 14,
+    color: '#333',
+    lineHeight: 20,
   },
   inquiryFooter: {
     flexDirection: 'row',

@@ -1,7 +1,10 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/http/httputil"
@@ -14,10 +17,11 @@ import (
 
 type InquiryProxy struct {
 	inquiryServiceURL string
+	petServiceURL     string
 	proxy             *httputil.ReverseProxy
 }
 
-func NewInquiryProxy(inquiryServiceURL string) *InquiryProxy {
+func NewInquiryProxy(inquiryServiceURL, petServiceURL string) *InquiryProxy {
 	target, err := url.Parse(inquiryServiceURL)
 	if err != nil {
 		log.Fatalf("Failed to parse inquiry service URL %s: %v", inquiryServiceURL, err)
@@ -51,6 +55,7 @@ func NewInquiryProxy(inquiryServiceURL string) *InquiryProxy {
 
 	return &InquiryProxy{
 		inquiryServiceURL: inquiryServiceURL,
+		petServiceURL:     petServiceURL,
 		proxy:             proxy,
 	}
 }
@@ -80,4 +85,66 @@ func (p *InquiryProxy) HealthCheck(c *gin.Context) {
 		"url":     p.inquiryServiceURL,
 		"status":  "ok",
 	})
+}
+
+// CreateInquiry handles inquiry creation with pet owner ID lookup
+func (p *InquiryProxy) CreateInquiry(c *gin.Context) {
+	start := time.Now()
+	path := c.Request.URL.Path
+	method := c.Request.Method
+
+	userID, userType, email, authenticated := middleware.GetCurrentUser(c)
+	if !authenticated {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "unauthorized"})
+		return
+	}
+
+	// Read the request body
+	bodyBytes, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "failed to read request body"})
+		return
+	}
+
+	// Parse the request to get pet_id
+	var req struct {
+		PetID string `json:"pet_id"`
+	}
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid request body"})
+		return
+	}
+
+	// Fetch pet info from pet-service to get owner_id
+	petOwnerID := ""
+	if req.PetID != "" {
+		petURL := fmt.Sprintf("%s/pets/%s", p.petServiceURL, req.PetID)
+		petResp, err := http.Get(petURL)
+		if err == nil && petResp.StatusCode == http.StatusOK {
+			defer petResp.Body.Close()
+			var petData struct {
+				OwnerID string `json:"owner_id"`
+			}
+			if err := json.NewDecoder(petResp.Body).Decode(&petData); err == nil {
+				petOwnerID = petData.OwnerID
+			}
+		}
+	}
+
+	// Restore the request body
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+	// Set headers
+	c.Request.Header.Set("X-User-ID", userID)
+	c.Request.Header.Set("X-User-Type", userType)
+	c.Request.Header.Set("X-User-Email", email)
+	if petOwnerID != "" {
+		c.Request.Header.Set("X-Pet-Owner-ID", petOwnerID)
+	}
+
+	p.proxy.ServeHTTP(c.Writer, c.Request)
+
+	duration := time.Since(start)
+	status := c.Writer.Status()
+	log.Printf("Inquiry service proxy (CreateInquiry): %s %s -> %d (took %v)", method, path, status, duration)
 }

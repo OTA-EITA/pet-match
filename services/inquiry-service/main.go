@@ -74,9 +74,17 @@ func main() {
 	v1 := router.Group("/api/v1")
 	{
 		inquiryGroup := v1.Group("/inquiries")
+		inquiryGroup.Use(middleware.AuthMiddleware(cfg))
 		{
-			inquiryGroup.POST("", middleware.AuthMiddleware(cfg), inquiryHandler.CreateInquiry)
-			inquiryGroup.GET("", middleware.AuthMiddleware(cfg), inquiryHandler.GetUserInquiries)
+			// All authenticated users
+			inquiryGroup.POST("", inquiryHandler.CreateInquiry)
+			inquiryGroup.GET("", inquiryHandler.GetUserInquiries)
+			inquiryGroup.GET("/:id", inquiryHandler.GetInquiry)
+
+			// Pet owners (shelter/individual) - received inquiries
+			inquiryGroup.GET("/received", inquiryHandler.GetReceivedInquiries)
+			inquiryGroup.PUT("/:id/status", inquiryHandler.UpdateInquiryStatus)
+			inquiryGroup.POST("/:id/reply", inquiryHandler.ReplyToInquiry)
 		}
 	}
 

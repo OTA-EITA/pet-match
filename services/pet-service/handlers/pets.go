@@ -194,6 +194,7 @@ func updatePetFromRequest(pet *models.Pet, req models.PetCreateRequest) {
 	pet.AgeInfo = models.CalculateAgeInfo(req.AgeYears, req.AgeMonths, req.IsEstimated)
 	pet.Gender = req.Gender
 	pet.Size = req.Size
+	pet.Weight = req.Weight
 	pet.Color = req.Color
 	pet.Personality = req.Personality
 	pet.MedicalInfo = req.MedicalInfo

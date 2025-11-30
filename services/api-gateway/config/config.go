@@ -70,7 +70,7 @@ func LoadConfig() *Config {
 		FileServiceURL:    getEnv("FILE_SERVICE_URL", "http://localhost:8087"),
 		InquiryServiceURL: getEnv("INQUIRY_SERVICE_URL", "http://localhost:8086"),
 
-		CORSAllowedOrigins: parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001")),
+		CORSAllowedOrigins: parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8085,http://localhost:19006")),
 		CORSAllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		CORSAllowedHeaders: []string{
 			"Content-Type",

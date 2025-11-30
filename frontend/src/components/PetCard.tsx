@@ -51,7 +51,6 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
       onPress={() => onPress(pet)}
       activeOpacity={0.7}
     >
-      {/* ペット画像 */}
       <View style={styles.imageContainer}>
         {hasImage ? (
           <>
@@ -78,7 +77,6 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
             <Text style={styles.placeholderText}>画像なし</Text>
           </View>
         )}
-        {/* ステータスバッジ（画像の上に配置） */}
         <View style={[styles.statusBadgeOverlay, { backgroundColor: getStatusColor(pet.status) }]}>
           <Text style={styles.statusText}>{getStatusText(pet.status)}</Text>
         </View>
@@ -95,6 +93,7 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
       <View style={styles.info}>
         <Text style={styles.breed}>{pet.breed}</Text>
         <Text style={styles.age}>{pet.age_info.age_text}</Text>
+        {pet.weight && pet.weight > 0 && <Text style={styles.weight}>体重: {pet.weight}kg</Text>}
         {pet.color && <Text style={styles.color}>毛色: {pet.color}</Text>}
       </View>
 
@@ -117,10 +116,10 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
 
       <View style={styles.medical}>
         <Text style={styles.medicalText}>
-          💉 {pet.medical_info.vaccinated ? 'ワクチン済' : '未接種'}
+          {'💉 '}{pet.medical_info?.vaccinated ? 'ワクチン済' : '未接種'}
         </Text>
         <Text style={styles.medicalText}>
-          ⚕️ {(pet.medical_info.spayed_neutered || pet.medical_info.neutered) ? '去勢・避妊済' : '未手術'}
+          {'⚕️ '}{(pet.medical_info?.spayed_neutered || pet.medical_info?.neutered) ? '去勢・避妊済' : '未手術'}
         </Text>
       </View>
     </TouchableOpacity>
@@ -234,6 +233,11 @@ const styles = StyleSheet.create({
   },
   age: {
     fontSize: 16,
+    color: '#666',
+    marginBottom: 4,
+  },
+  weight: {
+    fontSize: 14,
     color: '#666',
     marginBottom: 4,
   },

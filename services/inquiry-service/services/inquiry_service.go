@@ -39,11 +39,20 @@ func (s *InquiryService) Create(inquiry *models.Inquiry) (*models.Inquiry, error
 		return nil, fmt.Errorf("failed to store inquiry: %v", err)
 	}
 
-	// Add to user's inquiry list
+	// Add to user's inquiry list (sent inquiries)
 	userInquiriesKey := fmt.Sprintf("user:inquiries:%s", inquiry.UserID)
 	err = s.redisClient.LPush(s.ctx, userInquiriesKey, inquiry.ID).Err()
 	if err != nil {
 		return nil, fmt.Errorf("failed to add inquiry to user list: %v", err)
+	}
+
+	// Add to pet owner's received list
+	if inquiry.PetOwnerID != "" {
+		ownerInquiriesKey := fmt.Sprintf("owner:inquiries:%s", inquiry.PetOwnerID)
+		err = s.redisClient.LPush(s.ctx, ownerInquiriesKey, inquiry.ID).Err()
+		if err != nil {
+			return nil, fmt.Errorf("failed to add inquiry to owner list: %v", err)
+		}
 	}
 
 	// Add to pet's inquiry list
@@ -115,4 +124,59 @@ func (s *InquiryService) Update(inquiry *models.Inquiry) error {
 	}
 
 	return nil
+}
+
+// GetByOwnerID retrieves all received inquiries for a pet owner
+func (s *InquiryService) GetByOwnerID(ownerID string) ([]*models.Inquiry, error) {
+	ownerInquiriesKey := fmt.Sprintf("owner:inquiries:%s", ownerID)
+	inquiryIDs, err := s.redisClient.LRange(s.ctx, ownerInquiriesKey, 0, -1).Result()
+	if err != nil {
+		if err == redis.Nil {
+			return []*models.Inquiry{}, nil
+		}
+		return nil, fmt.Errorf("failed to get owner inquiries: %v", err)
+	}
+
+	var inquiries []*models.Inquiry
+	for _, id := range inquiryIDs {
+		inquiry, err := s.GetByID(id)
+		if err != nil {
+			continue
+		}
+		inquiries = append(inquiries, inquiry)
+	}
+
+	return inquiries, nil
+}
+
+// UpdateStatus updates the status of an inquiry
+func (s *InquiryService) UpdateStatus(inquiryID, status string) (*models.Inquiry, error) {
+	inquiry, err := s.GetByID(inquiryID)
+	if err != nil {
+		return nil, err
+	}
+
+	inquiry.Status = status
+	if err := s.Update(inquiry); err != nil {
+		return nil, err
+	}
+
+	return inquiry, nil
+}
+
+// AddReply adds a reply to an inquiry
+func (s *InquiryService) AddReply(inquiryID, reply string) (*models.Inquiry, error) {
+	inquiry, err := s.GetByID(inquiryID)
+	if err != nil {
+		return nil, err
+	}
+
+	inquiry.Reply = reply
+	inquiry.Status = "replied"
+	inquiry.RepliedAt = time.Now()
+	if err := s.Update(inquiry); err != nil {
+		return nil, err
+	}
+
+	return inquiry, nil
 }

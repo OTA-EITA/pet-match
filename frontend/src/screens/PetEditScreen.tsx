@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
+import { petApi, PetUpdateRequest } from '../api/petApi';
 import AdBanner from '../components/AdBanner';
 
 type Props = StackScreenProps<RootStackParamList, 'PetEdit'>;
@@ -58,24 +59,28 @@ const PetEditScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const loadPetData = async () => {
     try {
-      // TODO: Replace with actual API call
-      // const pet = await petApi.getPet(petId);
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const pet = await petApi.getPet(petId);
 
-      // Mock data
+      // Convert age_info to months for display
+      const ageInMonths = pet.age_info
+        ? pet.age_info.years * 12 + pet.age_info.months
+        : 0;
+
       setFormData({
-        name: 'ミケ',
-        breed: 'ミックス',
-        age: '24',
-        gender: 'female',
-        size: 'medium',
-        status: 'available',
-        description: '人懐っこくて穏やかな性格の三毛猫です。他の猫とも仲良くできます。',
-        medical_history: 'ワクチン接種済み、避妊手術済み',
-        personality: '人懐っこい、おとなしい',
-        requirements: '室内飼い必須',
+        name: pet.name,
+        breed: pet.breed,
+        age: String(ageInMonths),
+        gender: pet.gender,
+        size: pet.size,
+        status: pet.status,
+        description: pet.description || '',
+        medical_history: pet.medical_info?.health_issues?.join(', ') || '',
+        personality: pet.personality?.join(', ') || '',
+        requirements: '',
       });
+      setImages(pet.images || []);
     } catch (error) {
+      console.error('Failed to load pet data:', error);
       Alert.alert('エラー', 'ペット情報の取得に失敗しました');
       navigation.goBack();
     } finally {
@@ -115,15 +120,39 @@ const PetEditScreen: React.FC<Props> = ({ route, navigation }) => {
           onPress: async () => {
             try {
               setSaving(true);
-              // TODO: Call API to update pet
-              // await petApi.updatePet(petId, formData);
-              await new Promise((resolve) => setTimeout(resolve, 1000));
+
+              // Convert age from months to years/months
+              const ageInMonths = parseInt(formData.age, 10) || 0;
+              const ageYears = Math.floor(ageInMonths / 12);
+              const ageMonths = ageInMonths % 12;
+
+              // Parse personality as array
+              const personality = formData.personality
+                .split(/[,、]/)
+                .map((s) => s.trim())
+                .filter((s) => s.length > 0);
+
+              const updateRequest: PetUpdateRequest = {
+                name: formData.name.trim(),
+                breed: formData.breed.trim(),
+                age_years: ageYears,
+                age_months: ageMonths,
+                gender: formData.gender,
+                size: formData.size,
+                status: formData.status,
+                personality: personality.length > 0 ? personality : undefined,
+                description: formData.description.trim(),
+                images: images.length > 0 ? images : undefined,
+              };
+
+              await petApi.updatePet(petId, updateRequest);
 
               Alert.alert('保存完了', '変更を保存しました', [
                 { text: 'OK', onPress: () => navigation.goBack() },
               ]);
             } catch (error: any) {
-              Alert.alert('エラー', error.response?.data?.message || '保存に失敗しました');
+              console.error('Failed to update pet:', error);
+              Alert.alert('エラー', error.response?.data?.error || '保存に失敗しました');
             } finally {
               setSaving(false);
             }

@@ -28,7 +28,7 @@ func SetupPetRoutes(
 				// Public image viewing
 				images.GET("", petProxy.GetPetImages)             // GET /api/pets/:id/images
 				images.GET("/health", petProxy.GetImageHealth)    // GET /api/pets/:id/images/health (MinIO health check)
-				
+
 				// Image upload/delete (temporarily public for development)
 				images.POST("", petProxy.UploadPetImage)          // POST /api/pets/:id/images
 				images.DELETE("/:image_id", petProxy.DeletePetImage) // DELETE /api/pets/:id/images/:image_id
@@ -38,21 +38,21 @@ func SetupPetRoutes(
 			protected := pets.Group("")
 			protected.Use(authMiddleware.RequireAuth())
 			{
-				// Pet CRUD operations (Shelter only)
-				protected.POST("", 
-					authMiddleware.RequireRole("shelter"),
+				// Pet CRUD operations (Shelter or Individual)
+				protected.POST("",
+					authMiddleware.RequireRoles("shelter", "individual"),
 					petProxy.CreatePet)                       // POST /api/pets
 
 				protected.PUT("/:id",
-					authMiddleware.RequireRole("shelter"),
+					authMiddleware.RequireRoles("shelter", "individual"),
 					petProxy.UpdatePet)                       // PUT /api/pets/:id
 
 				protected.DELETE("/:id",
-					authMiddleware.RequireRole("shelter"),
+					authMiddleware.RequireRoles("shelter", "individual"),
 					petProxy.DeletePet)                       // DELETE /api/pets/:id
 
 				protected.POST("/migrate",
-					authMiddleware.RequireRole("shelter"),
+					authMiddleware.RequireRoles("shelter", "individual"),
 					petProxy.MigratePets)                     // POST /api/pets/migrate
 
 				// Favorites (all authenticated users)
@@ -60,15 +60,15 @@ func SetupPetRoutes(
 				protected.DELETE("/:id/favorite", petProxy.RemoveFromFavorites) // DELETE /api/pets/:id/favorite
 				protected.GET("/favorites", petProxy.GetFavorites)           // GET /api/pets/favorites
 
-				// Applications (all authenticated users can create, shelters can view/update)
+				// Applications (all authenticated users can create, shelters/individual can view/update)
 				protected.POST("/:id/application", petProxy.CreateApplication)     // POST /api/pets/:id/application
 
-				// Shelter-only application management
-				shelterOnly := protected.Group("")
-				shelterOnly.Use(authMiddleware.RequireRole("shelter"))
+				// Pet owner application management (Shelter or Individual)
+				ownerOnly := protected.Group("")
+				ownerOnly.Use(authMiddleware.RequireRoles("shelter", "individual"))
 				{
-					shelterOnly.GET("/:id/applications", petProxy.GetPetApplications)      // GET /api/pets/:id/applications
-					shelterOnly.PUT("/:id/applications/:app_id", petProxy.UpdateApplication) // PUT /api/pets/:id/applications/:app_id
+					ownerOnly.GET("/:id/applications", petProxy.GetPetApplications)      // GET /api/pets/:id/applications
+					ownerOnly.PUT("/:id/applications/:app_id", petProxy.UpdateApplication) // PUT /api/pets/:id/applications/:app_id
 				}
 			}
 		}

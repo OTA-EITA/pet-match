@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
-import { createStackNavigator } from '@react-navigation/stack';
+import { createStackNavigator, TransitionPresets } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 
@@ -41,10 +41,6 @@ const Navigation: React.FC = () => {
         screenOptions={{
           headerStyle: {
             backgroundColor: '#fff',
-            elevation: 2,
-            shadowOpacity: 0.1,
-            shadowRadius: 3,
-            shadowOffset: { width: 0, height: 2 },
           },
           headerTitleStyle: {
             fontWeight: 'bold',
@@ -52,7 +48,8 @@ const Navigation: React.FC = () => {
             color: '#333',
           },
           headerTintColor: '#2196F3',
-          headerBackTitleVisible: false,
+          headerBackTitle: ' ',
+          ...(Platform.OS === 'web' ? {} : TransitionPresets.SlideFromRightIOS),
         }}
       >
         {!isAuthenticated ? (
@@ -81,13 +78,17 @@ const Navigation: React.FC = () => {
               component={PetListScreen}
               options={({ navigation }) => ({
                 title: '里親募集中のペット',
-                headerLargeTitle: true,
                 headerRight: () => (
                   <TouchableOpacity
                     style={styles.profileButton}
                     onPress={() => navigation.navigate('Profile')}
+                    activeOpacity={0.7}
+                    accessibilityRole="button"
+                    accessibilityLabel="プロフィール"
                   >
-                    <Text style={styles.profileButtonText}>👤</Text>
+                    <View style={styles.profileButtonInner}>
+                      <Text style={styles.profileButtonText}>👤</Text>
+                    </View>
                   </TouchableOpacity>
                 ),
               })}
@@ -97,7 +98,6 @@ const Navigation: React.FC = () => {
               component={PetDetailScreen}
               options={{
                 title: 'ペット詳細',
-                headerBackTitle: '戻る',
               }}
             />
             <Stack.Screen
@@ -105,7 +105,6 @@ const Navigation: React.FC = () => {
               component={ProfileScreen}
               options={{
                 title: 'プロフィール',
-                headerBackTitle: '戻る',
               }}
             />
             <Stack.Screen
@@ -113,7 +112,6 @@ const Navigation: React.FC = () => {
               component={ProfileEditScreen}
               options={{
                 title: 'プロフィール編集',
-                headerBackTitle: '戻る',
               }}
             />
             <Stack.Screen
@@ -121,7 +119,6 @@ const Navigation: React.FC = () => {
               component={FavoritesScreen}
               options={{
                 title: 'お気に入り',
-                headerBackTitle: '戻る',
               }}
             />
             <Stack.Screen
@@ -129,7 +126,6 @@ const Navigation: React.FC = () => {
               component={InquiryFormScreen}
               options={{
                 title: '問い合わせ',
-                headerBackTitle: '戻る',
               }}
             />
             <Stack.Screen
@@ -137,7 +133,6 @@ const Navigation: React.FC = () => {
               component={InquiryHistoryScreen}
               options={{
                 title: '問い合わせ履歴',
-                headerBackTitle: '戻る',
               }}
             />
             {/* Shelter/Individual user screens */}
@@ -146,7 +141,6 @@ const Navigation: React.FC = () => {
               component={PetRegisterScreen}
               options={{
                 title: 'ペット登録',
-                headerBackTitle: '戻る',
               }}
             />
             <Stack.Screen
@@ -154,7 +148,6 @@ const Navigation: React.FC = () => {
               component={PetEditScreen}
               options={{
                 title: 'ペット編集',
-                headerBackTitle: '戻る',
               }}
             />
             <Stack.Screen
@@ -162,7 +155,6 @@ const Navigation: React.FC = () => {
               component={MyPetsScreen}
               options={{
                 title: '登録したペット',
-                headerBackTitle: '戻る',
               }}
             />
             <Stack.Screen
@@ -170,7 +162,6 @@ const Navigation: React.FC = () => {
               component={ReceivedInquiriesScreen}
               options={{
                 title: '受信した問い合わせ',
-                headerBackTitle: '戻る',
               }}
             />
           </>
@@ -202,7 +193,13 @@ const styles = StyleSheet.create({
   },
   profileButton: {
     marginRight: 16,
+    padding: 8,
+    cursor: 'pointer',
+  },
+  profileButtonInner: {
     padding: 4,
+    borderRadius: 20,
+    backgroundColor: '#E3F2FD',
   },
   profileButtonText: {
     fontSize: 24,

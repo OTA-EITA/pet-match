@@ -85,6 +85,7 @@ services:
       - REDIS_PASSWORD=onlycats123
       - REDIS_DB=1
       - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+      - JWT_ACCESS_SECRET=dev-access-secret-key-change-in-production
     depends_on:
       postgres:
         condition: service_healthy
@@ -109,6 +110,7 @@ services:
       - REDIS_PASSWORD=onlycats123
       - REDIS_DB=2
       - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+      - JWT_ACCESS_SECRET=dev-access-secret-key-change-in-production
     depends_on:
       postgres:
         condition: service_healthy
@@ -144,6 +146,29 @@ services:
       - onlycats-network
     restart: unless-stopped
 
+  inquiry-service:
+    build:
+      context: .
+      dockerfile: services/inquiry-service/Dockerfile
+    container_name: onlycats-inquiry-service
+    ports:
+      - "8086:8086"
+    environment:
+      - PORT=8086
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=onlycats123
+      - REDIS_DB=4
+      - JWT_ACCESS_SECRET=dev-access-secret-key-change-in-production
+      - JWT_REFRESH_SECRET=dev-refresh-secret-key-change-in-production
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -161,14 +186,16 @@ services:
       - USER_SERVICE_URL=http://user-service:8082
       - PET_SERVICE_URL=http://pet-service:8083
       - MATCH_SERVICE_URL=http://match-service:8084
-      
+      - INQUIRY_SERVICE_URL=http://inquiry-service:8086
+
       # CORS
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:19000,http://localhost:8081
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:19000,http://localhost:8081,http://localhost:8085,http://localhost:19006
     depends_on:
       - auth-service
       - user-service
       - pet-service
       - match-service
+      - inquiry-service
     networks:
       - onlycats-network
     restart: unless-stopped

@@ -49,7 +49,7 @@ func main() {
 	authProxy := handlers.NewAuthProxy(cfg.AuthServiceURL)
 	petProxy := handlers.NewPetProxy(cfg.PetServiceURL)
 	matchProxy := handlers.NewMatchProxy(cfg.MatchServiceURL)
-	inquiryProxy := handlers.NewInquiryProxy(cfg.InquiryServiceURL)
+	inquiryProxy := handlers.NewInquiryProxy(cfg.InquiryServiceURL, cfg.PetServiceURL)
 
 	// 認証ミドルウェアの初期化
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)

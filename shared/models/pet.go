@@ -18,7 +18,8 @@ type Pet struct {
 	Breed       string      `json:"breed" redis:"breed" gorm:"type:varchar(255);index"`
 	AgeInfo     AgeInfo     `json:"age_info" redis:"age_info" gorm:"embedded;embeddedPrefix:age_"` // 詳細な年齢情報
 	Gender      string      `json:"gender" redis:"gender" gorm:"type:varchar(20);index"` // male, female, unknown
-	Size        string      `json:"size" redis:"size" gorm:"type:varchar(50);index"`     // small, medium, large
+	Size        string      `json:"size" redis:"size" gorm:"type:varchar(50);index"`     // small, medium, large (deprecated for cats)
+	Weight      float64     `json:"weight" redis:"weight" gorm:"type:decimal(5,2)"`      // 体重 (kg)
 	Color       string      `json:"color" redis:"color" gorm:"type:varchar(100)"`
 	Personality pq.StringArray `json:"personality" redis:"personality" gorm:"type:text[]"`
 	MedicalInfo MedicalInfo `json:"medical_info" redis:"medical_info" gorm:"type:jsonb;serializer:json"`
@@ -97,6 +98,7 @@ func NewPetFromRequest(req PetCreateRequest, ownerID string) *Pet {
 		AgeInfo:     ageInfo,
 		Gender:      req.Gender,
 		Size:        req.Size,
+		Weight:      req.Weight,
 		Color:       req.Color,
 		Personality: req.Personality,
 		MedicalInfo: req.MedicalInfo,
@@ -155,7 +157,8 @@ type PetCreateRequest struct {
 	AgeMonths   int         `json:"age_months" binding:"min=0,max=11"`   // 追加月数 (0-11)
 	IsEstimated bool        `json:"is_estimated"`                        // 推定年齢フラグ
 	Gender      string      `json:"gender" binding:"oneof=male female unknown"`
-	Size        string      `json:"size" binding:"oneof=small medium large extra_large"`
+	Size        string      `json:"size"`                                // deprecated for cats
+	Weight      float64     `json:"weight"`                              // 体重 (kg)
 	Color       string      `json:"color"`
 	Personality []string    `json:"personality"`
 	MedicalInfo MedicalInfo `json:"medical_info"`

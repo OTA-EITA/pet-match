@@ -8,6 +8,7 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
@@ -19,27 +20,40 @@ type Props = StackScreenProps<RootStackParamList, 'Profile'>;
 const ProfileScreen: React.FC<Props> = ({ navigation }) => {
   const { user, isLoading, logout } = useAuth();
 
-  const handleLogout = () => {
-    Alert.alert(
-      'ログアウト',
-      'ログアウトしますか？',
-      [
-        { text: 'キャンセル', style: 'cancel' },
-        {
-          text: 'ログアウト',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              // Navigation will be handled by AuthContext
-            } catch (error) {
-              console.error('Logout error:', error);
-              Alert.alert('エラー', 'ログアウトに失敗しました');
-            }
+  const handleLogout = async () => {
+    // Web では window.confirm を使用
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('ログアウトしますか？');
+      if (confirmed) {
+        try {
+          await logout();
+        } catch (error) {
+          console.error('Logout error:', error);
+          window.alert('ログアウトに失敗しました');
+        }
+      }
+    } else {
+      // iOS/Android では Alert.alert を使用
+      Alert.alert(
+        'ログアウト',
+        'ログアウトしますか？',
+        [
+          { text: 'キャンセル', style: 'cancel' },
+          {
+            text: 'ログアウト',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await logout();
+              } catch (error) {
+                console.error('Logout error:', error);
+                Alert.alert('エラー', 'ログアウトに失敗しました');
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
+    }
   };
 
   if (isLoading) {

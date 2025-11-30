@@ -11,44 +11,14 @@ import {
   Alert,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
 import { Pet } from '../types/Pet';
+import { petApi } from '../api/petApi';
 import PetCard from '../components/PetCard';
 import AdBanner from '../components/AdBanner';
 
 type Props = StackScreenProps<RootStackParamList, 'MyPets'>;
-
-// Mock data for development
-const MOCK_MY_PETS: Pet[] = [
-  {
-    id: 'my-pet-1',
-    name: 'ミケ',
-    species: 'cat',
-    breed: 'ミックス',
-    age: 24,
-    gender: 'female',
-    size: 'medium',
-    description: '人懐っこくて穏やかな性格の三毛猫です。他の猫とも仲良くできます。',
-    status: 'available',
-    shelter_id: 'shelter-1',
-    created_at: '2024-01-15T10:00:00Z',
-    updated_at: '2024-01-15T10:00:00Z',
-  },
-  {
-    id: 'my-pet-2',
-    name: 'トラ',
-    species: 'cat',
-    breed: 'アメリカンショートヘア',
-    age: 12,
-    gender: 'male',
-    size: 'medium',
-    description: '活発で遊び好きな子猫です。おもちゃで遊ぶのが大好きです。',
-    status: 'pending',
-    shelter_id: 'shelter-1',
-    created_at: '2024-02-01T10:00:00Z',
-    updated_at: '2024-02-01T10:00:00Z',
-  },
-];
 
 const MyPetsScreen: React.FC<Props> = ({ navigation }) => {
   const [pets, setPets] = useState<Pet[]>([]);
@@ -57,10 +27,8 @@ const MyPetsScreen: React.FC<Props> = ({ navigation }) => {
 
   const loadMyPets = useCallback(async () => {
     try {
-      // TODO: Replace with actual API call
-      // const response = await petApi.getMyPets();
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      setPets(MOCK_MY_PETS);
+      const response = await petApi.getMyPets();
+      setPets(response.pets || []);
     } catch (error) {
       console.error('Failed to load my pets:', error);
       Alert.alert('エラー', 'ペット情報の取得に失敗しました');
@@ -70,9 +38,12 @@ const MyPetsScreen: React.FC<Props> = ({ navigation }) => {
     }
   }, []);
 
-  useEffect(() => {
-    loadMyPets();
-  }, [loadMyPets]);
+  // Reload when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadMyPets();
+    }, [loadMyPets])
+  );
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -98,11 +69,11 @@ const MyPetsScreen: React.FC<Props> = ({ navigation }) => {
           style: 'destructive',
           onPress: async () => {
             try {
-              // TODO: Call API to delete pet
-              // await petApi.deletePet(pet.id);
+              await petApi.deletePet(pet.id);
               setPets((prev) => prev.filter((p) => p.id !== pet.id));
               Alert.alert('削除完了', 'ペットを削除しました');
             } catch (error) {
+              console.error('Failed to delete pet:', error);
               Alert.alert('エラー', '削除に失敗しました');
             }
           },
