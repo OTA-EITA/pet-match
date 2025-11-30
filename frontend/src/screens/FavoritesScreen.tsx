@@ -154,14 +154,35 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
   }
 
   if (error && favoritePets.length === 0) {
+    // 401エラーの場合はログインが必要なことを明示
+    const isAuthError = error.includes('401') || error.includes('ログイン') || error.includes('認証');
+
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorTitle}>エラーが発生しました</Text>
-          <Text style={styles.errorMessage}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadFavorites}>
-            <Text style={styles.retryButtonText}>再試行</Text>
-          </TouchableOpacity>
+          {isAuthError ? (
+            <>
+              <Text style={styles.loginRequiredIcon}>🔐</Text>
+              <Text style={styles.loginRequiredTitle}>ログインが必要です</Text>
+              <Text style={styles.loginRequiredMessage}>
+                お気に入り機能を使用するにはログインしてください
+              </Text>
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={() => navigation.navigate('Login')}
+              >
+                <Text style={styles.loginButtonText}>ログインする</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.errorTitle}>エラーが発生しました</Text>
+              <Text style={styles.errorMessage}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={loadFavorites}>
+                <Text style={styles.retryButtonText}>再試行</Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
       </SafeAreaView>
     );
@@ -332,6 +353,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   browseButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  loginRequiredIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  loginRequiredTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 12,
+  },
+  loginRequiredMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    marginBottom: 32,
+    lineHeight: 24,
+  },
+  loginButton: {
+    backgroundColor: '#4CAF50',
+    paddingHorizontal: 40,
+    paddingVertical: 14,
+    borderRadius: 8,
+  },
+  loginButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',

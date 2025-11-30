@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 )
 
 // Pet represents a pet in the system
@@ -19,12 +20,12 @@ type Pet struct {
 	Gender      string      `json:"gender" redis:"gender" gorm:"type:varchar(20);index"` // male, female, unknown
 	Size        string      `json:"size" redis:"size" gorm:"type:varchar(50);index"`     // small, medium, large
 	Color       string      `json:"color" redis:"color" gorm:"type:varchar(100)"`
-	Personality []string    `json:"personality" redis:"personality" gorm:"type:text[];serializer:json"`
+	Personality pq.StringArray `json:"personality" redis:"personality" gorm:"type:text[]"`
 	MedicalInfo MedicalInfo `json:"medical_info" redis:"medical_info" gorm:"type:jsonb;serializer:json"`
 	OwnerID     string      `json:"owner_id" redis:"owner_id" gorm:"type:varchar(255);not null;index"`
 	Status      string      `json:"status" redis:"status" gorm:"type:varchar(50);not null;default:'available';index"`     // available, pending, adopted
 	Location    string      `json:"location" redis:"location" gorm:"type:varchar(255)"` // "lat,lng"
-	Images      []string    `json:"images" redis:"images" gorm:"type:text[];serializer:json"`
+	Images      pq.StringArray `json:"images" redis:"images" gorm:"type:text[]"`
 	Description string      `json:"description" redis:"description" gorm:"type:text"`
 	CreatedAt   time.Time   `json:"created_at" redis:"created_at" gorm:"not null;autoCreateTime"`
 	UpdatedAt   time.Time   `json:"updated_at" redis:"updated_at" gorm:"not null;autoUpdateTime"`
@@ -102,7 +103,7 @@ func NewPetFromRequest(req PetCreateRequest, ownerID string) *Pet {
 		OwnerID:     ownerID,
 		Status:      "available",
 		Location:    req.Location,
-		Images:      []string{},
+		Images:      pq.StringArray{},
 		Description: req.Description,
 		CreatedAt:   now,
 		UpdatedAt:   now,
@@ -134,8 +135,8 @@ func NewPet(name, species, breed string, age int, ownerID string) *Pet {
 		AgeInfo:     ageInfo,
 		OwnerID:     ownerID,
 		Status:      "available",
-		Images:      []string{},
-		Personality: []string{},
+		Images:      pq.StringArray{},
+		Personality: pq.StringArray{},
 		MedicalInfo: MedicalInfo{
 			HealthIssues: []string{},
 			Medications:  []string{},

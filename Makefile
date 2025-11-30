@@ -1,7 +1,7 @@
 # PetMatch Development Makefile
 # 修正版 - 重複ターゲット削除、エラーハンドリング改善
 
-.PHONY: help start stop restart status health build-all build-pet build-auth build-user build-gateway build-web deploy-all deploy-pet deploy-auth deploy-user deploy-gateway deploy-web logs logs-pet logs-auth logs-user logs-gateway logs-web test test-unit test-integration test-jwt test-redis lint lint-go lint-js fix setup reset clean clean-pods clean-images clean-all k8s-apply k8s-delete port-check pid-cleanup sample-data sample-data-quick sample-data-full sample-data-status sample-data-clean demo-ready security-scan security-install
+.PHONY: help start stop restart status health dev dev-stop dev-logs dev-restart build-all build-pet build-auth build-user build-gateway build-web deploy-all deploy-pet deploy-auth deploy-user deploy-gateway deploy-web logs logs-pet logs-auth logs-user logs-gateway logs-web test test-unit test-integration test-jwt test-redis lint lint-go lint-js fix setup reset clean clean-pods clean-images clean-all k8s-apply k8s-delete port-check pid-cleanup sample-data sample-data-quick sample-data-full sample-data-status sample-data-clean demo-ready security-scan security-install
 
 # Color codes for output
 RED=\033[0;31m
@@ -13,15 +13,21 @@ CYAN=\033[0;36m
 WHITE=\033[1;37m
 NC=\033[0m # No Color
 
+# Docker configuration
+export DOCKER_HOST=unix://$(HOME)/.docker/run/docker.sock
+
 # Default target
 help:
 	@echo "$(CYAN)PetMatch 完全開発環境$(NC)"
 	@echo "$(WHITE)========================$(NC)"
 	@echo ""
 	@echo "$(GREEN) 基本操作:$(NC)"
-	@echo "  make start          - 開発環境起動 (ポートフォワード)"
-	@echo "  make stop           - 開発環境停止"
-	@echo "  make restart        - 開発環境再起動"
+	@echo "  make dev            - Docker開発環境起動"
+	@echo "  make dev-stop       - Docker開発環境停止"
+	@echo "  make dev-logs       - ログ確認"
+	@echo "  make dev-restart    - Docker開発環境再起動"
+	@echo "  make start          - K8s開発環境起動 (ポートフォワード)"
+	@echo "  make stop           - K8s開発環境停止"
 	@echo "  make status         - システム状況確認"
 	@echo "  make health         - 詳細ヘルスチェック"
 	@echo ""
@@ -78,6 +84,63 @@ stop:
 	@echo "$(GREEN)開発環境停止完了$(NC)"
 
 restart: stop start
+
+# ===========================
+# ローカル開発 (全てDockerコンテナ)
+# ===========================
+
+dev:
+	@echo "$(CYAN)PetMatch Docker開発環境起動中...$(NC)"
+	@docker-compose up -d --build
+	@echo "$(CYAN)コンテナ起動待機中...$(NC)"
+	@sleep 10
+	@$(MAKE) --no-print-directory _health-check-services-docker
+	@$(MAKE) --no-print-directory _show-access-info-docker
+	@echo "$(GREEN)Docker開発環境起動完了$(NC)"
+
+dev-stop:
+	@echo "$(YELLOW)Docker開発環境停止中...$(NC)"
+	@docker-compose down
+	@echo "$(GREEN)Docker開発環境停止完了$(NC)"
+
+dev-logs:
+	@docker-compose logs -f
+
+dev-restart:
+	@$(MAKE) --no-print-directory dev-stop
+	@$(MAKE) --no-print-directory dev
+
+_health-check-services-docker:
+	@echo "$(CYAN)ヘルスチェック中...$(NC)"
+	@printf "PostgreSQL: "
+	@docker-compose exec -T postgres pg_isready -U onlycats >/dev/null 2>&1 && echo "$(GREEN)OK$(NC)" || echo "$(RED)FAIL$(NC)"
+	@printf "Redis: "
+	@docker-compose exec -T redis redis-cli ping >/dev/null 2>&1 && echo "$(GREEN)OK$(NC)" || echo "$(RED)FAIL$(NC)"
+	@printf "Auth Service (8081): "
+	@curl -s -o /dev/null -w "%{http_code}" "http://localhost:8081/health" 2>/dev/null | grep -q "200" && echo "$(GREEN)OK$(NC)" || echo "$(RED)FAIL$(NC)"
+	@printf "User Service (8082): "
+	@curl -s -o /dev/null -w "%{http_code}" "http://localhost:8082/health" 2>/dev/null | grep -q "200" && echo "$(GREEN)OK$(NC)" || echo "$(RED)FAIL$(NC)"
+	@printf "Pet Service (8083): "
+	@curl -s -o /dev/null -w "%{http_code}" "http://localhost:8083/health" 2>/dev/null | grep -q "200" && echo "$(GREEN)OK$(NC)" || echo "$(RED)FAIL$(NC)"
+	@printf "Match Service (8084): "
+	@curl -s -o /dev/null -w "%{http_code}" "http://localhost:8084/health" 2>/dev/null | grep -q "200" && echo "$(GREEN)OK$(NC)" || echo "$(RED)FAIL$(NC)"
+	@printf "API Gateway (8080): "
+	@curl -s -o /dev/null -w "%{http_code}" "http://localhost:8080/health" 2>/dev/null | grep -q "200" && echo "$(GREEN)OK$(NC)" || echo "$(RED)FAIL$(NC)"
+
+_show-access-info-docker:
+	@echo ""
+	@echo "$(WHITE)アクセス情報:$(NC)"
+	@echo "API Gateway: http://localhost:8080"
+	@echo "Auth Service: http://localhost:8081"
+	@echo "  └─ Swagger UI: http://localhost:8081/swagger/index.html"
+	@echo "User Service: http://localhost:8082"
+	@echo "Pet Service: http://localhost:8083"
+	@echo "Match Service: http://localhost:8084"
+	@echo "PostgreSQL: localhost:5432"
+	@echo "Redis: localhost:6379"
+	@echo ""
+	@echo "ログ確認: make dev-logs"
+	@echo "停止方法: make dev-stop"
 
 status:
 	@echo "$(BLUE)PetMatch システム状況$(NC)"

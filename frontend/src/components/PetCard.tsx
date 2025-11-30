@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
 import { Pet } from '../types/Pet';
 
 interface PetCardProps {
@@ -8,6 +8,11 @@ interface PetCardProps {
 }
 
 const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
+  const [imageLoading, setImageLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
+
+  const hasImage = pet.images && pet.images.length > 0 && !imageError;
+
   const getSpeciesEmoji = (species: string) => {
     switch (species.toLowerCase()) {
       case 'cat': return '🐱';
@@ -46,14 +51,44 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
       onPress={() => onPress(pet)}
       activeOpacity={0.7}
     >
+      {/* ペット画像 */}
+      <View style={styles.imageContainer}>
+        {hasImage ? (
+          <>
+            <Image
+              source={{ uri: pet.images[0] }}
+              style={styles.image}
+              onLoadStart={() => setImageLoading(true)}
+              onLoadEnd={() => setImageLoading(false)}
+              onError={() => {
+                setImageError(true);
+                setImageLoading(false);
+              }}
+              resizeMode="cover"
+            />
+            {imageLoading && (
+              <View style={styles.imageLoading}>
+                <ActivityIndicator size="small" color="#2196F3" />
+              </View>
+            )}
+          </>
+        ) : (
+          <View style={styles.placeholderImage}>
+            <Text style={styles.placeholderEmoji}>{getSpeciesEmoji(pet.species)}</Text>
+            <Text style={styles.placeholderText}>画像なし</Text>
+          </View>
+        )}
+        {/* ステータスバッジ（画像の上に配置） */}
+        <View style={[styles.statusBadgeOverlay, { backgroundColor: getStatusColor(pet.status) }]}>
+          <Text style={styles.statusText}>{getStatusText(pet.status)}</Text>
+        </View>
+      </View>
+
       <View style={styles.header}>
         <View style={styles.nameContainer}>
           <Text style={styles.emoji}>{getSpeciesEmoji(pet.species)}</Text>
           <Text style={styles.name}>{pet.name}</Text>
           <Text style={styles.gender}>{getGenderEmoji(pet.gender)}</Text>
-        </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(pet.status) }]}>
-          <Text style={styles.statusText}>{getStatusText(pet.status)}</Text>
         </View>
       </View>
 
@@ -98,7 +133,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     marginVertical: 8,
     borderRadius: 12,
-    padding: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -108,7 +143,52 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  imageContainer: {
+    width: '100%',
+    height: 180,
+    backgroundColor: '#f0f0f0',
+    position: 'relative',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
+  },
+  imageLoading: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+  },
+  placeholderImage: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#e8e8e8',
+  },
+  placeholderEmoji: {
+    fontSize: 48,
+    marginBottom: 8,
+  },
+  placeholderText: {
+    fontSize: 14,
+    color: '#999',
+  },
+  statusBadgeOverlay: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
   header: {
+    padding: 16,
+    paddingBottom: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -144,6 +224,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   info: {
+    paddingHorizontal: 16,
     marginBottom: 12,
   },
   breed: {
@@ -165,6 +246,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
     flexWrap: 'wrap',
+    paddingHorizontal: 16,
   },
   personalityLabel: {
     fontSize: 14,
@@ -187,10 +269,13 @@ const styles = StyleSheet.create({
     color: '#666',
     lineHeight: 20,
     marginBottom: 12,
+    paddingHorizontal: 16,
   },
   medical: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   medicalText: {
     fontSize: 12,

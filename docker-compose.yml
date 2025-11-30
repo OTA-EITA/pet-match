@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # ========================================
   # Infrastructure Services
@@ -135,6 +133,8 @@ services:
       - REDIS_PASSWORD=onlycats123
       - REDIS_DB=3
       - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+      - JWT_ACCESS_SECRET=dev-access-secret-key-change-in-production
+      - JWT_REFRESH_SECRET=dev-refresh-secret-key-change-in-production
     depends_on:
       postgres:
         condition: service_healthy

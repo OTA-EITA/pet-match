@@ -1,8 +1,10 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import { Pet, PetResponse } from '../types/Pet';
-import { authApi } from './authApi';
 import { StorageService } from '../services/StorageService';
 import { API_CONFIG } from '../config/api';
+
+// Import only the refreshToken function from authApi to avoid circular dependency issues
+const getAuthApi = () => import('./authApi').then(m => m.authApi);
 
 const apiClient = axios.create(API_CONFIG);
 
@@ -28,14 +30,10 @@ const processQueue = (error: AxiosError | null, token: string | null = null) => 
 // リクエストインターセプター - 認証トークンを自動で追加
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
-    console.log('API Request:', config.method?.toUpperCase(), config.url);
-
-    // Get access token from storage
     const token = await StorageService.getAccessToken();
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`;
     }
-
     return config;
   },
   (error) => {
@@ -45,14 +43,9 @@ apiClient.interceptors.request.use(
 
 // レスポンスインターセプター - 401エラー時に自動でトークンをリフレッシュ
 apiClient.interceptors.response.use(
-  (response) => {
-    console.log('API Response:', response.status, response.data);
-    return response;
-  },
+  (response) => response,
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
-
-    console.error('API Error:', error.response?.status, error.message);
 
     // If 401 Unauthorized and we haven't retried yet
     if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
@@ -76,7 +69,8 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        // Try to refresh the token
+        // Try to refresh the token using dynamic import to avoid circular dependency
+        const authApi = await getAuthApi();
         const newToken = await authApi.refreshToken();
         processQueue(null, newToken);
 

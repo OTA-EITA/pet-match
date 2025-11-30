@@ -19,16 +19,28 @@ import Constants from 'expo-constants';
 export const getApiBaseUrl = (): string => {
   if (__DEV__) {
     // 開発環境
-    const apiHost = Constants.expoConfig?.extra?.apiHost || 'localhost';
-    const apiPort = Constants.expoConfig?.extra?.apiPort || '18081';
+    const apiHost = Constants.expoConfig?.extra?.apiHost || '192.168.3.5';
+    const apiPort = Constants.expoConfig?.extra?.apiPort || '8080';
+
+    console.log('Platform.OS:', Platform.OS);
+    console.log('Constants.expoConfig?.extra:', Constants.expoConfig?.extra);
+
+    if (Platform.OS === 'web') {
+      // Webブラウザの場合はlocalhostを使用
+      const url = `http://localhost:${apiPort}/api`;
+      console.log('API Base URL (web):', url);
+      return url;
+    }
 
     if (Platform.OS === 'android') {
       // Androidエミュレータの場合、10.0.2.2でホストマシンにアクセス
       return `http://10.0.2.2:${apiPort}/api`;
     }
 
-    // iOS Simulatorまたは実機の場合
-    return `http://${apiHost}:${apiPort}/api`;
+    // iOS Simulator/実機の場合
+    const url = `http://${apiHost}:${apiPort}/api`;
+    console.log('API Base URL (ios):', url);
+    return url;
   }
 
   // 本番環境

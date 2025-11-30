@@ -16,13 +16,20 @@ export interface RegisterRequest {
   type: 'adopter' | 'shelter'; // User type: adopter or shelter
 }
 
-export interface AuthResponse {
+export interface AuthResponseData {
+  message?: string;
   tokens: {
     access_token: string;
     refresh_token: string;
     expires_in: number;
   };
   user: User;
+}
+
+export interface AuthResponse {
+  data: AuthResponseData;
+  success: boolean;
+  request_id?: string;
 }
 
 export interface User {
@@ -34,51 +41,50 @@ export interface User {
 
 export const authApi = {
   // Register
-  async register(data: RegisterRequest): Promise<AuthResponse> {
-    try {
-      console.log('🔍 DEBUG: Registration data being sent:', JSON.stringify(data));
-      const response = await authClient.post<AuthResponse>('/auth/register', data);
-      console.log('✅ DEBUG: Registration response received:', JSON.stringify(response.data));
-      await StorageService.saveTokens(response.data.tokens.access_token, response.data.tokens.refresh_token);
-      await StorageService.saveUser(response.data.user);
-      return response.data;
-    } catch (error: any) {
-      console.error('❌ Registration failed:', error);
-      console.error('❌ Error response data:', JSON.stringify(error.response?.data));
-      console.error('❌ Error response status:', error.response?.status);
-      throw error;
-    }
+  async register(data: RegisterRequest): Promise<AuthResponseData> {
+    const response = await authClient.post<AuthResponse>('/auth/register', data);
+    const authData = response.data.data;
+    await StorageService.saveTokens(authData.tokens.access_token, authData.tokens.refresh_token);
+    await StorageService.saveUser(authData.user);
+    return authData;
   },
 
   // Login
-  async login(data: LoginRequest): Promise<AuthResponse> {
-    try {
-      const response = await authClient.post<AuthResponse>('/auth/login', data);
-      await StorageService.saveTokens(response.data.tokens.access_token, response.data.tokens.refresh_token);
-      await StorageService.saveUser(response.data.user);
-      return response.data;
-    } catch (error) {
-      console.error('Login failed:', error);
-      throw error;
-    }
+  async login(data: LoginRequest): Promise<AuthResponseData> {
+    const response = await authClient.post<AuthResponse>('/auth/login', data);
+    const authData = response.data.data;
+    await StorageService.saveTokens(authData.tokens.access_token, authData.tokens.refresh_token);
+    await StorageService.saveUser(authData.user);
+    return authData;
   },
 
   // Refresh Token
   async refreshToken(): Promise<string> {
     try {
-      const refreshToken = await StorageService.getRefreshToken();
-      if (!refreshToken) {
+      const currentRefreshToken = await StorageService.getRefreshToken();
+      if (!currentRefreshToken) {
         throw new Error('No refresh token available');
       }
 
-      const response = await authClient.post<{ access_token: string }>('/auth/refresh', {
-        refresh_token: refreshToken,
+      interface RefreshResponse {
+        data: {
+          tokens: {
+            access_token: string;
+            refresh_token: string;
+            expires_in: number;
+          };
+        };
+        success: boolean;
+      }
+
+      const response = await authClient.post<RefreshResponse>('/auth/refresh', {
+        refresh_token: currentRefreshToken,
       });
 
-      await StorageService.saveTokens(response.data.access_token, refreshToken);
-      return response.data.access_token;
+      const { access_token, refresh_token } = response.data.data.tokens;
+      await StorageService.saveTokens(access_token, refresh_token);
+      return access_token;
     } catch (error) {
-      console.error('Token refresh failed:', error);
       await StorageService.clearAll();
       throw error;
     }
@@ -108,12 +114,20 @@ export const authApi = {
         throw new Error('No access token available');
       }
 
-      const response = await authClient.get<{ user: User }>('/auth/profile', {
+      interface ProfileResponse {
+        data: {
+          user: User;
+        };
+        success: boolean;
+      }
+
+      const response = await authClient.get<ProfileResponse>('/auth/profile', {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      await StorageService.saveUser(response.data.user);
-      return response.data.user;
+      const user = response.data.data.user;
+      await StorageService.saveUser(user);
+      return user;
     } catch (error) {
       console.error('Failed to fetch profile:', error);
       throw error;
@@ -128,12 +142,20 @@ export const authApi = {
         throw new Error('No access token available');
       }
 
-      const response = await authClient.put<{ user: User }>('/auth/profile', data, {
+      interface ProfileResponse {
+        data: {
+          user: User;
+        };
+        success: boolean;
+      }
+
+      const response = await authClient.put<ProfileResponse>('/auth/profile', data, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      await StorageService.saveUser(response.data.user);
-      return response.data.user;
+      const user = response.data.data.user;
+      await StorageService.saveUser(user);
+      return user;
     } catch (error) {
       console.error('Failed to update profile:', error);
       throw error;

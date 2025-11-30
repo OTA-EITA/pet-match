@@ -57,7 +57,32 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
       // Navigation will be handled by AuthContext
     } catch (error: any) {
       console.error('Signup error:', error);
-      const message = error.response?.data?.message || '登録に失敗しました';
+      const responseData = error.response?.data;
+      let message = '登録に失敗しました';
+
+      // Check for duplicate email error
+      if (responseData?.details?.includes('already exists') ||
+          responseData?.message?.includes('already exists')) {
+        message = 'このメールアドレスは既に登録されています。ログインしてください。';
+        Alert.alert(
+          '登録済みのアカウント',
+          message,
+          [
+            { text: 'キャンセル', style: 'cancel' },
+            { text: 'ログインへ', onPress: () => navigation.navigate('Login') }
+          ]
+        );
+        return;
+      }
+
+      // Check for password validation error
+      if (responseData?.details?.includes('password') ||
+          responseData?.message?.includes('password')) {
+        message = 'パスワードは8文字以上で、大文字・小文字・数字・特殊文字を含む必要があります';
+      } else if (responseData?.message) {
+        message = responseData.message;
+      }
+
       Alert.alert('登録エラー', message);
     }
   };

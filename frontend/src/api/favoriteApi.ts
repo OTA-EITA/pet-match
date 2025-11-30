@@ -23,17 +23,11 @@ export interface FavoritesResponse {
 export const favoriteApi = {
   // Add pet to favorites
   async addFavorite(petId: string, note?: string): Promise<Favorite> {
-    try {
-      const response = await apiClient.post<{ message: string; favorite: Favorite }>(
-        '/matches/favorites',
-        { pet_id: petId, note }
-      );
-      console.log('Favorite added:', response.data);
-      return response.data.favorite;
-    } catch (error) {
-      console.error('Failed to add favorite:', error);
-      throw error;
-    }
+    const response = await apiClient.post<{ message: string; favorite: Favorite }>(
+      '/matches/favorites',
+      { pet_id: petId, note }
+    );
+    return response.data.favorite;
   },
 
   // Get user's favorites
@@ -42,32 +36,28 @@ export const favoriteApi = {
       const response = await apiClient.get<FavoritesResponse>('/matches/favorites', {
         params: { page, limit }
       });
-      console.log('Favorites fetched:', response.data);
       return response.data;
-    } catch (error) {
-      console.error('Failed to fetch favorites:', error);
+    } catch (error: any) {
+      if (error.response?.status === 401) {
+        const authError = new Error('ログインが必要です (401)');
+        (authError as any).response = error.response;
+        throw authError;
+      }
       throw error;
     }
   },
 
   // Remove pet from favorites
   async removeFavorite(petId: string): Promise<void> {
-    try {
-      await apiClient.delete(`/matches/favorites/${petId}`);
-      console.log('Favorite removed:', petId);
-    } catch (error) {
-      console.error('Failed to remove favorite:', error);
-      throw error;
-    }
+    await apiClient.delete(`/matches/favorites/${petId}`);
   },
 
   // Check if pet is favorited
   async isFavorited(petId: string): Promise<boolean> {
     try {
-      const response = await this.getFavorites(1, 100); // Get first 100 favorites
+      const response = await this.getFavorites(1, 100);
       return response.favorites.some(fav => fav.pet_id === petId);
-    } catch (error) {
-      console.error('Failed to check if favorited:', error);
+    } catch {
       return false;
     }
   },
