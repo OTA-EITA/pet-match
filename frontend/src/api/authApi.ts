@@ -13,7 +13,7 @@ export interface RegisterRequest {
   email: string;
   password: string;
   name: string;
-  type: 'adopter' | 'shelter'; // User type: adopter or shelter
+  type: 'adopter' | 'shelter' | 'individual';
 }
 
 export interface AuthResponseData {
