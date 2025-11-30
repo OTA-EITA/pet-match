@@ -18,12 +18,27 @@ import { useAuth } from '../context/AuthContext';
 
 type Props = StackScreenProps<RootStackParamList, 'Signup'>;
 
+type UserType = 'adopter' | 'shelter' | 'individual';
+
+interface UserTypeOption {
+  value: UserType;
+  label: string;
+  description: string;
+}
+
+const USER_TYPE_OPTIONS: UserTypeOption[] = [
+  { value: 'adopter', label: '譲受希望者', description: 'ペットを迎えたい方' },
+  { value: 'shelter', label: 'シェルター', description: '保護施設・団体の方' },
+  { value: 'individual', label: '譲渡希望者', description: 'ペットの里親を探している方' },
+];
+
 const SignupScreen: React.FC<Props> = ({ navigation }) => {
   const { register, isLoading } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [userType, setUserType] = useState<UserType>('adopter');
 
   const handleSignup = async () => {
     // Validation
@@ -52,7 +67,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
         name: name.trim(),
         email: email.trim(),
         password,
-        type: 'adopter', // Default user type
+        type: userType,
       });
       // Navigation will be handled by AuthContext
     } catch (error: any) {
@@ -117,6 +132,41 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
 
             {/* Form */}
             <View style={styles.form}>
+              {/* User Type Selection */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.label}>登録タイプ</Text>
+                <View style={styles.userTypeContainer}>
+                  {USER_TYPE_OPTIONS.map((option) => (
+                    <TouchableOpacity
+                      key={option.value}
+                      style={[
+                        styles.userTypeOption,
+                        userType === option.value && styles.userTypeOptionSelected,
+                      ]}
+                      onPress={() => setUserType(option.value)}
+                      disabled={isLoading}
+                    >
+                      <Text
+                        style={[
+                          styles.userTypeLabel,
+                          userType === option.value && styles.userTypeLabelSelected,
+                        ]}
+                      >
+                        {option.label}
+                      </Text>
+                      <Text
+                        style={[
+                          styles.userTypeDescription,
+                          userType === option.value && styles.userTypeDescriptionSelected,
+                        ]}
+                      >
+                        {option.description}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
               <View style={styles.inputContainer}>
                 <Text style={styles.label}>名前</Text>
                 <TextInput
@@ -244,6 +294,40 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
     marginBottom: 8,
+  },
+  userTypeContainer: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  userTypeOption: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    alignItems: 'center',
+  },
+  userTypeOptionSelected: {
+    borderColor: '#2196F3',
+    backgroundColor: '#E3F2FD',
+  },
+  userTypeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 4,
+  },
+  userTypeLabelSelected: {
+    color: '#2196F3',
+  },
+  userTypeDescription: {
+    fontSize: 10,
+    color: '#666',
+    textAlign: 'center',
+  },
+  userTypeDescriptionSelected: {
+    color: '#1976D2',
   },
   input: {
     backgroundColor: '#fff',
