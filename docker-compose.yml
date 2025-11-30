@@ -163,7 +163,7 @@ services:
       - MATCH_SERVICE_URL=http://match-service:8084
       
       # CORS
-      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+      - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:19000,http://localhost:8081
     depends_on:
       - auth-service
       - user-service
