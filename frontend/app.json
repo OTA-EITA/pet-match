@@ -11,10 +11,12 @@
           "NSAllowsArbitraryLoads": true,
           "NSAllowsLocalNetworking": true
         }
-      }
+      },
+      "bundleIdentifier": "com.onlycats.app"
     },
     "android": {
-      "usesCleartextTraffic": true
+      "usesCleartextTraffic": true,
+      "package": "com.onlycats.app"
     },
     "extra": {
       "apiHost": "192.168.3.5",
