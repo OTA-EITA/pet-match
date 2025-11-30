@@ -19,6 +19,7 @@ import { Pet } from '../types/Pet';
 import { petApi, PetSearchParams } from '../api/petApi';
 import PetCard from '../components/PetCard';
 import FilterModal, { FilterOptions } from '../components/FilterModal';
+import AdBanner from '../components/AdBanner';
 
 type Props = StackScreenProps<RootStackParamList, 'PetList'>;
 
@@ -249,6 +250,11 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
             </TouchableOpacity>
           </ScrollView>
         )}
+
+        {/* Ad Banner */}
+        <View style={styles.adContainer}>
+          <AdBanner />
+        </View>
       </>
     );
   };
@@ -285,6 +291,11 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
         contentContainerStyle={pets.length === 0 ? styles.emptyContent : undefined}
         showsVerticalScrollIndicator={false}
       />
+
+      {/* Bottom Ad Banner */}
+      <View style={styles.bottomAdContainer}>
+        <AdBanner />
+      </View>
 
       <FilterModal
         visible={showFilterModal}
@@ -463,6 +474,17 @@ const styles = StyleSheet.create({
   clearAllText: {
     fontSize: 14,
     color: '#666',
+  },
+  adContainer: {
+    paddingVertical: 8,
+    backgroundColor: '#f5f5f5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+  },
+  bottomAdContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    backgroundColor: '#fff',
   },
 });
 

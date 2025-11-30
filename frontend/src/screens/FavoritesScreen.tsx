@@ -16,6 +16,7 @@ import { favoriteApi, Favorite } from '../api/favoriteApi';
 import { petApi } from '../api/petApi';
 import { Pet } from '../types/Pet';
 import PetCard from '../components/PetCard';
+import AdBanner from '../components/AdBanner';
 
 type Props = StackScreenProps<RootStackParamList, 'Favorites'>;
 
@@ -195,6 +196,9 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.count}>{favoritePets.length}件</Text>
       </View>
 
+      {/* Top Ad Banner */}
+      <AdBanner />
+
       <FlatList
         data={favoritePets}
         renderItem={renderPetCard}
@@ -205,6 +209,11 @@ const FavoritesScreen: React.FC<Props> = ({ navigation }) => {
           <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />
         }
       />
+
+      {/* Bottom Ad Banner */}
+      <View style={styles.bottomAdContainer}>
+        <AdBanner />
+      </View>
     </SafeAreaView>
   );
 };
@@ -384,6 +393,11 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  bottomAdContainer: {
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+    backgroundColor: '#fff',
   },
 });
 

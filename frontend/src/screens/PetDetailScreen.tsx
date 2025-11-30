@@ -16,6 +16,7 @@ import { RootStackParamList } from '../types/navigation';
 import { Pet } from '../types/Pet';
 import { petApi } from '../api/petApi';
 import { favoriteApi } from '../api/favoriteApi';
+import AdBanner from '../components/AdBanner';
 
 type Props = StackScreenProps<RootStackParamList, 'PetDetail'>;
 
@@ -241,7 +242,10 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         bounces={true}
       >
         {renderImageGallery()}
-        
+
+        {/* Top Ad Banner */}
+        <AdBanner />
+
         <View style={styles.content}>
           {/* Header with name and favorite */}
           <View style={styles.header}>
@@ -287,12 +291,17 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           )}
 
           {/* Contact Button */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.contactButton}
             onPress={handleContactPress}
           >
             <Text style={styles.contactButtonText}>📞 お問い合わせ</Text>
           </TouchableOpacity>
+
+          {/* Bottom Ad Banner */}
+          <View style={styles.bottomAdContainer}>
+            <AdBanner />
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -550,6 +559,10 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  bottomAdContainer: {
+    marginTop: 16,
+    marginBottom: 8,
   },
 });
 
