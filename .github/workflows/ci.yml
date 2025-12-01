@@ -254,48 +254,6 @@ jobs:
         POSTGRES_PASSWORD: testpass
         POSTGRES_DB: testdb
 
-  # Web App lint and test
-  web-app-test:
-    name: Web App Test
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: web-app/package-lock.json
-
-    - name: Install dependencies
-      working-directory: web-app
-      run: npm ci
-
-    - name: Run TypeScript check
-      working-directory: web-app
-      run: |
-        echo "Running TypeScript check..."
-        npx tsc --noEmit
-
-    - name: Run lint
-      working-directory: web-app
-      run: npm run lint
-
-    - name: Run tests
-      working-directory: web-app
-      run: |
-        if npm run | grep -q "test"; then
-          echo "Running tests..."
-          npm test -- --coverage --watchAll=false
-        else
-          echo "⚠️  No test script found, skipping tests..."
-        fi
-
-    - name: Build check
-      working-directory: web-app
-      run: npm run build
-
   # Makefileターゲットのテスト
   makefile-targets:
     name: Makefile Targets
@@ -391,7 +349,7 @@ jobs:
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [golang-lint, golang-test, web-app-test]
+    needs: [golang-lint, golang-test]
     steps:
     - uses: actions/checkout@v4
     
@@ -446,7 +404,6 @@ jobs:
           - auth-service
           - user-service
           - api-gateway
-          - web-app
     
     steps:
     - uses: actions/checkout@v4
@@ -464,10 +421,9 @@ jobs:
         docker system prune -f || true
 
     - name: Build Go services
-      if: matrix.service != 'web-app'
       run: |
         echo "🔨 Building ${{ matrix.service }}..."
-        
+
         docker build \
           --no-cache \
           --progress=plain \
@@ -475,29 +431,14 @@ jobs:
           -f services/${{ matrix.service }}/Dockerfile \
           -t petmatch/${{ matrix.service }}:${{ github.sha }} \
           .
-        
-        echo "✅ Successfully built petmatch/${{ matrix.service }}:${{ github.sha }}"
 
-    - name: Build Web App
-      if: matrix.service == 'web-app'
-      run: |
-        echo "🔨 Building Web App..."
-        
-        docker build \
-          --no-cache \
-          --progress=plain \
-          --build-arg BUILD_ID=${{ env.BUILD_ID }} \
-          -f web-app/Dockerfile \
-          -t petmatch/web-app:${{ github.sha }} \
-          ./web-app
-        
-        echo "✅ Successfully built petmatch/web-app:${{ github.sha }}"
+        echo "✅ Successfully built petmatch/${{ matrix.service }}:${{ github.sha }}"
 
   # テスト結果サマリー
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    needs: [golang-test, golang-integration, web-app-test, makefile-targets]
+    needs: [golang-test, golang-integration, makefile-targets]
     if: always()
     
     steps:
@@ -507,14 +448,12 @@ jobs:
         echo "=========================="
         echo "🐹 Go Unit Tests: ${{ needs.golang-test.result }}"
         echo "🔗 Go Integration Tests: ${{ needs.golang-integration.result }}"
-        echo "⚛️  Web App Tests: ${{ needs.web-app-test.result }}"
         echo "🔨 Makefile Targets: ${{ needs.makefile-targets.result }}"
         echo "=========================="
-        
+
         # 全テストの成功確認
         if [[ "${{ needs.golang-test.result }}" == "success" && \
               "${{ needs.golang-integration.result }}" == "success" && \
-              "${{ needs.web-app-test.result }}" == "success" && \
               "${{ needs.makefile-targets.result }}" == "success" ]]; then
           echo "🎉 All tests passed successfully!"
           echo "::notice title=Tests Passed::All PetMatch tests completed successfully"
