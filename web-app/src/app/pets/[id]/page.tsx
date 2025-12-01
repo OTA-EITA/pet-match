@@ -4,20 +4,39 @@ import { useState, useEffect, use } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import Header from '@/components/Header';
-import { petsApi, Pet } from '@/lib/api';
+import { petsApi, Pet, inquiriesApi, favoritesApi, CreateInquiryData } from '@/lib/api';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
-  const { isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [pet, setPet] = useState<Pet | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
 
+  // Inquiry form state
+  const [showInquiryForm, setShowInquiryForm] = useState(false);
+  const [inquiryData, setInquiryData] = useState<Omit<CreateInquiryData, 'pet_id'>>({
+    message: '',
+    type: 'question',
+    contact_method: 'email',
+    phone: '',
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [inquirySuccess, setInquirySuccess] = useState(false);
+  const [inquiryError, setInquiryError] = useState('');
+
+  // Favorite state
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+
   useEffect(() => {
     fetchPet();
-  }, [resolvedParams.id]);
+    if (isAuthenticated) {
+      checkFavoriteStatus();
+    }
+  }, [resolvedParams.id, isAuthenticated]);
 
   const fetchPet = async () => {
     setIsLoading(true);
@@ -27,10 +46,77 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
 
     if (result.data) {
       setPet(result.data);
+      // 閲覧履歴を保存
+      saveToHistory(result.data);
     } else {
       setError(result.error || '猫ちゃん情報の取得に失敗しました');
     }
     setIsLoading(false);
+  };
+
+  const saveToHistory = (petData: Pet) => {
+    try {
+      const historyKey = 'pet_view_history';
+      const history = JSON.parse(localStorage.getItem(historyKey) || '[]');
+      // 重複を削除して先頭に追加
+      const filtered = history.filter((h: { id: string }) => h.id !== petData.id);
+      const newHistory = [
+        { id: petData.id, name: petData.name, breed: petData.breed, image: petData.images?.[0], viewedAt: new Date().toISOString() },
+        ...filtered
+      ].slice(0, 20); // 最大20件
+      localStorage.setItem(historyKey, JSON.stringify(newHistory));
+    } catch {
+      // localStorage error - ignore
+    }
+  };
+
+  const checkFavoriteStatus = async () => {
+    const result = await favoritesApi.isFavorited(resolvedParams.id);
+    setIsFavorited(result);
+  };
+
+  const toggleFavorite = async () => {
+    if (!isAuthenticated) return;
+
+    setFavoriteLoading(true);
+    if (isFavorited) {
+      await favoritesApi.remove(resolvedParams.id);
+      setIsFavorited(false);
+    } else {
+      await favoritesApi.add(resolvedParams.id);
+      setIsFavorited(true);
+    }
+    setFavoriteLoading(false);
+  };
+
+  const handleInquirySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setInquiryError('');
+
+    if (!inquiryData.message.trim()) {
+      setInquiryError('メッセージを入力してください');
+      return;
+    }
+
+    if (inquiryData.contact_method === 'phone' && !inquiryData.phone?.trim()) {
+      setInquiryError('電話番号を入力してください');
+      return;
+    }
+
+    setIsSubmitting(true);
+    const result = await inquiriesApi.create({
+      pet_id: resolvedParams.id,
+      ...inquiryData,
+    });
+    setIsSubmitting(false);
+
+    if (result.data) {
+      setInquirySuccess(true);
+      setShowInquiryForm(false);
+      setInquiryData({ message: '', type: 'question', contact_method: 'email', phone: '' });
+    } else {
+      setInquiryError(result.error || '送信に失敗しました');
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -98,6 +184,13 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
           一覧に戻る
         </Link>
 
+        {/* Success message */}
+        {inquirySuccess && (
+          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
+            問い合わせを送信しました。返信をお待ちください。
+          </div>
+        )}
+
         <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="md:flex">
             {/* Images */}
@@ -119,6 +212,23 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
                 <div className={`absolute top-4 left-4 ${getStatusColor(pet.status)} text-white font-bold px-4 py-2 rounded-lg`}>
                   {getStatusText(pet.status)}
                 </div>
+                {/* Favorite button */}
+                {isAuthenticated && (
+                  <button
+                    onClick={toggleFavorite}
+                    disabled={favoriteLoading}
+                    className="absolute top-4 right-4 bg-white/90 p-2 rounded-full shadow-md hover:bg-white transition-colors"
+                  >
+                    <svg
+                      className={`w-6 h-6 ${isFavorited ? 'text-red-500 fill-current' : 'text-gray-400'}`}
+                      fill={isFavorited ? 'currentColor' : 'none'}
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                  </button>
+                )}
               </div>
               {/* Thumbnail gallery */}
               {pet.images && pet.images.length > 1 && (
@@ -169,6 +279,12 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
                     {pet.size === 'small' ? '小型' : pet.size === 'medium' ? '中型' : '大型'}
                   </p>
                 </div>
+                {pet.location && (
+                  <div className="bg-[#FFF5E6] p-4 rounded-lg col-span-2">
+                    <p className="text-sm text-gray-500 mb-1">所在地</p>
+                    <p className="font-semibold text-gray-800">{pet.location}</p>
+                  </div>
+                )}
               </div>
 
               {/* Personality */}
@@ -215,9 +331,14 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
               <div className="space-y-3">
                 {pet.status === 'available' && (
                   isAuthenticated ? (
-                    <button className="w-full bg-[#FF8C00] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#E67E00] transition-colors shadow-md">
-                      問い合わせる
-                    </button>
+                    user?.type !== 'shelter' ? (
+                      <button
+                        onClick={() => setShowInquiryForm(!showInquiryForm)}
+                        className="w-full bg-[#FF8C00] text-white py-4 rounded-xl font-bold text-lg hover:bg-[#E67E00] transition-colors shadow-md"
+                      >
+                        {showInquiryForm ? '閉じる' : '問い合わせる'}
+                      </button>
+                    ) : null
                   ) : (
                     <Link
                       href="/login"
@@ -230,6 +351,106 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
               </div>
             </div>
           </div>
+
+          {/* Inquiry Form */}
+          {showInquiryForm && (
+            <div className="border-t border-gray-100 p-6 md:p-8 bg-[#FFF9F0]">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">問い合わせフォーム</h2>
+              <form onSubmit={handleInquirySubmit}>
+                {inquiryError && (
+                  <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg mb-4">
+                    {inquiryError}
+                  </div>
+                )}
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    問い合わせ種類
+                  </label>
+                  <select
+                    value={inquiryData.type}
+                    onChange={(e) => setInquiryData({ ...inquiryData, type: e.target.value as CreateInquiryData['type'] })}
+                    className="w-full px-4 py-3 border border-[#FFD9B3] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                    disabled={isSubmitting}
+                  >
+                    <option value="question">質問</option>
+                    <option value="interview">面談希望</option>
+                    <option value="adoption">譲渡希望</option>
+                  </select>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    メッセージ *
+                  </label>
+                  <textarea
+                    value={inquiryData.message}
+                    onChange={(e) => setInquiryData({ ...inquiryData, message: e.target.value })}
+                    rows={4}
+                    placeholder="ご質問やご希望をお書きください"
+                    className="w-full px-4 py-3 border border-[#FFD9B3] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    希望連絡方法
+                  </label>
+                  <div className="flex gap-4">
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="contact_method"
+                        value="email"
+                        checked={inquiryData.contact_method === 'email'}
+                        onChange={(e) => setInquiryData({ ...inquiryData, contact_method: e.target.value as 'email' | 'phone' })}
+                        className="mr-2"
+                        disabled={isSubmitting}
+                      />
+                      メール
+                    </label>
+                    <label className="flex items-center">
+                      <input
+                        type="radio"
+                        name="contact_method"
+                        value="phone"
+                        checked={inquiryData.contact_method === 'phone'}
+                        onChange={(e) => setInquiryData({ ...inquiryData, contact_method: e.target.value as 'email' | 'phone' })}
+                        className="mr-2"
+                        disabled={isSubmitting}
+                      />
+                      電話
+                    </label>
+                  </div>
+                </div>
+
+                {inquiryData.contact_method === 'phone' && (
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      電話番号 *
+                    </label>
+                    <input
+                      type="tel"
+                      value={inquiryData.phone}
+                      onChange={(e) => setInquiryData({ ...inquiryData, phone: e.target.value })}
+                      placeholder="090-1234-5678"
+                      className="w-full px-4 py-3 border border-[#FFD9B3] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                      disabled={isSubmitting}
+                    />
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full bg-[#FF8C00] text-white py-3 rounded-xl font-bold hover:bg-[#E67E00] disabled:opacity-50 transition-colors"
+                >
+                  {isSubmitting ? '送信中...' : '送信する'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </main>
     </div>
