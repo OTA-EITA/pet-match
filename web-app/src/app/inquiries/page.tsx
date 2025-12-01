@@ -28,11 +28,20 @@ const typeLabels: Record<Inquiry['type'], string> = {
   adoption: '譲渡希望',
 };
 
+const statusProgress: Record<Inquiry['status'], number> = {
+  sent: 1,
+  replied: 2,
+  scheduled: 3,
+  completed: 4,
+  rejected: 0,
+};
+
 function InquiriesContent() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
+  const [filterStatus, setFilterStatus] = useState<string>('');
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
@@ -98,6 +107,33 @@ function InquiriesContent() {
         </div>
       </div>
 
+      {/* Status Filter */}
+      {inquiries.length > 0 && (
+        <div className="bg-white border-b border-gray-200 py-3 px-4">
+          <div className="max-w-4xl mx-auto flex gap-2 overflow-x-auto">
+            <button
+              onClick={() => setFilterStatus('')}
+              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                filterStatus === '' ? 'bg-[#FF8C00] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              }`}
+            >
+              すべて
+            </button>
+            {Object.entries(statusLabels).map(([key, label]) => (
+              <button
+                key={key}
+                onClick={() => setFilterStatus(key)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  filterStatus === key ? 'bg-[#FF8C00] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Content */}
       <main className="max-w-4xl mx-auto px-4 py-8">
         {isLoading ? (
@@ -129,8 +165,34 @@ function InquiriesContent() {
           </div>
         ) : (
           <div className="space-y-4">
-            {inquiries.map((inquiry) => (
+            {inquiries
+              .filter(inquiry => !filterStatus || inquiry.status === filterStatus)
+              .map((inquiry) => (
               <div key={inquiry.id} className="bg-white rounded-xl shadow-md p-6">
+                {/* Progress Bar */}
+                {inquiry.status !== 'rejected' && (
+                  <div className="mb-4">
+                    <div className="flex justify-between text-xs text-gray-500 mb-1">
+                      <span>送信</span>
+                      <span>返信</span>
+                      <span>面談</span>
+                      <span>完了</span>
+                    </div>
+                    <div className="flex gap-1">
+                      {[1, 2, 3, 4].map((step) => (
+                        <div
+                          key={step}
+                          className={`h-2 flex-1 rounded-full ${
+                            step <= statusProgress[inquiry.status]
+                              ? 'bg-[#FF8C00]'
+                              : 'bg-gray-200'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex items-start justify-between mb-4">
                   <div>
                     <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${statusColors[inquiry.status]}`}>

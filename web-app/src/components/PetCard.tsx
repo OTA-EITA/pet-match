@@ -41,6 +41,14 @@ export default function PetCard({ pet }: PetCardProps) {
     return gender === 'male' ? 'text-blue-500' : 'text-pink-500';
   };
 
+  const isNewPet = (createdAt?: string) => {
+    if (!createdAt) return false;
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffDays = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 7;
+  };
+
   return (
     <Link href={`/pets/${pet.id}`}>
       <div className="bg-white rounded-xl overflow-hidden shadow-md hover:shadow-lg transition-shadow cursor-pointer group">
@@ -62,6 +70,12 @@ export default function PetCard({ pet }: PetCardProps) {
           <div className={`absolute top-2 left-2 ${getStatusColor(pet.status)} text-white text-xs font-bold px-2 py-1 rounded`}>
             {getStatusText(pet.status)}
           </div>
+          {/* NEW badge */}
+          {isNewPet(pet.created_at) && (
+            <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
+              NEW
+            </div>
+          )}
         </div>
 
         {/* Content */}

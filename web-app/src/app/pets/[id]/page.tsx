@@ -145,6 +145,13 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
     }
   };
 
+  const isNewPet = (createdAt: string) => {
+    const created = new Date(createdAt);
+    const now = new Date();
+    const diffDays = (now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays <= 7;
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-[#FFF9F0]">
@@ -323,7 +330,17 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
               {pet.description && (
                 <div className="mb-6">
                   <p className="text-sm text-gray-500 mb-2">紹介</p>
-                  <p className="text-gray-700 leading-relaxed">{pet.description}</p>
+                  <p className="text-gray-700 leading-relaxed whitespace-pre-wrap">{pet.description}</p>
+                </div>
+              )}
+
+              {/* Registration date */}
+              {pet.created_at && (
+                <div className="mb-6 text-sm text-gray-500">
+                  登録日: {new Date(pet.created_at).toLocaleDateString('ja-JP')}
+                  {isNewPet(pet.created_at) && (
+                    <span className="ml-2 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">NEW</span>
+                  )}
                 </div>
               )}
 
