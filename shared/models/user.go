@@ -41,7 +41,7 @@ type UserRegisterRequest struct {
 	Email    string `json:"email" binding:"required,email_strict,max=255"`
 	Password string `json:"password" binding:"required,password_strength"`
 	Name     string `json:"name" binding:"required,min=2,max=100,sanitized"`
-	Type     string `json:"type" binding:"required,oneof=adopter shelter individual"`
+	Type     string `json:"type" binding:"required,oneof=adopter shelter"`
 	Phone    string `json:"phone" binding:"omitempty,phone_jp"`
 	Address  string `json:"address" binding:"omitempty,max=500,sanitized"`
 }
