@@ -47,10 +47,10 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setIsFavorited(favorited);
     } catch (error) {
       console.error('Failed to fetch pet detail:', error);
-      setError('ペット情報の取得に失敗しました');
+      setError('猫ちゃん情報の取得に失敗しました');
       Alert.alert(
         'エラー',
-        'ペット情報の取得に失敗しました。',
+        '猫ちゃん情報の取得に失敗しました。',
         [
           { text: 'キャンセル', style: 'cancel' },
           { text: '再試行', onPress: fetchPetDetail },
@@ -212,8 +212,8 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
-          <Text style={styles.loadingText}>ペット情報を読み込み中...</Text>
+          <ActivityIndicator size="large" color="#FF8C00" />
+          <Text style={styles.loadingText}>猫ちゃん情報を読み込み中...</Text>
         </View>
       </SafeAreaView>
     );
@@ -224,7 +224,7 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorEmoji}>😿</Text>
-          <Text style={styles.errorText}>ペット情報が見つかりませんでした</Text>
+          <Text style={styles.errorText}>猫ちゃん情報が見つかりませんでした</Text>
           <TouchableOpacity style={styles.retryButton} onPress={fetchPetDetail}>
             <Text style={styles.retryButtonText}>再試行</Text>
           </TouchableOpacity>
@@ -311,13 +311,13 @@ const PetDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF9F0',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF9F0',
   },
   loadingText: {
     marginTop: 16,
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   retryButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#FF8C00',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   imagePlaceholder: {
     width: screenWidth,
     height: 300,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#FFF5E6',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -487,15 +487,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   personalityTag: {
-    backgroundColor: '#E3F2FD',
+    backgroundColor: '#FFF5E6',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#2196F3',
+    borderColor: '#FFD9B3',
   },
   tagText: {
-    color: '#2196F3',
+    color: '#D97706',
     fontSize: 14,
     fontWeight: '500',
   },
@@ -544,14 +544,14 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   contactButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#FF8C00',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginTop: 20,
-    shadowColor: '#000',
+    shadowColor: '#FF8C00',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.3,
     shadowRadius: 6,
     elevation: 6,
   },

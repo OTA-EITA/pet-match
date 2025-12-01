@@ -104,10 +104,10 @@ const PetRegisterScreen: React.FC<Props> = ({ navigation }) => {
 
       await petApi.createPet(createRequest);
 
-      showAlert('登録完了', 'ペットを登録しました', () => navigation.goBack());
+      showAlert('登録完了', '猫ちゃんを登録しました', () => navigation.goBack());
     } catch (error: any) {
       console.error('Failed to create pet:', error);
-      showAlert('エラー', error.response?.data?.error || 'ペットの登録に失敗しました');
+      showAlert('エラー', error.response?.data?.error || '猫ちゃんの登録に失敗しました');
     } finally {
       setLoading(false);
     }
@@ -133,7 +133,7 @@ const PetRegisterScreen: React.FC<Props> = ({ navigation }) => {
 
     // Web では window.confirm を使用
     if (Platform.OS === 'web') {
-      const confirmed = window.confirm('ペットを登録しますか？');
+      const confirmed = window.confirm('猫ちゃんを登録しますか？');
       if (confirmed) {
         await submitPet();
       }
@@ -141,7 +141,7 @@ const PetRegisterScreen: React.FC<Props> = ({ navigation }) => {
       // iOS/Android では Alert.alert を使用
       Alert.alert(
         '確認',
-        'ペットを登録しますか？',
+        '猫ちゃんを登録しますか？',
         [
           { text: 'キャンセル', style: 'cancel' },
           { text: '登録', onPress: submitPet },

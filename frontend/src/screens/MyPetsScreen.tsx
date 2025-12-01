@@ -31,7 +31,7 @@ const MyPetsScreen: React.FC<Props> = ({ navigation }) => {
       setPets(response.pets || []);
     } catch (error) {
       console.error('Failed to load my pets:', error);
-      Alert.alert('エラー', 'ペット情報の取得に失敗しました');
+      Alert.alert('エラー', '猫ちゃん情報の取得に失敗しました');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -71,7 +71,7 @@ const MyPetsScreen: React.FC<Props> = ({ navigation }) => {
             try {
               await petApi.deletePet(pet.id);
               setPets((prev) => prev.filter((p) => p.id !== pet.id));
-              Alert.alert('削除完了', 'ペットを削除しました');
+              Alert.alert('削除完了', '猫ちゃんを削除しました');
             } catch (error) {
               console.error('Failed to delete pet:', error);
               Alert.alert('エラー', '削除に失敗しました');
@@ -132,15 +132,15 @@ const MyPetsScreen: React.FC<Props> = ({ navigation }) => {
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyIcon}>🐱</Text>
-      <Text style={styles.emptyTitle}>登録したペットがありません</Text>
+      <Text style={styles.emptyTitle}>登録した猫ちゃんがいません</Text>
       <Text style={styles.emptyText}>
-        新しいペットを登録して里親を募集しましょう
+        新しい猫ちゃんを登録して里親を募集しましょう
       </Text>
       <TouchableOpacity
         style={styles.registerButton}
         onPress={() => navigation.navigate('PetRegister')}
       >
-        <Text style={styles.registerButtonText}>ペットを登録する</Text>
+        <Text style={styles.registerButtonText}>猫ちゃんを登録する</Text>
       </TouchableOpacity>
     </View>
   );
@@ -159,7 +159,7 @@ const MyPetsScreen: React.FC<Props> = ({ navigation }) => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>登録したペット</Text>
+        <Text style={styles.title}>登録した猫ちゃん</Text>
         <TouchableOpacity
           style={styles.addButton}
           onPress={() => navigation.navigate('PetRegister')}

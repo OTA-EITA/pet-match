@@ -1,55 +1,109 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Dimensions } from 'react-native';
 import { Pet } from '../types/Pet';
 
 interface PetCardProps {
   pet: Pet;
   onPress: (pet: Pet) => void;
+  compact?: boolean; // グリッド表示用のコンパクトモード
 }
 
-const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
+const { width: screenWidth } = Dimensions.get('window');
+const cardWidth = (screenWidth - 48) / 2; // 2カラム用
+
+const PetCard: React.FC<PetCardProps> = ({ pet, onPress, compact = false }) => {
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
 
   const hasImage = pet.images && pet.images.length > 0 && !imageError;
 
-  const getSpeciesEmoji = (species: string) => {
-    switch (species.toLowerCase()) {
-      case 'cat': return '🐱';
-      case 'dog': return '🐶';
-      case 'bird': return '🐦';
-      case 'rabbit': return '🐰';
-      default: return '🐾';
-    }
+  const getGenderIcon = (gender: string) => {
+    return gender === 'male' ? '♂' : '♀';
   };
 
-  const getGenderEmoji = (gender: string) => {
-    return gender === 'male' ? '♂️' : '♀️';
+  const getGenderColor = (gender: string) => {
+    return gender === 'male' ? '#4A90D9' : '#E75480';
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'available': return '#4CAF50';
-      case 'pending': return '#FF9800';
-      case 'adopted': return '#757575';
-      default: return '#2196F3';
+      case 'available': return '#FF8C00';
+      case 'pending': return '#FFB347';
+      case 'adopted': return '#A0A0A0';
+      default: return '#FF8C00';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'available': return '里親募集中';
-      case 'pending': return '検討中';
-      case 'adopted': return '決定済み';
+      case 'available': return '募集中';
+      case 'pending': return '交渉中';
+      case 'adopted': return '決定';
       default: return status;
     }
   };
 
+  if (compact) {
+    // コンパクト表示（2カラムグリッド用）
+    return (
+      <TouchableOpacity
+        style={styles.compactCard}
+        onPress={() => onPress(pet)}
+        activeOpacity={0.8}
+      >
+        <View style={styles.compactImageContainer}>
+          {hasImage ? (
+            <>
+              <Image
+                source={{ uri: pet.images[0] }}
+                style={styles.compactImage}
+                onLoadStart={() => setImageLoading(true)}
+                onLoadEnd={() => setImageLoading(false)}
+                onError={() => {
+                  setImageError(true);
+                  setImageLoading(false);
+                }}
+                resizeMode="cover"
+              />
+              {imageLoading && (
+                <View style={styles.imageLoadingOverlay}>
+                  <ActivityIndicator size="small" color="#FF8C00" />
+                </View>
+              )}
+            </>
+          ) : (
+            <View style={styles.compactPlaceholder}>
+              <Text style={styles.compactPlaceholderEmoji}>🐱</Text>
+            </View>
+          )}
+          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(pet.status) }]}>
+            <Text style={styles.statusBadgeText}>{getStatusText(pet.status)}</Text>
+          </View>
+        </View>
+
+        <View style={styles.compactContent}>
+          <View style={styles.compactHeader}>
+            <Text style={styles.compactName} numberOfLines={1}>{pet.name}</Text>
+            <Text style={[styles.compactGender, { color: getGenderColor(pet.gender) }]}>
+              {getGenderIcon(pet.gender)}
+            </Text>
+          </View>
+          <Text style={styles.compactBreed} numberOfLines={1}>{pet.breed}</Text>
+          <Text style={styles.compactAge}>{pet.age_info.age_text}</Text>
+          {pet.weight && pet.weight > 0 && (
+            <Text style={styles.compactWeight}>{pet.weight}kg</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  }
+
+  // 通常表示（リスト用）
   return (
     <TouchableOpacity
       style={styles.card}
       onPress={() => onPress(pet)}
-      activeOpacity={0.7}
+      activeOpacity={0.8}
     >
       <View style={styles.imageContainer}>
         {hasImage ? (
@@ -66,93 +120,182 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress }) => {
               resizeMode="cover"
             />
             {imageLoading && (
-              <View style={styles.imageLoading}>
-                <ActivityIndicator size="small" color="#2196F3" />
+              <View style={styles.imageLoadingOverlay}>
+                <ActivityIndicator size="small" color="#FF8C00" />
               </View>
             )}
           </>
         ) : (
           <View style={styles.placeholderImage}>
-            <Text style={styles.placeholderEmoji}>{getSpeciesEmoji(pet.species)}</Text>
-            <Text style={styles.placeholderText}>画像なし</Text>
+            <Text style={styles.placeholderEmoji}>🐱</Text>
+            <Text style={styles.placeholderText}>No Photo</Text>
           </View>
         )}
-        <View style={[styles.statusBadgeOverlay, { backgroundColor: getStatusColor(pet.status) }]}>
-          <Text style={styles.statusText}>{getStatusText(pet.status)}</Text>
+        <View style={[styles.statusBadgeLarge, { backgroundColor: getStatusColor(pet.status) }]}>
+          <Text style={styles.statusBadgeLargeText}>{getStatusText(pet.status)}</Text>
         </View>
       </View>
 
-      <View style={styles.header}>
-        <View style={styles.nameContainer}>
-          <Text style={styles.emoji}>{getSpeciesEmoji(pet.species)}</Text>
+      <View style={styles.content}>
+        <View style={styles.header}>
           <Text style={styles.name}>{pet.name}</Text>
-          <Text style={styles.gender}>{getGenderEmoji(pet.gender)}</Text>
+          <View style={[styles.genderBadge, { backgroundColor: getGenderColor(pet.gender) + '20' }]}>
+            <Text style={[styles.genderText, { color: getGenderColor(pet.gender) }]}>
+              {getGenderIcon(pet.gender)} {pet.gender === 'male' ? 'オス' : 'メス'}
+            </Text>
+          </View>
         </View>
-      </View>
 
-      <View style={styles.info}>
-        <Text style={styles.breed}>{pet.breed}</Text>
-        <Text style={styles.age}>{pet.age_info.age_text}</Text>
-        {pet.weight && pet.weight > 0 && <Text style={styles.weight}>体重: {pet.weight}kg</Text>}
-        {pet.color && <Text style={styles.color}>毛色: {pet.color}</Text>}
-      </View>
-
-      {pet.personality && pet.personality.length > 0 && (
-        <View style={styles.personality}>
-          <Text style={styles.personalityLabel}>性格:</Text>
-          {pet.personality.slice(0, 2).map((trait, index) => (
-            <View key={index} style={styles.personalityTag}>
-              <Text style={styles.personalityText}>{trait}</Text>
+        <View style={styles.infoRow}>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>品種</Text>
+            <Text style={styles.infoValue}>{pet.breed}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>年齢</Text>
+            <Text style={styles.infoValue}>{pet.age_info.age_text}</Text>
+          </View>
+          {pet.weight && pet.weight > 0 && (
+            <View style={styles.infoItem}>
+              <Text style={styles.infoLabel}>体重</Text>
+              <Text style={styles.infoValue}>{pet.weight}kg</Text>
             </View>
-          ))}
+          )}
         </View>
-      )}
 
-      {pet.description && (
-        <Text style={styles.description} numberOfLines={2}>
-          {pet.description}
-        </Text>
-      )}
+        {pet.personality && pet.personality.length > 0 && (
+          <View style={styles.personalityContainer}>
+            {pet.personality.slice(0, 3).map((trait, index) => (
+              <View key={index} style={styles.personalityTag}>
+                <Text style={styles.personalityText}>{trait}</Text>
+              </View>
+            ))}
+          </View>
+        )}
 
-      <View style={styles.medical}>
-        <Text style={styles.medicalText}>
-          {'💉 '}{pet.medical_info?.vaccinated ? 'ワクチン済' : '未接種'}
-        </Text>
-        <Text style={styles.medicalText}>
-          {'⚕️ '}{(pet.medical_info?.spayed_neutered || pet.medical_info?.neutered) ? '去勢・避妊済' : '未手術'}
-        </Text>
+        {pet.description && (
+          <Text style={styles.description} numberOfLines={2}>
+            {pet.description}
+          </Text>
+        )}
+
+        <View style={styles.footer}>
+          <View style={styles.medicalInfo}>
+            <View style={[styles.medicalBadge, pet.medical_info?.vaccinated && styles.medicalBadgeActive]}>
+              <Text style={[styles.medicalText, pet.medical_info?.vaccinated && styles.medicalTextActive]}>
+                ワクチン{pet.medical_info?.vaccinated ? '済' : '未'}
+              </Text>
+            </View>
+            <View style={[styles.medicalBadge, (pet.medical_info?.neutered) && styles.medicalBadgeActive]}>
+              <Text style={[styles.medicalText, (pet.medical_info?.neutered) && styles.medicalTextActive]}>
+                避妊去勢{(pet.medical_info?.neutered) ? '済' : '未'}
+              </Text>
+            </View>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
+  // コンパクトカード（グリッド用）
+  compactCard: {
+    width: cardWidth,
     backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginVertical: 8,
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
     elevation: 3,
   },
-  imageContainer: {
+  compactImageContainer: {
     width: '100%',
-    height: 180,
-    backgroundColor: '#f0f0f0',
+    height: cardWidth,
+    backgroundColor: '#FFF5E6',
     position: 'relative',
   },
-  image: {
+  compactImage: {
     width: '100%',
     height: '100%',
   },
-  imageLoading: {
+  compactPlaceholder: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#FFF5E6',
+  },
+  compactPlaceholderEmoji: {
+    fontSize: 48,
+  },
+  compactContent: {
+    padding: 12,
+  },
+  compactHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  compactName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    flex: 1,
+  },
+  compactGender: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 8,
+  },
+  compactBreed: {
+    fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  compactAge: {
+    fontSize: 12,
+    color: '#888',
+  },
+  compactWeight: {
+    fontSize: 11,
+    color: '#888',
+    marginTop: 2,
+  },
+
+  // ステータスバッジ
+  statusBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  statusBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  statusBadgeLarge: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  statusBadgeLargeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+
+  // 画像ローディング
+  imageLoadingOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
@@ -160,130 +303,141 @@ const styles = StyleSheet.create({
     bottom: 0,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    backgroundColor: 'rgba(255, 245, 230, 0.7)',
+  },
+
+  // 通常カード（リスト用）
+  card: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginVertical: 8,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  imageContainer: {
+    width: '100%',
+    height: 200,
+    backgroundColor: '#FFF5E6',
+    position: 'relative',
+  },
+  image: {
+    width: '100%',
+    height: '100%',
   },
   placeholderImage: {
     width: '100%',
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#e8e8e8',
+    backgroundColor: '#FFF5E6',
   },
   placeholderEmoji: {
-    fontSize: 48,
+    fontSize: 64,
     marginBottom: 8,
   },
   placeholderText: {
     fontSize: 14,
     color: '#999',
   },
-  statusBadgeOverlay: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+  content: {
+    padding: 16,
   },
   header: {
-    padding: 16,
-    paddingBottom: 0,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 12,
   },
-  nameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  emoji: {
-    fontSize: 24,
-    marginRight: 8,
-  },
   name: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
     flex: 1,
   },
-  gender: {
-    fontSize: 16,
-    marginLeft: 4,
-  },
-  statusBadge: {
-    paddingHorizontal: 8,
+  genderBadge: {
+    paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 12,
   },
-  statusText: {
-    color: '#fff',
+  genderText: {
     fontSize: 12,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
-  info: {
-    paddingHorizontal: 16,
-    marginBottom: 12,
-  },
-  breed: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
-  },
-  age: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 4,
-  },
-  weight: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 4,
-  },
-  color: {
-    fontSize: 14,
-    color: '#666',
-  },
-  personality: {
+  infoRow: {
     flexDirection: 'row',
-    alignItems: 'center',
     marginBottom: 12,
     flexWrap: 'wrap',
-    paddingHorizontal: 16,
+    gap: 16,
   },
-  personalityLabel: {
+  infoItem: {
+    minWidth: 60,
+  },
+  infoLabel: {
+    fontSize: 11,
+    color: '#999',
+    marginBottom: 2,
+  },
+  infoValue: {
     fontSize: 14,
-    color: '#666',
-    marginRight: 8,
+    color: '#333',
+    fontWeight: '500',
+  },
+  personalityContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 12,
+    gap: 6,
   },
   personalityTag: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginRight: 4,
+    backgroundColor: '#FFF5E6',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFD9B3',
   },
   personalityText: {
     fontSize: 12,
-    color: '#1976D2',
+    color: '#D97706',
   },
   description: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     lineHeight: 20,
     marginBottom: 12,
-    paddingHorizontal: 16,
   },
-  medical: {
+  footer: {
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+    paddingTop: 12,
+  },
+  medicalInfo: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    gap: 8,
+  },
+  medicalBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 4,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  medicalBadgeActive: {
+    backgroundColor: '#E8F5E9',
+    borderColor: '#81C784',
   },
   medicalText: {
-    fontSize: 12,
-    color: '#4CAF50',
+    fontSize: 11,
+    color: '#999',
+  },
+  medicalTextActive: {
+    color: '#388E3C',
   },
 });
 

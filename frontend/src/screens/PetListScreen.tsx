@@ -12,6 +12,7 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Dimensions,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
@@ -20,6 +21,9 @@ import { petApi, PetSearchParams } from '../api/petApi';
 import PetCard from '../components/PetCard';
 import FilterModal, { FilterOptions } from '../components/FilterModal';
 import AdBanner from '../components/AdBanner';
+
+const { width: screenWidth } = Dimensions.get('window');
+const numColumns = 2;
 
 type Props = StackScreenProps<RootStackParamList, 'PetList'>;
 
@@ -91,10 +95,10 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
       setTotal(response.total);
     } catch (error) {
       console.error('Failed to fetch pets:', error);
-      setError('ペット情報の取得に失敗しました');
+      setError('猫ちゃん情報の取得に失敗しました');
       Alert.alert(
         'エラー',
-        'ペット情報の取得に失敗しました。インターネット接続を確認してください。',
+        '猫ちゃん情報の取得に失敗しました。インターネット接続を確認してください。',
         [{ text: 'OK' }]
       );
     } finally {
@@ -159,8 +163,13 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
-  const renderPetCard = ({ item }: { item: Pet }) => (
-    <PetCard pet={item} onPress={onPetPress} />
+  const renderPetCard = ({ item, index }: { item: Pet; index: number }) => (
+    <View style={[
+      styles.cardWrapper,
+      index % 2 === 0 ? styles.cardLeft : styles.cardRight
+    ]}>
+      <PetCard pet={item} onPress={onPetPress} compact />
+    </View>
   );
 
   const renderEmpty = () => {
@@ -170,7 +179,7 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyEmoji}>🐾</Text>
         <Text style={styles.emptyText}>
-          {hasActiveFilters ? '条件に合う猫が見つかりませんでした' : 'ペットが見つかりませんでした'}
+          {hasActiveFilters ? '条件に合う猫ちゃんが見つかりませんでした' : '猫ちゃんが見つかりませんでした'}
         </Text>
         <Text style={styles.emptySubtext}>
           {hasActiveFilters
@@ -192,9 +201,13 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <>
         <View style={styles.header}>
-          <Text style={styles.title}>里親募集中のペット</Text>
+          <View style={styles.headerTop}>
+            <Text style={styles.logoEmoji}>🐱</Text>
+            <Text style={styles.logoText}>OnlyCats</Text>
+          </View>
+          <Text style={styles.title}>里親募集中の猫たち</Text>
           <Text style={styles.subtitle}>
-            {total > 0 ? `${total}匹の可愛いペットたち` : 'ロード中...'}
+            {total > 0 ? `${total}匹の可愛い猫があなたを待っています` : 'ロード中...'}
           </Text>
         </View>
 
@@ -264,8 +277,8 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
       <SafeAreaView style={styles.container}>
         <StatusBar barStyle="dark-content" backgroundColor="#fff" />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2196F3" />
-          <Text style={styles.loadingText}>ペット情報を読み込み中...</Text>
+          <ActivityIndicator size="large" color="#FF8C00" />
+          <Text style={styles.loadingText}>猫ちゃん情報を読み込み中...</Text>
         </View>
       </SafeAreaView>
     );
@@ -278,17 +291,22 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
         data={pets}
         renderItem={renderPetCard}
         keyExtractor={(item) => item.id}
+        numColumns={numColumns}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={['#2196F3']}
-            tintColor="#2196F3"
+            colors={['#FF8C00']}
+            tintColor="#FF8C00"
           />
         }
-        contentContainerStyle={pets.length === 0 ? styles.emptyContent : undefined}
+        contentContainerStyle={[
+          styles.listContent,
+          pets.length === 0 ? styles.emptyContent : undefined
+        ]}
+        columnWrapperStyle={pets.length > 0 ? styles.row : undefined}
         showsVerticalScrollIndicator={false}
       />
 
@@ -311,13 +329,13 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF9F0',
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF9F0',
   },
   loadingText: {
     marginTop: 16,
@@ -326,19 +344,50 @@ const styles = StyleSheet.create({
   },
   header: {
     padding: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: '#FF8C00',
+    paddingTop: 16,
+    paddingBottom: 24,
   },
-  title: {
+  headerTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  logoEmoji: {
+    fontSize: 28,
+    marginRight: 8,
+  },
+  logoText: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 14,
-    color: '#666',
+    color: 'rgba(255,255,255,0.9)',
+  },
+  listContent: {
+    paddingBottom: 16,
+  },
+  row: {
+    paddingHorizontal: 16,
+    gap: 16,
+  },
+  cardWrapper: {
+    flex: 1,
+    marginTop: 16,
+  },
+  cardLeft: {
+    marginRight: 0,
+  },
+  cardRight: {
+    marginLeft: 0,
   },
   emptyContent: {
     flexGrow: 1,
@@ -368,7 +417,7 @@ const styles = StyleSheet.create({
   },
   clearFiltersButton: {
     marginTop: 20,
-    backgroundColor: '#2196F3',
+    backgroundColor: '#FF8C00',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -385,15 +434,19 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: '#fff',
     gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0E8E0',
   },
   searchBar: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
+    backgroundColor: '#FFF5E6',
+    borderRadius: 24,
+    paddingHorizontal: 16,
     height: 44,
+    borderWidth: 1,
+    borderColor: '#FFD9B3',
   },
   searchIcon: {
     fontSize: 18,
@@ -408,8 +461,8 @@ const styles = StyleSheet.create({
   filterButton: {
     width: 44,
     height: 44,
-    backgroundColor: '#2196F3',
-    borderRadius: 8,
+    backgroundColor: '#FF8C00',
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',
@@ -421,7 +474,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -4,
     right: -4,
-    backgroundColor: '#f44336',
+    backgroundColor: '#E53935',
     borderRadius: 10,
     minWidth: 20,
     height: 20,
@@ -438,7 +491,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#F0E8E0',
   },
   filterChipsContent: {
     paddingHorizontal: 16,
@@ -447,20 +500,22 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#FFF5E6',
     borderRadius: 16,
     paddingVertical: 6,
     paddingHorizontal: 12,
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#FFD9B3',
   },
   filterChipText: {
     fontSize: 14,
-    color: '#1976d2',
+    color: '#D97706',
     marginRight: 4,
   },
   filterChipClose: {
     fontSize: 18,
-    color: '#1976d2',
+    color: '#D97706',
     fontWeight: 'bold',
   },
   clearAllButton: {
@@ -477,13 +532,13 @@ const styles = StyleSheet.create({
   },
   adContainer: {
     paddingVertical: 8,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF9F0',
     borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    borderBottomColor: '#F0E8E0',
   },
   bottomAdContainer: {
     borderTopWidth: 1,
-    borderTopColor: '#e0e0e0',
+    borderTopColor: '#F0E8E0',
     backgroundColor: '#fff',
   },
 });

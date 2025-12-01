@@ -81,7 +81,7 @@ const PetEditScreen: React.FC<Props> = ({ route, navigation }) => {
       setImages(pet.images || []);
     } catch (error) {
       console.error('Failed to load pet data:', error);
-      Alert.alert('エラー', 'ペット情報の取得に失敗しました');
+      Alert.alert('エラー', '猫ちゃん情報の取得に失敗しました');
       navigation.goBack();
     } finally {
       setLoading(false);

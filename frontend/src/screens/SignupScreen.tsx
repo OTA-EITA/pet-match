@@ -18,7 +18,7 @@ import { useAuth } from '../context/AuthContext';
 
 type Props = StackScreenProps<RootStackParamList, 'Signup'>;
 
-type UserType = 'adopter' | 'shelter' | 'individual';
+type UserType = 'adopter' | 'shelter';
 
 interface UserTypeOption {
   value: UserType;
@@ -27,9 +27,8 @@ interface UserTypeOption {
 }
 
 const USER_TYPE_OPTIONS: UserTypeOption[] = [
-  { value: 'adopter', label: '譲受希望者', description: 'ペットを迎えたい方' },
+  { value: 'adopter', label: '一般ユーザー', description: '猫を探す・里親を募集する' },
   { value: 'shelter', label: 'シェルター', description: '保護施設・団体の方' },
-  { value: 'individual', label: '譲渡希望者', description: 'ペットの里親を探している方' },
 ];
 
 const SignupScreen: React.FC<Props> = ({ navigation }) => {
@@ -127,7 +126,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
                 <Text style={styles.backButtonText}>← 戻る</Text>
               </TouchableOpacity>
               <Text style={styles.title}>新規登録</Text>
-              <Text style={styles.subtitle}>アカウントを作成してペットと出会おう</Text>
+              <Text style={styles.subtitle}>アカウントを作成して猫ちゃんと出会おう</Text>
             </View>
 
             {/* Form */}
@@ -250,7 +249,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF9F0',
   },
   keyboardView: {
     flex: 1,
@@ -271,12 +270,12 @@ const styles = StyleSheet.create({
   },
   backButtonText: {
     fontSize: 16,
-    color: '#2196F3',
+    color: '#FF8C00',
   },
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FF8C00',
     marginBottom: 8,
   },
   subtitle: {
@@ -305,12 +304,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     borderWidth: 2,
-    borderColor: '#e0e0e0',
+    borderColor: '#FFD9B3',
     alignItems: 'center',
   },
   userTypeOptionSelected: {
-    borderColor: '#2196F3',
-    backgroundColor: '#E3F2FD',
+    borderColor: '#FF8C00',
+    backgroundColor: '#FFF5E6',
   },
   userTypeLabel: {
     fontSize: 14,
@@ -319,7 +318,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   userTypeLabelSelected: {
-    color: '#2196F3',
+    color: '#FF8C00',
   },
   userTypeDescription: {
     fontSize: 10,
@@ -327,7 +326,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   userTypeDescriptionSelected: {
-    color: '#1976D2',
+    color: '#D97706',
   },
   input: {
     backgroundColor: '#fff',
@@ -335,17 +334,17 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#FFD9B3',
   },
   signupButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#FF8C00',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#000',
+    shadowColor: '#FF8C00',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
@@ -370,7 +369,7 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     fontSize: 14,
-    color: '#2196F3',
+    color: '#FF8C00',
     fontWeight: 'bold',
   },
 });

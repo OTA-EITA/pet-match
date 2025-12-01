@@ -132,7 +132,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#FFF9F0',
   },
   keyboardView: {
     flex: 1,
@@ -156,7 +156,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#FF8C00',
     marginBottom: 8,
   },
   subtitle: {
@@ -181,17 +181,17 @@ const styles = StyleSheet.create({
     padding: 16,
     fontSize: 16,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#FFD9B3',
   },
   loginButton: {
-    backgroundColor: '#2196F3',
+    backgroundColor: '#FF8C00',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
     marginTop: 8,
-    shadowColor: '#000',
+    shadowColor: '#FF8C00',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 3,
   },
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#e0e0e0',
+    backgroundColor: '#FFD9B3',
   },
   dividerText: {
     marginHorizontal: 16,
@@ -224,10 +224,10 @@ const styles = StyleSheet.create({
     padding: 16,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#2196F3',
+    borderColor: '#FF8C00',
   },
   signupButtonText: {
-    color: '#2196F3',
+    color: '#FF8C00',
     fontSize: 18,
     fontWeight: 'bold',
   },
