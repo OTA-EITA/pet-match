@@ -1,21 +1,72 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import Header from '@/components/Header';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
+interface SavedSearchCondition {
+  id: string;
+  name: string;
+  gender: string;
+  size: string;
+  breed: string;
+  location: string;
+  savedAt: string;
+}
+
+interface ViewHistoryItem {
+  id: string;
+  name: string;
+  breed: string;
+  image?: string;
+  viewedAt: string;
+}
+
 function ProfileContent() {
   const router = useRouter();
   const { user, isLoading, isAuthenticated, logout } = useAuth();
+  const [savedSearches, setSavedSearches] = useState<SavedSearchCondition[]>([]);
+  const [viewHistory, setViewHistory] = useState<ViewHistoryItem[]>([]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push('/login');
     }
+    // Load saved searches and view history from localStorage
+    if (typeof window !== 'undefined') {
+      try {
+        const searches = JSON.parse(localStorage.getItem('saved_search_conditions') || '[]');
+        setSavedSearches(searches);
+        const history = JSON.parse(localStorage.getItem('pet_view_history') || '[]');
+        setViewHistory(history);
+      } catch {
+        // Ignore parse errors
+      }
+    }
   }, [isLoading, isAuthenticated, router]);
+
+  const deleteSavedSearch = (id: string) => {
+    const searches = savedSearches.filter(s => s.id !== id);
+    localStorage.setItem('saved_search_conditions', JSON.stringify(searches));
+    setSavedSearches(searches);
+  };
+
+  const clearViewHistory = () => {
+    localStorage.removeItem('pet_view_history');
+    setViewHistory([]);
+  };
+
+  const applySearch = (search: SavedSearchCondition) => {
+    const params = new URLSearchParams();
+    if (search.gender) params.set('gender', search.gender);
+    if (search.size) params.set('size', search.size);
+    if (search.breed) params.set('breed', search.breed);
+    if (search.location) params.set('location', search.location);
+    router.push(`/pets?${params.toString()}`);
+  };
 
   if (isLoading) {
     return (
@@ -105,6 +156,78 @@ function ProfileContent() {
             </Link>
           </div>
         </div>
+
+        {/* Saved Searches */}
+        {savedSearches.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-6">
+            <div className="px-6 py-4 border-b border-gray-100">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase">保存した検索条件</h2>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {savedSearches.map((search) => (
+                <div key={search.id} className="px-6 py-4 flex items-center justify-between">
+                  <button
+                    onClick={() => applySearch(search)}
+                    className="text-left flex-1"
+                  >
+                    <span className="text-[#FF8C00] font-medium">{search.name}</span>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {[
+                        search.gender && (search.gender === 'male' ? 'オス' : 'メス'),
+                        search.size && (search.size === 'small' ? '小型' : search.size === 'medium' ? '中型' : '大型'),
+                        search.breed,
+                        search.location,
+                      ].filter(Boolean).join(' / ')}
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => deleteSavedSearch(search.id)}
+                    className="ml-4 text-gray-400 hover:text-red-500"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* View History */}
+        {viewHistory.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-6">
+            <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-gray-500 uppercase">最近見た猫</h2>
+              <button
+                onClick={clearViewHistory}
+                className="text-xs text-gray-400 hover:text-red-500"
+              >
+                クリア
+              </button>
+            </div>
+            <div className="px-6 py-4">
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {viewHistory.slice(0, 10).map((item) => (
+                  <Link
+                    key={item.id}
+                    href={`/pets/${item.id}`}
+                    className="flex-shrink-0 w-20"
+                  >
+                    <div className="relative w-20 h-20 rounded-lg overflow-hidden bg-[#FFF5E6]">
+                      {item.image ? (
+                        <Image src={item.image} alt={item.name} fill className="object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Image src="/cat-logo.png" alt="" width={28} height={28} className="opacity-30" />
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs font-medium text-gray-800 mt-1 truncate">{item.name}</p>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Shelter/Individual Menu */}
         {isShelterOrIndividual && (

@@ -16,6 +16,16 @@ interface ViewHistoryItem {
   viewedAt: string;
 }
 
+interface SavedSearchCondition {
+  id: string;
+  name: string;
+  gender: string;
+  size: string;
+  breed: string;
+  location: string;
+  savedAt: string;
+}
+
 function PetsContent() {
   const [pets, setPets] = useState<Pet[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,9 +43,16 @@ function PetsContent() {
   const [viewHistory, setViewHistory] = useState<ViewHistoryItem[]>([]);
   const [showHistory, setShowHistory] = useState(false);
 
+  // Saved search conditions
+  const [savedSearches, setSavedSearches] = useState<SavedSearchCondition[]>([]);
+  const [showSavedSearches, setShowSavedSearches] = useState(false);
+  const [showSaveModal, setShowSaveModal] = useState(false);
+  const [newSearchName, setNewSearchName] = useState('');
+
   useEffect(() => {
     fetchPets();
     loadViewHistory();
+    loadSavedSearches();
   }, [gender, size, breed, location]);
 
   const fetchPets = async () => {
@@ -78,6 +95,50 @@ function PetsContent() {
   const clearViewHistory = () => {
     localStorage.removeItem('pet_view_history');
     setViewHistory([]);
+  };
+
+  const loadSavedSearches = () => {
+    try {
+      const searches = JSON.parse(localStorage.getItem('saved_search_conditions') || '[]');
+      setSavedSearches(searches);
+    } catch {
+      setSavedSearches([]);
+    }
+  };
+
+  const saveCurrentSearch = () => {
+    if (!newSearchName.trim()) return;
+    if (!hasFilters) return;
+
+    const newSearch: SavedSearchCondition = {
+      id: Date.now().toString(),
+      name: newSearchName.trim(),
+      gender,
+      size,
+      breed,
+      location,
+      savedAt: new Date().toISOString(),
+    };
+
+    const searches = [...savedSearches, newSearch].slice(-10); // 最大10件
+    localStorage.setItem('saved_search_conditions', JSON.stringify(searches));
+    setSavedSearches(searches);
+    setNewSearchName('');
+    setShowSaveModal(false);
+  };
+
+  const applySavedSearch = (search: SavedSearchCondition) => {
+    setGender(search.gender);
+    setSize(search.size);
+    setBreed(search.breed);
+    setLocation(search.location);
+    setShowSavedSearches(false);
+  };
+
+  const deleteSavedSearch = (id: string) => {
+    const searches = savedSearches.filter(s => s.id !== id);
+    localStorage.setItem('saved_search_conditions', JSON.stringify(searches));
+    setSavedSearches(searches);
   };
 
   const clearFilters = () => {
@@ -181,11 +242,28 @@ function PetsContent() {
               />
 
               {hasFilters && (
+                <>
+                  <button
+                    onClick={() => setShowSaveModal(true)}
+                    className="px-4 py-2 bg-[#FF8C00] text-white rounded-lg hover:bg-[#E67E00] transition-colors"
+                  >
+                    条件を保存
+                  </button>
+                  <button
+                    onClick={clearFilters}
+                    className="px-4 py-2 text-[#FF8C00] hover:bg-[#FFF5E6] rounded-lg transition-colors"
+                  >
+                    クリア
+                  </button>
+                </>
+              )}
+
+              {savedSearches.length > 0 && (
                 <button
-                  onClick={clearFilters}
-                  className="px-4 py-2 text-[#FF8C00] hover:bg-[#FFF5E6] rounded-lg transition-colors"
+                  onClick={() => setShowSavedSearches(!showSavedSearches)}
+                  className="px-4 py-2 border border-[#FF8C00] text-[#FF8C00] rounded-lg hover:bg-[#FFF5E6] transition-colors"
                 >
-                  クリア
+                  保存した条件 ({savedSearches.length})
                 </button>
               )}
 
@@ -226,6 +304,88 @@ function PetsContent() {
           </div>
         </div>
       </div>
+
+      {/* Save Search Modal */}
+      {showSaveModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-gray-800 mb-4">検索条件を保存</h3>
+            <div className="mb-4">
+              <label className="block text-sm text-gray-600 mb-2">条件名</label>
+              <input
+                type="text"
+                value={newSearchName}
+                onChange={(e) => setNewSearchName(e.target.value)}
+                placeholder="例: 東京のスコティッシュ"
+                className="w-full px-4 py-2 border border-[#FFD9B3] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                onKeyDown={(e) => e.key === 'Enter' && saveCurrentSearch()}
+              />
+            </div>
+            <div className="text-sm text-gray-500 mb-4">
+              <p>保存する条件:</p>
+              <ul className="mt-1 space-y-1">
+                {gender && <li>• 性別: {gender === 'male' ? 'オス' : 'メス'}</li>}
+                {size && <li>• サイズ: {size === 'small' ? '小型' : size === 'medium' ? '中型' : '大型'}</li>}
+                {breed && <li>• 品種: {breed}</li>}
+                {location && <li>• 地域: {location}</li>}
+              </ul>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSaveModal(false)}
+                className="flex-1 py-2 border border-gray-300 rounded-lg text-gray-600 hover:bg-gray-50"
+              >
+                キャンセル
+              </button>
+              <button
+                onClick={saveCurrentSearch}
+                disabled={!newSearchName.trim()}
+                className="flex-1 py-2 bg-[#FF8C00] text-white rounded-lg hover:bg-[#E67E00] disabled:opacity-50"
+              >
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Saved Searches Panel */}
+      {showSavedSearches && savedSearches.length > 0 && (
+        <div className="bg-white border-b border-[#F0E8E0] py-4 px-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="font-bold text-gray-800">保存した検索条件</h3>
+              <button
+                onClick={() => setShowSavedSearches(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {savedSearches.map((search) => (
+                <div
+                  key={search.id}
+                  className="flex items-center gap-2 px-3 py-2 bg-[#FFF5E6] rounded-lg"
+                >
+                  <button
+                    onClick={() => applySavedSearch(search)}
+                    className="text-[#FF8C00] hover:text-[#E67E00] font-medium"
+                  >
+                    {search.name}
+                  </button>
+                  <button
+                    onClick={() => deleteSavedSearch(search.id)}
+                    className="text-gray-400 hover:text-red-500 text-sm"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* View History Panel */}
       {showHistory && viewHistory.length > 0 && (

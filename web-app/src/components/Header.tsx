@@ -34,6 +34,9 @@ export default function Header() {
                 <Link href="/profile" className="hover:opacity-80 transition-opacity">
                   マイページ
                 </Link>
+                <span className="text-white/90 text-sm">
+                  {user?.name || user?.email?.split('@')[0]} 様
+                </span>
                 <button
                   onClick={logout}
                   className="bg-white text-[#FF8C00] px-4 py-2 rounded-lg font-medium hover:bg-orange-50 transition-colors"
@@ -92,6 +95,9 @@ export default function Header() {
             </Link>
             {isAuthenticated ? (
               <>
+                <div className="px-3 py-2 text-white/90 text-sm border-b border-white/20 mb-2">
+                  {user?.name || user?.email?.split('@')[0]} 様
+                </div>
                 <Link
                   href="/favorites"
                   className="block py-2 hover:bg-white/10 rounded-lg px-3 transition-colors"
