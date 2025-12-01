@@ -9,7 +9,10 @@ import {
   Alert,
   ActivityIndicator,
   Platform,
+  Image,
 } from 'react-native';
+
+const catLogo = require('../../assets/cat-logo.png');
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 import { useAuth } from '../context/AuthContext';
@@ -131,7 +134,7 @@ const ProfileScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.sectionTitle}>譲渡管理</Text>
 
             <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('MyPets')}>
-              <Text style={styles.menuIcon}>🐱</Text>
+              <Image source={catLogo} style={styles.menuIconImage} resizeMode="contain" />
               <Text style={styles.menuText}>登録したペット</Text>
               <Text style={styles.menuArrow}>›</Text>
             </TouchableOpacity>
@@ -259,6 +262,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     marginRight: 12,
     width: 24,
+  },
+  menuIconImage: {
+    width: 20,
+    height: 20,
+    marginRight: 12,
   },
   menuText: {
     flex: 1,

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,11 @@ import {
   TouchableOpacity,
   ScrollView,
   Dimensions,
+  Platform,
+  Image,
 } from 'react-native';
+
+const catLogo = require('../../assets/cat-logo.png');
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
 import { Pet } from '../types/Pet';
@@ -202,7 +206,7 @@ const PetListScreen: React.FC<Props> = ({ navigation }) => {
       <>
         <View style={styles.header}>
           <View style={styles.headerTop}>
-            <Text style={styles.logoEmoji}>🐱</Text>
+            <Image source={catLogo} style={styles.logoImage} resizeMode="contain" />
             <Text style={styles.logoText}>OnlyCats</Text>
           </View>
           <Text style={styles.title}>里親募集中の猫たち</Text>
@@ -330,7 +334,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF9F0',
-  },
+    ...(Platform.OS === 'web' && {
+      height: '100%',
+      overflow: 'hidden',
+    }),
+  } as any,
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -353,8 +361,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
-  logoEmoji: {
-    fontSize: 28,
+  logoImage: {
+    width: 28,
+    height: 28,
     marginRight: 8,
   },
   logoText: {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Image,
 } from 'react-native';
 import { StackScreenProps } from '@react-navigation/stack';
 import { RootStackParamList } from '../types/navigation';
@@ -61,7 +62,11 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.content}>
             {/* Header */}
             <View style={styles.header}>
-              <Text style={styles.logo}>🐱</Text>
+              <Image
+                source={require('../../assets/cat-logo.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
               <Text style={styles.title}>OnlyCats</Text>
               <Text style={styles.subtitle}>猫との素敵な出会いを</Text>
             </View>
@@ -150,7 +155,8 @@ const styles = StyleSheet.create({
     marginBottom: 48,
   },
   logo: {
-    fontSize: 64,
+    width: 80,
+    height: 80,
     marginBottom: 16,
   },
   title: {

@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ActivityIndicator, Dimensions } from 'react-native';
 import { Pet } from '../types/Pet';
 
+const catLogo = require('../../assets/cat-logo.png');
+
 interface PetCardProps {
   pet: Pet;
   onPress: (pet: Pet) => void;
@@ -73,7 +75,7 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress, compact = false }) => {
             </>
           ) : (
             <View style={styles.compactPlaceholder}>
-              <Text style={styles.compactPlaceholderEmoji}>🐱</Text>
+              <Image source={catLogo} style={styles.compactPlaceholderImage} resizeMode="contain" />
             </View>
           )}
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(pet.status) }]}>
@@ -127,7 +129,7 @@ const PetCard: React.FC<PetCardProps> = ({ pet, onPress, compact = false }) => {
           </>
         ) : (
           <View style={styles.placeholderImage}>
-            <Text style={styles.placeholderEmoji}>🐱</Text>
+            <Image source={catLogo} style={styles.placeholderImageIcon} resizeMode="contain" />
             <Text style={styles.placeholderText}>No Photo</Text>
           </View>
         )}
@@ -228,8 +230,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF5E6',
   },
-  compactPlaceholderEmoji: {
-    fontSize: 48,
+  compactPlaceholderImage: {
+    width: 48,
+    height: 48,
   },
   compactContent: {
     padding: 12,
@@ -336,8 +339,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF5E6',
   },
-  placeholderEmoji: {
-    fontSize: 64,
+  placeholderImageIcon: {
+    width: 64,
+    height: 64,
     marginBottom: 8,
   },
   placeholderText: {

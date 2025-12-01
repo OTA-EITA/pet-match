@@ -9,7 +9,10 @@ import {
   RefreshControl,
   TouchableOpacity,
   Alert,
+  Image,
 } from 'react-native';
+
+const catLogo = require('../../assets/cat-logo.png');
 import { StackScreenProps } from '@react-navigation/stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { RootStackParamList } from '../types/navigation';
@@ -131,7 +134,7 @@ const MyPetsScreen: React.FC<Props> = ({ navigation }) => {
 
   const renderEmpty = () => (
     <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>🐱</Text>
+      <Image source={catLogo} style={styles.emptyImage} resizeMode="contain" />
       <Text style={styles.emptyTitle}>登録した猫ちゃんがいません</Text>
       <Text style={styles.emptyText}>
         新しい猫ちゃんを登録して里親を募集しましょう
@@ -294,8 +297,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     paddingTop: 60,
   },
-  emptyIcon: {
-    fontSize: 64,
+  emptyImage: {
+    width: 64,
+    height: 64,
     marginBottom: 16,
   },
   emptyTitle: {
