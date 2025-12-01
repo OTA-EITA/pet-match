@@ -241,7 +241,7 @@ function ProfileContent() {
                 <span className="flex-1 text-gray-800">登録したペット</span>
                 <span className="text-gray-400">›</span>
               </Link>
-              <Link href="/pets/new" className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors">
+              <Link href="/pets/register" className="flex items-center px-6 py-4 hover:bg-gray-50 transition-colors">
                 <span className="text-xl mr-4">➕</span>
                 <span className="flex-1 text-gray-800">新規ペット登録</span>
                 <span className="text-gray-400">›</span>
