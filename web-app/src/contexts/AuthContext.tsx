@@ -7,6 +7,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isInitialized: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
   signup: (data: { name: string; email: string; password: string; type: 'adopter' | 'shelter' | 'individual' }) => Promise<{ success: boolean; error?: string }>;
   logout: () => void;
@@ -35,34 +36,39 @@ const saveUser = (user: User) => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   const checkAuth = async () => {
     const token = localStorage.getItem('token');
     if (!token) {
+      setUser(null);
       setIsLoading(false);
+      setIsInitialized(true);
       return;
     }
 
-    // First try to load from localStorage
+    // まずlocalStorageから即座にユーザー情報を読み込む（UX向上）
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
       try {
         setUser(JSON.parse(savedUser));
       } catch {
-        // Invalid JSON, ignore
+        // JSONパースエラーは無視
       }
     }
 
-    // Then verify with API
+    // APIで検証
     const result = await authApi.getProfile();
     if (result.data) {
       setUser(result.data);
       saveUser(result.data);
     } else {
+      // Token invalid, clear everything
       clearTokens();
       setUser(null);
     }
     setIsLoading(false);
+    setIsInitialized(true);
   };
 
   useEffect(() => {
@@ -108,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         isAuthenticated: !!user,
+        isInitialized,
         login,
         signup,
         logout,

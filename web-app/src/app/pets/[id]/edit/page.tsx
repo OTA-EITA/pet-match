@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import { petsApi, Pet, CreatePetData } from '@/lib/api';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 function PetEditContent() {
   const router = useRouter();
@@ -51,13 +51,13 @@ function PetEditContent() {
         species: petData.species,
         breed: petData.breed,
         gender: petData.gender,
-        age_years: petData.age_years || 0,
-        age_months: petData.age_months || 0,
+        age_years: petData.age_info?.years || 0,
+        age_months: petData.age_info?.months || petData.age_months || 0,
         size: petData.size,
         description: petData.description || '',
         personality: petData.personality || [],
-        vaccinated: petData.vaccinated || false,
-        neutered: petData.neutered || false,
+        vaccinated: petData.medical_info?.vaccinated || false,
+        neutered: petData.medical_info?.neutered || false,
         location: petData.location || '',
       });
     } else {
@@ -438,9 +438,5 @@ function PetEditContent() {
 }
 
 export default function PetEditPage() {
-  return (
-    <AuthProvider>
-      <PetEditContent />
-    </AuthProvider>
-  );
+  return <PetEditContent />;
 }

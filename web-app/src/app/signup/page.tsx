@@ -58,7 +58,7 @@ export default function SignupPage() {
     setIsLoading(false);
 
     if (result.data) {
-      localStorage.setItem('token', result.data.token);
+      localStorage.setItem('token', result.data.tokens.access_token);
       router.push('/pets');
     } else {
       setError(result.error || '登録に失敗しました');

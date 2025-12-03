@@ -128,6 +128,18 @@ func (r *PetRepository) List(params ListParams) ([]models.Pet, int64, error) {
 	if params.AgeMax > 0 {
 		query = query.Where("age_total_months <= ?", params.AgeMax*12)
 	}
+	if params.Location != "" {
+		query = query.Where("location ILIKE ?", "%"+params.Location+"%")
+	}
+	if params.Color != "" {
+		query = query.Where("color ILIKE ?", "%"+params.Color+"%")
+	}
+	if params.Vaccinated != nil {
+		query = query.Where("medical_info->>'vaccinated' = ?", fmt.Sprintf("%t", *params.Vaccinated))
+	}
+	if params.Neutered != nil {
+		query = query.Where("medical_info->>'neutered' = ?", fmt.Sprintf("%t", *params.Neutered))
+	}
 
 	// Count total
 	var total int64
@@ -150,16 +162,20 @@ func (r *PetRepository) List(params ListParams) ([]models.Pet, int64, error) {
 
 // ListParams defines filtering and pagination parameters
 type ListParams struct {
-	Species  string
-	Breed    string
-	Gender   string
-	Size     string
-	Status   string
-	OwnerID  string
-	AgeMin   int
-	AgeMax   int
-	Limit    int
-	Offset   int
+	Species    string
+	Breed      string
+	Gender     string
+	Size       string
+	Status     string
+	OwnerID    string
+	Location   string
+	Color      string
+	Vaccinated *bool
+	Neutered   *bool
+	AgeMin     int
+	AgeMax     int
+	Limit      int
+	Offset     int
 }
 
 // Cache helper functions

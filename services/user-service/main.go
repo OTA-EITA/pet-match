@@ -56,6 +56,10 @@ func main() {
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
+		// Public routes (no auth required)
+		v1.GET("/users/:id/public-profile", userHandler.GetPublicProfile)
+
+		// Protected routes
 		userGroup := v1.Group("/users", middleware.AuthMiddleware(cfg))
 		{
 			userGroup.GET("/profile", userHandler.GetProfile)

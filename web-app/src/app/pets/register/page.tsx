@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import { petsApi, CreatePetData } from '@/lib/api';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 function PetRegisterContent() {
   const router = useRouter();
@@ -383,9 +383,5 @@ function PetRegisterContent() {
 }
 
 export default function PetRegisterPage() {
-  return (
-    <AuthProvider>
-      <PetRegisterContent />
-    </AuthProvider>
-  );
+  return <PetRegisterContent />;
 }

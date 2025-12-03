@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import { inquiriesApi, Inquiry } from '@/lib/api';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const statusLabels: Record<Inquiry['status'], string> = {
   sent: '送信済み',
@@ -226,12 +226,23 @@ function InquiriesContent() {
                     連絡方法: {inquiry.contact_method === 'email' ? 'メール' : '電話'}
                     {inquiry.phone && ` (${inquiry.phone})`}
                   </div>
-                  <Link
-                    href={`/pets/${inquiry.pet_id}`}
-                    className="text-[#FF8C00] hover:underline text-sm"
-                  >
-                    詳細を見る →
-                  </Link>
+                  <div className="flex gap-4">
+                    <Link
+                      href={`/messages/${inquiry.id}`}
+                      className="inline-flex items-center gap-1 px-4 py-2 bg-[#FF8C00] text-white rounded-lg hover:bg-[#E67E00] transition-colors text-sm font-medium"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                      </svg>
+                      メッセージ
+                    </Link>
+                    <Link
+                      href={`/pets/${inquiry.pet_id}`}
+                      className="text-[#FF8C00] hover:underline text-sm flex items-center"
+                    >
+                      詳細を見る →
+                    </Link>
+                  </div>
                 </div>
               </div>
             ))}
@@ -243,9 +254,5 @@ function InquiriesContent() {
 }
 
 export default function InquiriesPage() {
-  return (
-    <AuthProvider>
-      <InquiriesContent />
-    </AuthProvider>
-  );
+  return <InquiriesContent />;
 }

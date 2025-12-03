@@ -56,10 +56,13 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 
 	var updateReq struct {
-		Name        string `json:"name"`
-		Phone       string `json:"phone"`
-		Address     string `json:"address"`
-		Coordinates string `json:"coordinates"`
+		Name         string `json:"name"`
+		Phone        string `json:"phone"`
+		Address      string `json:"address"`
+		Coordinates  string `json:"coordinates"`
+		Description  string `json:"description"`
+		Website      string `json:"website"`
+		ProfileImage string `json:"profile_image"`
 	}
 
 	if err := c.ShouldBindJSON(&updateReq); err != nil {
@@ -91,6 +94,15 @@ func (h *UserHandler) UpdateProfile(c *gin.Context) {
 	}
 	if updateReq.Coordinates != "" {
 		user.Coordinates = updateReq.Coordinates
+	}
+	if updateReq.Description != "" {
+		user.Description = updateReq.Description
+	}
+	if updateReq.Website != "" {
+		user.Website = updateReq.Website
+	}
+	if updateReq.ProfileImage != "" {
+		user.ProfileImage = updateReq.ProfileImage
 	}
 
 	// Save updated user
@@ -198,5 +210,30 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "User deleted successfully",
+	})
+}
+
+// GetPublicProfile returns public profile of a shelter/individual (no auth required)
+func (h *UserHandler) GetPublicProfile(c *gin.Context) {
+	userID := c.Param("id")
+
+	user, err := h.userService.GetByID(userID)
+	if err != nil {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "User not found",
+		})
+		return
+	}
+
+	// Only shelter and individual users have public profiles
+	if user.Type != "shelter" && user.Type != "individual" {
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": "Profile not found",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"profile": user.ToPublicProfile(),
 	})
 }

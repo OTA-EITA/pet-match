@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import { petsApi, Pet, inquiriesApi, favoritesApi, CreateInquiryData } from '@/lib/api';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = use(params);
@@ -344,6 +344,21 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
                 </div>
               )}
 
+              {/* Shelter link */}
+              {pet.owner_id && (
+                <div className="mb-6">
+                  <Link
+                    href={`/shelters/${pet.owner_id}`}
+                    className="inline-flex items-center text-[#FF8C00] hover:underline"
+                  >
+                    <svg className="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                    </svg>
+                    掲載元のプロフィールを見る
+                  </Link>
+                </div>
+              )}
+
               {/* Action buttons */}
               <div className="space-y-3">
                 {pet.status === 'available' && (
@@ -475,9 +490,5 @@ function PetDetailContent({ params }: { params: Promise<{ id: string }> }) {
 }
 
 export default function PetDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  return (
-    <AuthProvider>
-      <PetDetailContent params={params} />
-    </AuthProvider>
-  );
+  return <PetDetailContent params={params} />;
 }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 function LoginContent() {
   const router = useRouter();
@@ -139,9 +139,5 @@ function LoginContent() {
 }
 
 export default function LoginPage() {
-  return (
-    <AuthProvider>
-      <LoginContent />
-    </AuthProvider>
-  );
+  return <LoginContent />;
 }

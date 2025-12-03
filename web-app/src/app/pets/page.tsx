@@ -6,7 +6,6 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import PetCard from '@/components/PetCard';
 import { petsApi, Pet } from '@/lib/api';
-import { AuthProvider } from '@/contexts/AuthContext';
 
 interface ViewHistoryItem {
   id: string;
@@ -23,6 +22,11 @@ interface SavedSearchCondition {
   size: string;
   breed: string;
   location: string;
+  color: string;
+  ageMin: number;
+  ageMax: number;
+  vaccinated: string;
+  neutered: string;
   savedAt: string;
 }
 
@@ -37,7 +41,13 @@ function PetsContent() {
   const [size, setSize] = useState('');
   const [breed, setBreed] = useState('');
   const [location, setLocation] = useState('');
+  const [color, setColor] = useState('');
+  const [ageMin, setAgeMin] = useState(0);
+  const [ageMax, setAgeMax] = useState(0);
+  const [vaccinated, setVaccinated] = useState('');
+  const [neutered, setNeutered] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
   // View history
   const [viewHistory, setViewHistory] = useState<ViewHistoryItem[]>([]);
@@ -53,7 +63,7 @@ function PetsContent() {
     fetchPets();
     loadViewHistory();
     loadSavedSearches();
-  }, [gender, size, breed, location]);
+  }, [gender, size, breed, location, color, ageMin, ageMax, vaccinated, neutered]);
 
   const fetchPets = async () => {
     setIsLoading(true);
@@ -65,17 +75,16 @@ function PetsContent() {
       gender: gender || undefined,
       size: size || undefined,
       breed: breed || undefined,
+      location: location || undefined,
+      color: color || undefined,
+      age_min: ageMin || undefined,
+      age_max: ageMax || undefined,
+      vaccinated: vaccinated === 'true' ? true : vaccinated === 'false' ? false : undefined,
+      neutered: neutered === 'true' ? true : neutered === 'false' ? false : undefined,
     });
 
     if (result.data) {
-      let filteredPets = result.data.pets || [];
-      // Client-side location filter (API might not support it)
-      if (location) {
-        filteredPets = filteredPets.filter(p =>
-          p.location?.toLowerCase().includes(location.toLowerCase())
-        );
-      }
-      setPets(filteredPets);
+      setPets(result.data.pets || []);
       setTotal(result.data.total || 0);
     } else {
       setError(result.error || '猫ちゃん情報の取得に失敗しました');
@@ -117,6 +126,11 @@ function PetsContent() {
       size,
       breed,
       location,
+      color,
+      ageMin,
+      ageMax,
+      vaccinated,
+      neutered,
       savedAt: new Date().toISOString(),
     };
 
@@ -132,6 +146,11 @@ function PetsContent() {
     setSize(search.size);
     setBreed(search.breed);
     setLocation(search.location);
+    setColor(search.color || '');
+    setAgeMin(search.ageMin || 0);
+    setAgeMax(search.ageMax || 0);
+    setVaccinated(search.vaccinated || '');
+    setNeutered(search.neutered || '');
     setShowSavedSearches(false);
   };
 
@@ -146,13 +165,21 @@ function PetsContent() {
     setSize('');
     setBreed('');
     setLocation('');
+    setColor('');
+    setAgeMin(0);
+    setAgeMax(0);
+    setVaccinated('');
+    setNeutered('');
   };
 
-  const hasFilters = gender || size || breed || location;
-  const activeFiltersCount = [gender, size, breed, location].filter(Boolean).length;
+  const hasFilters = gender || size || breed || location || color || ageMin > 0 || ageMax > 0 || vaccinated || neutered;
+  const activeFiltersCount = [gender, size, breed, location, color, ageMin > 0, ageMax > 0, vaccinated, neutered].filter(Boolean).length;
 
   // 人気品種リスト
   const popularBreeds = ['ミックス', 'スコティッシュフォールド', 'マンチカン', 'アメリカンショートヘア', 'ノルウェージャン'];
+
+  // 毛色リスト
+  const colorOptions = ['白', '黒', '茶', 'グレー', '三毛', 'キジトラ', 'サバトラ', '茶トラ', 'ハチワレ'];
 
   return (
     <div className="min-h-screen bg-[#FFF9F0]">
@@ -301,6 +328,95 @@ function PetsContent() {
                 </button>
               ))}
             </div>
+
+            {/* Advanced filters toggle */}
+            <div className="mt-3">
+              <button
+                onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
+                className="text-sm text-[#FF8C00] hover:underline flex items-center gap-1"
+              >
+                <svg className={`w-4 h-4 transition-transform ${showAdvancedFilters ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                詳細フィルター
+              </button>
+            </div>
+
+            {/* Advanced filters */}
+            {showAdvancedFilters && (
+              <div className="mt-3 p-4 bg-[#FFF9F0] rounded-lg">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {/* Color filter */}
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">毛色</label>
+                    <select
+                      value={color}
+                      onChange={(e) => setColor(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#FFD9B3] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                    >
+                      <option value="">すべて</option>
+                      {colorOptions.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Age range */}
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">年齢（歳）</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={ageMin || ''}
+                        onChange={(e) => setAgeMin(parseInt(e.target.value) || 0)}
+                        placeholder="下限"
+                        className="w-full px-3 py-2 border border-[#FFD9B3] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                      />
+                      <span className="text-gray-500">〜</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max="20"
+                        value={ageMax || ''}
+                        onChange={(e) => setAgeMax(parseInt(e.target.value) || 0)}
+                        placeholder="上限"
+                        className="w-full px-3 py-2 border border-[#FFD9B3] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Vaccinated filter */}
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">ワクチン</label>
+                    <select
+                      value={vaccinated}
+                      onChange={(e) => setVaccinated(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#FFD9B3] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                    >
+                      <option value="">すべて</option>
+                      <option value="true">接種済み</option>
+                      <option value="false">未接種</option>
+                    </select>
+                  </div>
+
+                  {/* Neutered filter */}
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">去勢/避妊</label>
+                    <select
+                      value={neutered}
+                      onChange={(e) => setNeutered(e.target.value)}
+                      className="w-full px-3 py-2 border border-[#FFD9B3] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                    >
+                      <option value="">すべて</option>
+                      <option value="true">済み</option>
+                      <option value="false">未実施</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -328,6 +444,10 @@ function PetsContent() {
                 {size && <li>• サイズ: {size === 'small' ? '小型' : size === 'medium' ? '中型' : '大型'}</li>}
                 {breed && <li>• 品種: {breed}</li>}
                 {location && <li>• 地域: {location}</li>}
+                {color && <li>• 毛色: {color}</li>}
+                {(ageMin > 0 || ageMax > 0) && <li>• 年齢: {ageMin || 0}歳〜{ageMax || '上限なし'}</li>}
+                {vaccinated && <li>• ワクチン: {vaccinated === 'true' ? '接種済み' : '未接種'}</li>}
+                {neutered && <li>• 去勢/避妊: {neutered === 'true' ? '済み' : '未実施'}</li>}
               </ul>
             </div>
             <div className="flex gap-3">
@@ -479,9 +599,5 @@ function PetsContent() {
 }
 
 export default function PetsPage() {
-  return (
-    <AuthProvider>
-      <PetsContent />
-    </AuthProvider>
-  );
+  return <PetsContent />;
 }

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Header from '@/components/Header';
 import { petsApi, Pet } from '@/lib/api';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const statusLabels: Record<Pet['status'], string> = {
   available: '募集中',
@@ -217,9 +217,5 @@ function MyPetsContent() {
 }
 
 export default function MyPetsPage() {
-  return (
-    <AuthProvider>
-      <MyPetsContent />
-    </AuthProvider>
-  );
+  return <MyPetsContent />;
 }

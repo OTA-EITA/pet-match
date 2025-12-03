@@ -50,12 +50,17 @@ func main() {
 	petProxy := handlers.NewPetProxy(cfg.PetServiceURL)
 	matchProxy := handlers.NewMatchProxy(cfg.MatchServiceURL)
 	inquiryProxy := handlers.NewInquiryProxy(cfg.InquiryServiceURL, cfg.PetServiceURL)
+	userProxy := handlers.NewUserProxy(cfg.UserServiceURL)
+	messageProxy := handlers.NewMessageProxy(cfg.MessageServiceURL)
+	notificationProxy := handlers.NewNotificationProxy(cfg.NotificationServiceURL)
+	reviewProxy := handlers.NewReviewProxy(cfg.ReviewServiceURL)
+	adminProxy := handlers.NewAdminProxy(cfg.AdminServiceURL)
 
 	// 認証ミドルウェアの初期化
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
 
 	// ルートの設定
-	setupRoutes(r, cfg, authProxy, petProxy, matchProxy, inquiryProxy, authMiddleware)
+	setupRoutes(r, cfg, authProxy, petProxy, matchProxy, inquiryProxy, userProxy, messageProxy, notificationProxy, reviewProxy, adminProxy, authMiddleware)
 
 	// サーバー起動
 	log.Printf("🚀 API Gateway starting on port %s", cfg.Port)
@@ -77,6 +82,11 @@ func setupRoutes(
 	petProxy *handlers.PetProxy,
 	matchProxy *handlers.MatchProxy,
 	inquiryProxy *handlers.InquiryProxy,
+	userProxy *handlers.UserProxy,
+	messageProxy *handlers.MessageProxy,
+	notificationProxy *handlers.NotificationProxy,
+	reviewProxy *handlers.ReviewProxy,
+	adminProxy *handlers.AdminProxy,
 	authMiddleware *middleware.AuthMiddleware,
 ) {
 	// ヘルスチェックルート
@@ -93,6 +103,21 @@ func setupRoutes(
 
 	// Inquiry Service ルート
 	routes.SetupInquiryRoutes(r, inquiryProxy, authMiddleware)
+
+	// User Service ルート（公開プロフィール）
+	routes.SetupUserRoutes(r, userProxy, cfg.PetServiceURL)
+
+	// Message Service ルート
+	routes.SetupMessageRoutes(r, messageProxy, authMiddleware)
+
+	// Notification Service ルート
+	routes.SetupNotificationRoutes(r, notificationProxy, authMiddleware)
+
+	// Review Service ルート
+	routes.SetupReviewRoutes(r, reviewProxy, authMiddleware)
+
+	// Admin Service ルート
+	routes.SetupAdminRoutes(r, adminProxy, authMiddleware)
 
 	// 開発環境でのテストエンドポイント
 	if cfg.IsDevelopment() {

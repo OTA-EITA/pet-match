@@ -66,6 +66,123 @@ CREATE TABLE IF NOT EXISTS cats (
 );
 
 -- ========================================
+-- Pets Table
+-- ========================================
+CREATE TABLE IF NOT EXISTS pets (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Basic Info
+    name VARCHAR(255) NOT NULL,
+    species VARCHAR(50) DEFAULT 'cat' CHECK (species IN ('cat', 'dog', 'other')),
+    breed VARCHAR(100),
+    age_years INTEGER,
+    age_months INTEGER,
+    gender VARCHAR(20) CHECK (gender IN ('male', 'female', 'unknown')),
+    size VARCHAR(20) CHECK (size IN ('small', 'medium', 'large')),
+    color VARCHAR(100),
+
+    -- Description
+    description TEXT,
+    personality TEXT,
+    health_info TEXT,
+
+    -- Location
+    location VARCHAR(255),
+    prefecture VARCHAR(100),
+    city VARCHAR(100),
+
+    -- Status
+    status VARCHAR(50) DEFAULT 'available' CHECK (status IN ('available', 'pending', 'adopted', 'unavailable')),
+
+    -- Images
+    images TEXT[] DEFAULT '{}',
+    thumbnail VARCHAR(500),
+
+    -- Adoption Fee
+    adoption_fee INTEGER DEFAULT 0,
+
+    -- Metadata
+    view_count INTEGER DEFAULT 0,
+    favorite_count INTEGER DEFAULT 0,
+
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ========================================
+-- Inquiries Table
+-- ========================================
+CREATE TABLE IF NOT EXISTS inquiries (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    pet_id UUID NOT NULL REFERENCES pets(id) ON DELETE CASCADE,
+    adopter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    shelter_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    -- Inquiry Details
+    message TEXT,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'approved', 'rejected', 'completed')),
+
+    -- Timestamps
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(pet_id, adopter_id)
+);
+
+-- ========================================
+-- Messages Table
+-- ========================================
+CREATE TABLE IF NOT EXISTS messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    inquiry_id UUID NOT NULL REFERENCES inquiries(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    receiver_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    content TEXT NOT NULL,
+    read_at TIMESTAMP WITH TIME ZONE,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ========================================
+-- Notifications Table
+-- ========================================
+CREATE TABLE IF NOT EXISTS notifications (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+
+    type VARCHAR(50) NOT NULL,
+    title VARCHAR(255) NOT NULL,
+    message TEXT,
+    data JSONB DEFAULT '{}'::jsonb,
+
+    read BOOLEAN DEFAULT FALSE,
+    read_at TIMESTAMP WITH TIME ZONE,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- ========================================
+-- Reviews Table
+-- ========================================
+CREATE TABLE IF NOT EXISTS reviews (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    reviewer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    reviewed_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    inquiry_id UUID REFERENCES inquiries(id) ON DELETE SET NULL,
+
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    comment TEXT,
+
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(reviewer_id, reviewed_id, inquiry_id)
+);
+
+-- ========================================
 -- Applications Table
 -- ========================================
 CREATE TABLE IF NOT EXISTS applications (
@@ -186,6 +303,35 @@ CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
 -- Likes
 CREATE INDEX IF NOT EXISTS idx_likes_post_id ON likes(post_id);
 CREATE INDEX IF NOT EXISTS idx_likes_user_id ON likes(user_id);
+
+-- Pets
+CREATE INDEX IF NOT EXISTS idx_pets_owner_id ON pets(owner_id);
+CREATE INDEX IF NOT EXISTS idx_pets_status ON pets(status);
+CREATE INDEX IF NOT EXISTS idx_pets_species ON pets(species);
+CREATE INDEX IF NOT EXISTS idx_pets_breed ON pets(breed);
+CREATE INDEX IF NOT EXISTS idx_pets_location ON pets(prefecture, city);
+CREATE INDEX IF NOT EXISTS idx_pets_created_at ON pets(created_at DESC);
+
+-- Inquiries
+CREATE INDEX IF NOT EXISTS idx_inquiries_pet_id ON inquiries(pet_id);
+CREATE INDEX IF NOT EXISTS idx_inquiries_adopter_id ON inquiries(adopter_id);
+CREATE INDEX IF NOT EXISTS idx_inquiries_shelter_id ON inquiries(shelter_id);
+CREATE INDEX IF NOT EXISTS idx_inquiries_status ON inquiries(status);
+
+-- Messages
+CREATE INDEX IF NOT EXISTS idx_messages_inquiry_id ON messages(inquiry_id);
+CREATE INDEX IF NOT EXISTS idx_messages_sender_id ON messages(sender_id);
+CREATE INDEX IF NOT EXISTS idx_messages_receiver_id ON messages(receiver_id);
+
+-- Notifications
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON notifications(read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at DESC);
+
+-- Reviews
+CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_id ON reviews(reviewer_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_reviewed_id ON reviews(reviewed_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_inquiry_id ON reviews(inquiry_id);
 
 -- ========================================
 -- Updated_at Trigger Function

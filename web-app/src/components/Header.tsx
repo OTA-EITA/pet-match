@@ -1,13 +1,38 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
+import { notificationsApi } from '@/lib/api';
 
 export default function Header() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, isInitialized, logout } = useAuth();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    // 認証の初期化が完了し、ログインしている場合のみAPIを呼ぶ
+    if (!isInitialized || isLoading || !isAuthenticated) {
+      return;
+    }
+
+    fetchUnreadCount();
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(fetchUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated, isLoading, isInitialized]);
+
+  const fetchUnreadCount = async () => {
+    try {
+      const result = await notificationsApi.getUnreadCount();
+      if (result.data) {
+        setUnreadCount(result.data.unread_count || 0);
+      }
+    } catch {
+      // エラー時は何もしない（ログアウト中など）
+    }
+  };
 
   const closeMenu = () => setIsMenuOpen(false);
 
@@ -30,6 +55,19 @@ export default function Header() {
               <>
                 <Link href="/favorites" className="hover:opacity-80 transition-opacity">
                   お気に入り
+                </Link>
+                <Link href="/messages" className="hover:opacity-80 transition-opacity">
+                  メッセージ
+                </Link>
+                <Link href="/notifications" className="relative hover:opacity-80 transition-opacity" title="通知">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                  </svg>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 flex items-center justify-center rounded-full">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
                 <Link href="/profile" className="hover:opacity-80 transition-opacity">
                   マイページ
@@ -104,6 +142,25 @@ export default function Header() {
                   onClick={closeMenu}
                 >
                   お気に入り
+                </Link>
+                <Link
+                  href="/messages"
+                  className="block py-2 hover:bg-white/10 rounded-lg px-3 transition-colors"
+                  onClick={closeMenu}
+                >
+                  メッセージ
+                </Link>
+                <Link
+                  href="/notifications"
+                  className="flex items-center justify-between py-2 hover:bg-white/10 rounded-lg px-3 transition-colors"
+                  onClick={closeMenu}
+                >
+                  <span>通知</span>
+                  {unreadCount > 0 && (
+                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
                 </Link>
                 <Link
                   href="/inquiries"

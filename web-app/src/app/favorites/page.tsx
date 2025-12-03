@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Header from '@/components/Header';
 import PetCard from '@/components/PetCard';
 import { favoritesApi, petsApi, Pet, Favorite } from '@/lib/api';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 function FavoritesContent() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
@@ -146,9 +146,5 @@ function FavoritesContent() {
 }
 
 export default function FavoritesPage() {
-  return (
-    <AuthProvider>
-      <FavoritesContent />
-    </AuthProvider>
-  );
+  return <FavoritesContent />;
 }

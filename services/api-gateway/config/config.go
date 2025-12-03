@@ -21,13 +21,17 @@ type Config struct {
 	JWTRefreshHours     int
 
 	// サービスURL
-	PetServiceURL     string
-	UserServiceURL    string
-	AuthServiceURL    string
-	MatchServiceURL   string
-	ChatServiceURL    string
-	FileServiceURL    string
-	InquiryServiceURL string
+	PetServiceURL          string
+	UserServiceURL         string
+	AuthServiceURL         string
+	MatchServiceURL        string
+	ChatServiceURL         string
+	FileServiceURL         string
+	InquiryServiceURL      string
+	MessageServiceURL      string
+	NotificationServiceURL string
+	ReviewServiceURL       string
+	AdminServiceURL        string
 
 	// CORS設定
 	CORSAllowedOrigins []string
@@ -68,7 +72,11 @@ func LoadConfig() *Config {
 		MatchServiceURL:   getEnv("MATCH_SERVICE_URL", "http://localhost:8084"),
 		ChatServiceURL:    getEnv("CHAT_SERVICE_URL", "http://localhost:8085"),
 		FileServiceURL:    getEnv("FILE_SERVICE_URL", "http://localhost:8087"),
-		InquiryServiceURL: getEnv("INQUIRY_SERVICE_URL", "http://localhost:8086"),
+		InquiryServiceURL:      getEnv("INQUIRY_SERVICE_URL", "http://localhost:8086"),
+		MessageServiceURL:      getEnv("MESSAGE_SERVICE_URL", "http://localhost:8088"),
+		NotificationServiceURL: getEnv("NOTIFICATION_SERVICE_URL", "http://localhost:8089"),
+		ReviewServiceURL:       getEnv("REVIEW_SERVICE_URL", "http://localhost:8090"),
+		AdminServiceURL:        getEnv("ADMIN_SERVICE_URL", "http://localhost:8091"),
 
 		CORSAllowedOrigins: parseOrigins(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000,http://localhost:3001,http://localhost:8085,http://localhost:19006")),
 		CORSAllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},

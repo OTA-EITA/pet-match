@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import Header from '@/components/Header';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SavedSearchCondition {
   id: string;
@@ -271,9 +271,5 @@ function ProfileContent() {
 }
 
 export default function ProfilePage() {
-  return (
-    <AuthProvider>
-      <ProfileContent />
-    </AuthProvider>
-  );
+  return <ProfileContent />;
 }

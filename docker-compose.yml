@@ -169,6 +169,106 @@ services:
       - onlycats-network
     restart: unless-stopped
 
+  message-service:
+    build:
+      context: .
+      dockerfile: services/message-service/Dockerfile
+    container_name: onlycats-message-service
+    ports:
+      - "8088:8088"
+    environment:
+      - PORT=8088
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=onlycats123
+      - REDIS_DB=5
+      - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+      - JWT_ACCESS_SECRET=dev-access-secret-key-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
+  notification-service:
+    build:
+      context: .
+      dockerfile: services/notification-service/Dockerfile
+    container_name: onlycats-notification-service
+    ports:
+      - "8089:8089"
+    environment:
+      - PORT=8089
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=onlycats123
+      - REDIS_DB=6
+      - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+      - JWT_ACCESS_SECRET=dev-access-secret-key-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
+  review-service:
+    build:
+      context: .
+      dockerfile: services/review-service/Dockerfile
+    container_name: onlycats-review-service
+    ports:
+      - "8090:8090"
+    environment:
+      - PORT=8090
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=onlycats123
+      - REDIS_DB=7
+      - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+      - JWT_ACCESS_SECRET=dev-access-secret-key-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
+  admin-service:
+    build:
+      context: .
+      dockerfile: services/admin-service/Dockerfile
+    container_name: onlycats-admin-service
+    ports:
+      - "8091:8091"
+    environment:
+      - PORT=8091
+      - APP_ENV=development
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=onlycats123
+      - REDIS_DB=8
+      - DATABASE_URL=postgresql://onlycats:onlycats123@postgres:5432/onlycats?sslmode=disable
+      - JWT_ACCESS_SECRET=dev-access-secret-key-change-in-production
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - onlycats-network
+    restart: unless-stopped
+
   api-gateway:
     build:
       context: .
@@ -187,6 +287,10 @@ services:
       - PET_SERVICE_URL=http://pet-service:8083
       - MATCH_SERVICE_URL=http://match-service:8084
       - INQUIRY_SERVICE_URL=http://inquiry-service:8086
+      - MESSAGE_SERVICE_URL=http://message-service:8088
+      - NOTIFICATION_SERVICE_URL=http://notification-service:8089
+      - REVIEW_SERVICE_URL=http://review-service:8090
+      - ADMIN_SERVICE_URL=http://admin-service:8091
 
       # CORS
       - CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001,http://localhost:19000,http://localhost:8081,http://localhost:8085,http://localhost:19006
@@ -196,6 +300,10 @@ services:
       - pet-service
       - match-service
       - inquiry-service
+      - message-service
+      - notification-service
+      - review-service
+      - admin-service
     networks:
       - onlycats-network
     restart: unless-stopped

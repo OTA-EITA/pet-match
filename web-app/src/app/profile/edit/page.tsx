@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import { authApi } from '@/lib/api';
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 function ProfileEditContent() {
   const router = useRouter();
@@ -310,9 +310,5 @@ function ProfileEditContent() {
 }
 
 export default function ProfileEditPage() {
-  return (
-    <AuthProvider>
-      <ProfileEditContent />
-    </AuthProvider>
-  );
+  return <ProfileEditContent />;
 }
