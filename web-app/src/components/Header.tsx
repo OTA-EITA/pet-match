@@ -51,6 +51,9 @@ export default function Header() {
             <Link href="/pets" className="hover:opacity-80 transition-opacity">
               猫を探す
             </Link>
+            <Link href="/shelters" className="hover:opacity-80 transition-opacity">
+              シェルター
+            </Link>
             {isAuthenticated ? (
               <>
                 <Link href="/favorites" className="hover:opacity-80 transition-opacity">
@@ -130,6 +133,13 @@ export default function Header() {
               onClick={closeMenu}
             >
               猫を探す
+            </Link>
+            <Link
+              href="/shelters"
+              className="block py-2 hover:bg-white/10 rounded-lg px-3 transition-colors"
+              onClick={closeMenu}
+            >
+              シェルター
             </Link>
             {isAuthenticated ? (
               <>

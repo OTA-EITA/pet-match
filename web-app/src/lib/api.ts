@@ -377,6 +377,10 @@ export const usersApi = {
   getUserPets: async (userId: string) => {
     return fetchApi<{ pets: Pet[]; total: number }>(`/api/users/${userId}/pets`);
   },
+
+  listShelters: async (limit: number = 20, offset: number = 0) => {
+    return fetchApi<{ shelters: PublicProfile[]; total: number }>(`/api/shelters?limit=${limit}&offset=${offset}`);
+  },
 };
 
 // Message types
