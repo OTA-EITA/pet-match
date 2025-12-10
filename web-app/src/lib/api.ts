@@ -131,8 +131,10 @@ export const petsApi = {
     if (params?.age_min) searchParams.set('age_min', params.age_min.toString());
     if (params?.age_max) searchParams.set('age_max', params.age_max.toString());
     if (params?.color) searchParams.set('color', params.color);
+    if (params?.personality && params.personality.length > 0) searchParams.set('personality', params.personality.join(','));
     if (params?.vaccinated !== undefined) searchParams.set('vaccinated', params.vaccinated.toString());
     if (params?.neutered !== undefined) searchParams.set('neutered', params.neutered.toString());
+    if (params?.sort) searchParams.set('sort', params.sort);
 
     const query = searchParams.toString();
     return fetchApi<{ pets: Pet[]; total: number }>(`/api/pets${query ? `?${query}` : ''}`);
@@ -240,8 +242,10 @@ export interface PetSearchParams {
   age_min?: number;
   age_max?: number;
   color?: string;
+  personality?: string[];
   vaccinated?: boolean;
   neutered?: boolean;
+  sort?: string; // created_at, oldest
 }
 
 export interface CreatePetData {

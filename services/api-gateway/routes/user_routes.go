@@ -15,4 +15,7 @@ func SetupUserRoutes(r *gin.Engine, userProxy *handlers.UserProxy, petServiceURL
 		// Get pets by owner
 		users.GET("/:id/pets", userProxy.GetUserPets(petServiceURL))
 	}
+
+	// Shelters routes
+	r.GET("/api/shelters", userProxy.ListShelters)
 }

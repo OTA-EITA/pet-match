@@ -46,6 +46,8 @@ function PetsContent() {
   const [ageMax, setAgeMax] = useState(0);
   const [vaccinated, setVaccinated] = useState('');
   const [neutered, setNeutered] = useState('');
+  const [personality, setPersonality] = useState<string[]>([]);
+  const [sortBy, setSortBy] = useState('created_at');
   const [showFilters, setShowFilters] = useState(false);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
@@ -63,7 +65,7 @@ function PetsContent() {
     fetchPets();
     loadViewHistory();
     loadSavedSearches();
-  }, [gender, size, breed, location, color, ageMin, ageMax, vaccinated, neutered]);
+  }, [gender, size, breed, location, color, ageMin, ageMax, vaccinated, neutered, personality, sortBy]);
 
   const fetchPets = async () => {
     setIsLoading(true);
@@ -79,8 +81,10 @@ function PetsContent() {
       color: color || undefined,
       age_min: ageMin || undefined,
       age_max: ageMax || undefined,
+      personality: personality.length > 0 ? personality : undefined,
       vaccinated: vaccinated === 'true' ? true : vaccinated === 'false' ? false : undefined,
       neutered: neutered === 'true' ? true : neutered === 'false' ? false : undefined,
+      sort: sortBy || undefined,
     });
 
     if (result.data) {
@@ -170,16 +174,21 @@ function PetsContent() {
     setAgeMax(0);
     setVaccinated('');
     setNeutered('');
+    setPersonality([]);
+    setSortBy('created_at');
   };
 
-  const hasFilters = gender || size || breed || location || color || ageMin > 0 || ageMax > 0 || vaccinated || neutered;
-  const activeFiltersCount = [gender, size, breed, location, color, ageMin > 0, ageMax > 0, vaccinated, neutered].filter(Boolean).length;
+  const hasFilters = gender || size || breed || location || color || ageMin > 0 || ageMax > 0 || vaccinated || neutered || personality.length > 0;
+  const activeFiltersCount = [gender, size, breed, location, color, ageMin > 0, ageMax > 0, vaccinated, neutered, personality.length > 0].filter(Boolean).length;
 
   // 人気品種リスト
   const popularBreeds = ['ミックス', 'スコティッシュフォールド', 'マンチカン', 'アメリカンショートヘア', 'ノルウェージャン'];
 
   // 毛色リスト
   const colorOptions = ['白', '黒', '茶', 'グレー', '三毛', 'キジトラ', 'サバトラ', '茶トラ', 'ハチワレ'];
+
+  // 性格タグリスト
+  const personalityOptions = ['人懐っこい', 'おとなしい', '活発', '甘えん坊', '独立心旺盛', '好奇心旺盛', '臆病', '穏やか'];
 
   return (
     <div className="min-h-screen bg-[#FFF9F0]">
@@ -414,6 +423,45 @@ function PetsContent() {
                       <option value="false">未実施</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Personality tags */}
+                <div className="mt-4">
+                  <label className="block text-sm text-gray-600 mb-2">性格</label>
+                  <div className="flex flex-wrap gap-2">
+                    {personalityOptions.map((p) => (
+                      <button
+                        key={p}
+                        onClick={() => {
+                          if (personality.includes(p)) {
+                            setPersonality(personality.filter(x => x !== p));
+                          } else {
+                            setPersonality([...personality, p]);
+                          }
+                        }}
+                        className={`text-sm px-3 py-1 rounded-full transition-colors ${
+                          personality.includes(p)
+                            ? 'bg-[#FF8C00] text-white'
+                            : 'bg-white border border-[#FFD9B3] text-gray-600 hover:bg-[#FFF5E6]'
+                        }`}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Sort */}
+                <div className="mt-4 flex items-center gap-4">
+                  <label className="text-sm text-gray-600">並び替え:</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="px-3 py-2 border border-[#FFD9B3] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#FF8C00]"
+                  >
+                    <option value="created_at">新着順</option>
+                    <option value="oldest">古い順</option>
+                  </select>
                 </div>
               </div>
             )}

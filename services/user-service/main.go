@@ -58,6 +58,7 @@ func main() {
 	{
 		// Public routes (no auth required)
 		v1.GET("/users/:id/public-profile", userHandler.GetPublicProfile)
+		v1.GET("/shelters", userHandler.ListShelters)
 
 		// Protected routes
 		userGroup := v1.Group("/users", middleware.AuthMiddleware(cfg))

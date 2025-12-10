@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -43,20 +44,22 @@ func (h *PetHandler) GetPets(c *gin.Context) {
 
 	// Use repository to fetch pets
 	pets, total, err := h.repo.List(repository.ListParams{
-		Species:    params.Species,
-		Breed:      params.Breed,
-		Gender:     params.Gender,
-		Size:       params.Size,
-		Location:   params.Location,
-		Color:      params.Color,
-		Vaccinated: params.Vaccinated,
-		Neutered:   params.Neutered,
-		Status:     "available",
-		OwnerID:    params.OwnerID,
-		AgeMin:     params.AgeMin,
-		AgeMax:     params.AgeMax,
-		Limit:      params.Limit,
-		Offset:     params.Offset,
+		Species:     params.Species,
+		Breed:       params.Breed,
+		Gender:      params.Gender,
+		Size:        params.Size,
+		Location:    params.Location,
+		Color:       params.Color,
+		Personality: params.Personality,
+		Vaccinated:  params.Vaccinated,
+		Neutered:    params.Neutered,
+		Status:      "available",
+		OwnerID:     params.OwnerID,
+		AgeMin:      params.AgeMin,
+		AgeMax:      params.AgeMax,
+		Sort:        params.Sort,
+		Limit:       params.Limit,
+		Offset:      params.Offset,
 	})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch pets"})
@@ -72,19 +75,21 @@ func (h *PetHandler) GetPets(c *gin.Context) {
 }
 
 type petSearchParams struct {
-	Species    string
-	Breed      string
-	AgeMin     int
-	AgeMax     int
-	Gender     string
-	Size       string
-	Location   string
-	Color      string
-	Vaccinated *bool
-	Neutered   *bool
-	OwnerID    string // For filtering by owner
-	Limit      int
-	Offset     int
+	Species     string
+	Breed       string
+	AgeMin      int
+	AgeMax      int
+	Gender      string
+	Size        string
+	Location    string
+	Color       string
+	Personality []string
+	Vaccinated  *bool
+	Neutered    *bool
+	OwnerID     string // For filtering by owner
+	Sort        string // created_at, favorites_count
+	Limit       int
+	Offset      int
 }
 
 func parsePetSearchParams(c *gin.Context) petSearchParams {
@@ -114,20 +119,28 @@ func parsePetSearchParams(c *gin.Context) petSearchParams {
 		neutered = &val
 	}
 
+	// Parse personality filter (comma-separated)
+	var personality []string
+	if p := c.Query("personality"); p != "" {
+		personality = strings.Split(p, ",")
+	}
+
 	return petSearchParams{
-		Species:    c.Query("species"),
-		Breed:      c.Query("breed"),
-		AgeMin:     ageMin,
-		AgeMax:     ageMax,
-		Gender:     c.Query("gender"),
-		Size:       c.Query("size"),
-		Location:   c.Query("location"),
-		Color:      c.Query("color"),
-		Vaccinated: vaccinated,
-		Neutered:   neutered,
-		OwnerID:    ownerID,
-		Limit:      limit,
-		Offset:     offset,
+		Species:     c.Query("species"),
+		Breed:       c.Query("breed"),
+		AgeMin:      ageMin,
+		AgeMax:      ageMax,
+		Gender:      c.Query("gender"),
+		Size:        c.Query("size"),
+		Location:    c.Query("location"),
+		Color:       c.Query("color"),
+		Personality: personality,
+		Vaccinated:  vaccinated,
+		Neutered:    neutered,
+		OwnerID:     ownerID,
+		Sort:        c.DefaultQuery("sort", "created_at"),
+		Limit:       limit,
+		Offset:      offset,
 	}
 }
 

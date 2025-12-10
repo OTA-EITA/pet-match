@@ -237,3 +237,40 @@ func (h *UserHandler) GetPublicProfile(c *gin.Context) {
 		"profile": user.ToPublicProfile(),
 	})
 }
+
+// ListShelters returns paginated list of shelters/individuals (no auth required)
+func (h *UserHandler) ListShelters(c *gin.Context) {
+	offsetStr := c.DefaultQuery("offset", "0")
+	limitStr := c.DefaultQuery("limit", "20")
+
+	offset, err := strconv.Atoi(offsetStr)
+	if err != nil {
+		offset = 0
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit > 100 {
+		limit = 20
+	}
+
+	shelters, total, err := h.userService.ListShelters(offset, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to fetch shelters",
+		})
+		return
+	}
+
+	// Convert to public profiles
+	profiles := make([]interface{}, 0, len(shelters))
+	for _, s := range shelters {
+		profiles = append(profiles, s.ToPublicProfile())
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"shelters": profiles,
+		"total":    total,
+		"offset":   offset,
+		"limit":    limit,
+	})
+}

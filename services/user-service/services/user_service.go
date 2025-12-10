@@ -114,6 +114,65 @@ func (s *UserService) Delete(userID string) error {
 	return nil
 }
 
+// ListShelters returns paginated list of shelters/individuals (public)
+func (s *UserService) ListShelters(offset, limit int) ([]*models.User, int, error) {
+	pattern := "user:*"
+	iter := s.redisClient.Scan(s.ctx, 0, pattern, 0).Iterator()
+
+	var allShelters []*models.User
+
+	for iter.Next(s.ctx) {
+		key := iter.Val()
+
+		// Skip email and password keys, only process user data keys
+		if len(key) > 5 && key[:5] == "user:" &&
+			!containsPrefix(key[5:], []string{"email", "password", "refresh"}) {
+
+			userData, err := s.redisClient.Get(s.ctx, key).Result()
+			if err != nil {
+				continue
+			}
+
+			var user models.User
+			if err := json.Unmarshal([]byte(userData), &user); err != nil {
+				continue
+			}
+
+			// Only include shelters and individuals
+			if user.Type == "shelter" || user.Type == "individual" {
+				allShelters = append(allShelters, &user)
+			}
+		}
+	}
+
+	if err := iter.Err(); err != nil {
+		return nil, 0, fmt.Errorf("failed to scan users: %v", err)
+	}
+
+	total := len(allShelters)
+
+	// Apply pagination
+	start := offset
+	if start > len(allShelters) {
+		start = len(allShelters)
+	}
+	end := start + limit
+	if end > len(allShelters) {
+		end = len(allShelters)
+	}
+
+	return allShelters[start:end], total, nil
+}
+
+func containsPrefix(s string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if len(s) >= len(p) && s[:len(p)] == p {
+			return true
+		}
+	}
+	return false
+}
+
 // List returns paginated list of users
 func (s *UserService) List(offset, limit int) ([]*models.User, error) {
 	// Use SCAN to find all user keys

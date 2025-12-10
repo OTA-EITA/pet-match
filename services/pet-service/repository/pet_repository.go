@@ -140,6 +140,12 @@ func (r *PetRepository) List(params ListParams) ([]models.Pet, int64, error) {
 	if params.Neutered != nil {
 		query = query.Where("medical_info->>'neutered' = ?", fmt.Sprintf("%t", *params.Neutered))
 	}
+	if len(params.Personality) > 0 {
+		// Check if any personality tag matches
+		for _, p := range params.Personality {
+			query = query.Where("? = ANY(personality)", p)
+		}
+	}
 
 	// Count total
 	var total int64
@@ -147,10 +153,16 @@ func (r *PetRepository) List(params ListParams) ([]models.Pet, int64, error) {
 		return nil, 0, err
 	}
 
+	// Determine sort order
+	orderBy := "created_at DESC"
+	if params.Sort == "oldest" {
+		orderBy = "created_at ASC"
+	}
+
 	// Apply pagination
 	var pets []models.Pet
 	if err := query.
-		Order("created_at DESC").
+		Order(orderBy).
 		Limit(params.Limit).
 		Offset(params.Offset).
 		Find(&pets).Error; err != nil {
@@ -162,20 +174,22 @@ func (r *PetRepository) List(params ListParams) ([]models.Pet, int64, error) {
 
 // ListParams defines filtering and pagination parameters
 type ListParams struct {
-	Species    string
-	Breed      string
-	Gender     string
-	Size       string
-	Status     string
-	OwnerID    string
-	Location   string
-	Color      string
-	Vaccinated *bool
-	Neutered   *bool
-	AgeMin     int
-	AgeMax     int
-	Limit      int
-	Offset     int
+	Species     string
+	Breed       string
+	Gender      string
+	Size        string
+	Status      string
+	OwnerID     string
+	Location    string
+	Color       string
+	Personality []string
+	Vaccinated  *bool
+	Neutered    *bool
+	AgeMin      int
+	AgeMax      int
+	Sort        string // created_at, favorites_count
+	Limit       int
+	Offset      int
 }
 
 // Cache helper functions

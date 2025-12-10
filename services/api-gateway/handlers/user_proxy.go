@@ -54,6 +54,46 @@ func (p *UserProxy) GetPublicProfile(c *gin.Context) {
 	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), body)
 }
 
+// ListShelters proxies the shelters list request
+func (p *UserProxy) ListShelters(c *gin.Context) {
+	targetURL := p.serviceURL + "/api/v1/shelters"
+	if c.Request.URL.RawQuery != "" {
+		targetURL += "?" + c.Request.URL.RawQuery
+	}
+
+	req, err := http.NewRequest("GET", targetURL, nil)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
+	}
+
+	// Forward headers
+	for key, values := range c.Request.Header {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Error proxying to user service: %v", err)
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "User service unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+
+	// Copy response headers
+	for key, values := range resp.Header {
+		for _, value := range values {
+			c.Header(key, value)
+		}
+	}
+
+	body, _ := io.ReadAll(resp.Body)
+	c.Data(resp.StatusCode, resp.Header.Get("Content-Type"), body)
+}
+
 // GetUserPets proxies the request to get pets by owner
 func (p *UserProxy) GetUserPets(petServiceURL string) gin.HandlerFunc {
 	return func(c *gin.Context) {
