@@ -56,6 +56,17 @@ func (p *MatchProxy) RemoveFavorite(c *gin.Context) {
 	p.proxyRequest(c, "DELETE", path)
 }
 
+// GetFavoritesCount proxies GET /matches/favorites/count/:pet_id requests (public)
+func (p *MatchProxy) GetFavoritesCount(c *gin.Context) {
+	path := fmt.Sprintf("/matches/favorites/count/%s", c.Param("pet_id"))
+	p.proxyRequest(c, "GET", path)
+}
+
+// GetFavoritesCounts proxies POST /matches/favorites/counts requests (public)
+func (p *MatchProxy) GetFavoritesCounts(c *gin.Context) {
+	p.proxyRequest(c, "POST", "/matches/favorites/counts")
+}
+
 // SetPreferences proxies POST /matches/preferences requests
 func (p *MatchProxy) SetPreferences(c *gin.Context) {
 	p.proxyRequest(c, "POST", "/matches/preferences")
@@ -69,6 +80,17 @@ func (p *MatchProxy) GetPreferences(c *gin.Context) {
 // UpdatePreferences proxies PUT /matches/preferences requests
 func (p *MatchProxy) UpdatePreferences(c *gin.Context) {
 	p.proxyRequest(c, "PUT", "/matches/preferences")
+}
+
+// GetSimilarPets proxies GET /matches/recommendations/similar/:pet_id requests (public)
+func (p *MatchProxy) GetSimilarPets(c *gin.Context) {
+	path := fmt.Sprintf("/matches/recommendations/similar/%s", c.Param("pet_id"))
+	p.proxyRequest(c, "GET", path)
+}
+
+// GetPersonalizedRecommendations proxies GET /matches/recommendations requests (requires auth)
+func (p *MatchProxy) GetPersonalizedRecommendations(c *gin.Context) {
+	p.proxyRequest(c, "GET", "/matches/recommendations")
 }
 
 // HealthCheck proxies health check to match service

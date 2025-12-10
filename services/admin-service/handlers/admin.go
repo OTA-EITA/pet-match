@@ -246,6 +246,116 @@ func (h *AdminHandler) DeleteReview(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"message": "Review deleted"})
 }
 
+// CreateReport creates a new report
+func (h *AdminHandler) CreateReport(c *gin.Context) {
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		return
+	}
+
+	var req models.CreateReportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	report := models.NewReport(
+		userID.(string),
+		req.TargetType,
+		req.TargetID,
+		req.Reason,
+		req.Description,
+	)
+
+	if err := database.DB.Create(report).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create report"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"report": report})
+}
+
+// ListReports returns a list of all reports for admin
+func (h *AdminHandler) ListReports(c *gin.Context) {
+	var reports []models.Report
+
+	query := database.DB.Model(&models.Report{}).Order("created_at DESC")
+
+	// Apply status filter if provided
+	if status := c.Query("status"); status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	// Apply target_type filter if provided
+	if targetType := c.Query("target_type"); targetType != "" {
+		query = query.Where("target_type = ?", targetType)
+	}
+
+	// Apply limit/offset
+	limit := 50
+	offset := 0
+	if l := c.Query("limit"); l != "" {
+		if parsed, err := parseInt(l); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+	if o := c.Query("offset"); o != "" {
+		if parsed, err := parseInt(o); err == nil && parsed >= 0 {
+			offset = parsed
+		}
+	}
+
+	var total int64
+	query.Count(&total)
+
+	if err := query.Limit(limit).Offset(offset).Find(&reports).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch reports"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"reports": reports,
+		"total":   total,
+		"limit":   limit,
+		"offset":  offset,
+	})
+}
+
+// UpdateReportStatus updates a report's status (admin action)
+func (h *AdminHandler) UpdateReportStatus(c *gin.Context) {
+	reportID := c.Param("id")
+	adminID, _ := c.Get("user_id")
+
+	var req models.UpdateReportRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := map[string]interface{}{
+		"status":     req.Status,
+		"admin_note": req.AdminNote,
+	}
+
+	if req.Status == models.ReportStatusResolved || req.Status == models.ReportStatusDismissed {
+		updates["resolved_by"] = adminID
+		updates["resolved_at"] = database.DB.NowFunc()
+	}
+
+	result := database.DB.Model(&models.Report{}).Where("id = ?", reportID).Updates(updates)
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to update report"})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Report not found"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Report status updated"})
+}
+
 func parseInt(s string) (int, error) {
 	var result int
 	_, err := (func() (int, error) {

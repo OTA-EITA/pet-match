@@ -334,6 +334,17 @@ export const favoritesApi = {
     }
     return false;
   },
+
+  getCount: async (petId: string) => {
+    return fetchApi<{ pet_id: string; count: number }>(`/api/matches/favorites/count/${petId}`);
+  },
+
+  getCounts: async (petIds: string[]) => {
+    return fetchApi<{ counts: Record<string, number> }>('/api/matches/favorites/counts', {
+      method: 'POST',
+      body: JSON.stringify({ pet_ids: petIds }),
+    });
+  },
 };
 
 // Inquiries API
@@ -625,4 +636,120 @@ export const adminApi = {
       method: 'DELETE',
     });
   },
+
+  getReports: async (params?: { status?: string; target_type?: string; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.status) searchParams.set('status', params.status);
+    if (params?.target_type) searchParams.set('target_type', params.target_type);
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.offset) searchParams.set('offset', params.offset.toString());
+    const query = searchParams.toString();
+    return fetchApi<{ reports: Report[]; total: number }>(`/api/v1/admin/reports${query ? `?${query}` : ''}`);
+  },
+
+  updateReportStatus: async (reportId: string, status: ReportStatus, adminNote?: string) => {
+    return fetchApi<void>(`/api/v1/admin/reports/${reportId}/status`, {
+      method: 'PUT',
+      body: JSON.stringify({ status, admin_note: adminNote }),
+    });
+  },
+};
+
+// Report types
+export type ReportType = 'pet' | 'user' | 'review' | 'message';
+export type ReportReason = 'spam' | 'inappropriate' | 'fraud' | 'misleading' | 'harassment' | 'animal_abuse' | 'other';
+export type ReportStatus = 'pending' | 'reviewing' | 'resolved' | 'dismissed';
+
+export interface Report {
+  id: string;
+  reporter_id: string;
+  target_type: ReportType;
+  target_id: string;
+  reason: ReportReason;
+  description?: string;
+  status: ReportStatus;
+  admin_note?: string;
+  resolved_by?: string;
+  resolved_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateReportData {
+  target_type: ReportType;
+  target_id: string;
+  reason: ReportReason;
+  description?: string;
+}
+
+// Reports API (user-facing)
+export const reportsApi = {
+  create: async (data: CreateReportData) => {
+    return fetchApi<{ report: Report }>('/api/v1/reports', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+};
+
+// Recommendations API
+export const recommendationsApi = {
+  // Get similar pets (public)
+  getSimilar: async (petId: string, limit: number = 6) => {
+    return fetchApi<{ pets: Pet[]; count: number }>(`/api/matches/recommendations/similar/${petId}?limit=${limit}`);
+  },
+
+  // Get personalized recommendations (requires auth)
+  getPersonalized: async (limit: number = 10) => {
+    return fetchApi<{ pets: Pet[]; count: number }>(`/api/matches/recommendations?limit=${limit}`);
+  },
+};
+
+// Article types
+export type ArticleCategory = 'adoption' | 'health' | 'nutrition' | 'behavior' | 'grooming' | 'lifestyle' | 'story' | 'news';
+export type ArticleStatus = 'draft' | 'published' | 'archived';
+
+export interface Article {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt?: string;
+  content: string;
+  cover_image?: string;
+  category: ArticleCategory;
+  tags?: string[];
+  author_id: string;
+  status: ArticleStatus;
+  view_count: number;
+  published_at?: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Articles API (public)
+export const articlesApi = {
+  getAll: async (params?: { category?: ArticleCategory; limit?: number; offset?: number }) => {
+    const searchParams = new URLSearchParams();
+    if (params?.category) searchParams.set('category', params.category);
+    if (params?.limit) searchParams.set('limit', params.limit.toString());
+    if (params?.offset) searchParams.set('offset', params.offset.toString());
+    const query = searchParams.toString();
+    return fetchApi<{ articles: Article[]; total: number }>(`/api/v1/articles${query ? `?${query}` : ''}`);
+  },
+
+  getByIdOrSlug: async (idOrSlug: string) => {
+    return fetchApi<{ article: Article }>(`/api/v1/articles/${idOrSlug}`);
+  },
+};
+
+// Category display names
+export const articleCategoryNames: Record<ArticleCategory, string> = {
+  adoption: '里親になるまで',
+  health: '健康・医療',
+  nutrition: '食事・栄養',
+  behavior: '行動・しつけ',
+  grooming: 'お手入れ',
+  lifestyle: '暮らし',
+  story: '体験談',
+  news: 'お知らせ',
 };

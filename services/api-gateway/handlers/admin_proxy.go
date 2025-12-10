@@ -146,3 +146,75 @@ func (p *AdminProxy) DeleteReview(c *gin.Context) {
 	body, _ := io.ReadAll(resp.Body)
 	c.Data(resp.StatusCode, "application/json", body)
 }
+
+// CreateReport creates a new report (user-facing)
+func (p *AdminProxy) CreateReport(c *gin.Context) {
+	bodyData, _ := io.ReadAll(c.Request.Body)
+	url := fmt.Sprintf("%s/api/v1/reports", p.serviceURL)
+
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(bodyData))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Forward user_id from context
+	if userID, exists := c.Get("user_id"); exists {
+		req.Header.Set("X-User-ID", userID.(string))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Admin service unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	c.Data(resp.StatusCode, "application/json", body)
+}
+
+// ListReports returns a list of all reports (admin only)
+func (p *AdminProxy) ListReports(c *gin.Context) {
+	url := fmt.Sprintf("%s/api/v1/admin/reports?%s", p.serviceURL, c.Request.URL.RawQuery)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Admin service unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	c.Data(resp.StatusCode, "application/json", body)
+}
+
+// UpdateReportStatus updates a report's status (admin only)
+func (p *AdminProxy) UpdateReportStatus(c *gin.Context) {
+	reportID := c.Param("id")
+	bodyData, _ := io.ReadAll(c.Request.Body)
+	url := fmt.Sprintf("%s/api/v1/admin/reports/%s/status", p.serviceURL, reportID)
+
+	req, err := http.NewRequest("PUT", url, bytes.NewBuffer(bodyData))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create request"})
+		return
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	// Forward user_id (admin ID) from context
+	if userID, exists := c.Get("user_id"); exists {
+		req.Header.Set("X-User-ID", userID.(string))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Admin service unavailable"})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	c.Data(resp.StatusCode, "application/json", body)
+}

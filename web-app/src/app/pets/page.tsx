@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import Header from '@/components/Header';
 import PetCard from '@/components/PetCard';
-import { petsApi, Pet } from '@/lib/api';
+import { petsApi, favoritesApi, Pet } from '@/lib/api';
 
 interface ViewHistoryItem {
   id: string;
@@ -32,6 +32,7 @@ interface SavedSearchCondition {
 
 function PetsContent() {
   const [pets, setPets] = useState<Pet[]>([]);
+  const [favoriteCounts, setFavoriteCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [total, setTotal] = useState(0);
@@ -88,8 +89,28 @@ function PetsContent() {
     });
 
     if (result.data) {
-      setPets(result.data.pets || []);
+      const fetchedPets = result.data.pets || [];
+      setPets(fetchedPets);
       setTotal(result.data.total || 0);
+
+      // Fetch favorites counts for all pets
+      if (fetchedPets.length > 0) {
+        const petIds = fetchedPets.map(p => p.id);
+        const countsResult = await favoritesApi.getCounts(petIds);
+        if (countsResult.data?.counts) {
+          setFavoriteCounts(countsResult.data.counts);
+
+          // If sorting by popularity, sort the pets by favorites count
+          if (sortBy === 'popular') {
+            const sortedPets = [...fetchedPets].sort((a, b) => {
+              const countA = countsResult.data?.counts[a.id] || 0;
+              const countB = countsResult.data?.counts[b.id] || 0;
+              return countB - countA;
+            });
+            setPets(sortedPets);
+          }
+        }
+      }
     } else {
       setError(result.error || '猫ちゃん情報の取得に失敗しました');
     }
@@ -461,6 +482,7 @@ function PetsContent() {
                   >
                     <option value="created_at">新着順</option>
                     <option value="oldest">古い順</option>
+                    <option value="popular">人気順</option>
                   </select>
                 </div>
               </div>
@@ -636,7 +658,7 @@ function PetsContent() {
             </p>
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
               {pets.map((pet) => (
-                <PetCard key={pet.id} pet={pet} />
+                <PetCard key={pet.id} pet={pet} favoriteCount={favoriteCounts[pet.id]} />
               ))}
             </div>
           </>

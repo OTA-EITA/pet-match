@@ -4,9 +4,11 @@ import { Pet } from '@/lib/api';
 
 interface PetCardProps {
   pet: Pet;
+  favoriteCount?: number;
+  ownerVerified?: boolean;
 }
 
-export default function PetCard({ pet }: PetCardProps) {
+export default function PetCard({ pet, favoriteCount, ownerVerified }: PetCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'available':
@@ -74,6 +76,24 @@ export default function PetCard({ pet }: PetCardProps) {
           {isNewPet(pet.created_at) && (
             <div className="absolute top-2 right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded">
               NEW
+            </div>
+          )}
+          {/* Owner verified badge */}
+          {ownerVerified && (
+            <div className="absolute bottom-2 left-2 bg-green-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              認証済
+            </div>
+          )}
+          {/* Favorite count badge */}
+          {favoriteCount !== undefined && favoriteCount > 0 && (
+            <div className="absolute bottom-2 right-2 bg-white/90 text-pink-500 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1 shadow">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+              </svg>
+              {favoriteCount}
             </div>
           )}
         </div>

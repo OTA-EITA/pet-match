@@ -268,6 +268,15 @@ func setupMatchRoutes(r gin.IRouter, cfg *config.Config, searchHandler *handlers
 		applicationsGroup.DELETE("/:id", applicationHandler.CancelApplication)
 	}
 
+	// Public favorites count endpoints (no auth required)
+	publicMatchGroup := r.Group("/matches")
+	{
+		publicMatchGroup.GET("/favorites/count/:pet_id", favoritesHandler.GetFavoritesCount)
+		publicMatchGroup.POST("/favorites/counts", favoritesHandler.GetFavoritesCounts)
+		// Public recommendation endpoints
+		publicMatchGroup.GET("/recommendations/similar/:pet_id", favoritesHandler.GetSimilarPets)
+	}
+
 	// Favorites and Preferences routes (requires authentication)
 	matchGroup := r.Group("/matches")
 	matchGroup.Use(middleware.AuthMiddleware(cfg))
@@ -281,5 +290,8 @@ func setupMatchRoutes(r gin.IRouter, cfg *config.Config, searchHandler *handlers
 		matchGroup.POST("/preferences", preferencesHandler.SetPreferences)
 		matchGroup.GET("/preferences", preferencesHandler.GetPreferences)
 		matchGroup.PUT("/preferences", preferencesHandler.UpdatePreferences)
+
+		// Personalized recommendations (requires auth)
+		matchGroup.GET("/recommendations", favoritesHandler.GetRecommendedPets)
 	}
 }

@@ -55,12 +55,13 @@ func main() {
 	notificationProxy := handlers.NewNotificationProxy(cfg.NotificationServiceURL)
 	reviewProxy := handlers.NewReviewProxy(cfg.ReviewServiceURL)
 	adminProxy := handlers.NewAdminProxy(cfg.AdminServiceURL)
+	articleProxy := handlers.NewArticleProxy(cfg.AdminServiceURL)
 
 	// 認証ミドルウェアの初期化
 	authMiddleware := middleware.NewAuthMiddleware(cfg.JWTSecret)
 
 	// ルートの設定
-	setupRoutes(r, cfg, authProxy, petProxy, matchProxy, inquiryProxy, userProxy, messageProxy, notificationProxy, reviewProxy, adminProxy, authMiddleware)
+	setupRoutes(r, cfg, authProxy, petProxy, matchProxy, inquiryProxy, userProxy, messageProxy, notificationProxy, reviewProxy, adminProxy, articleProxy, authMiddleware)
 
 	// サーバー起動
 	log.Printf("🚀 API Gateway starting on port %s", cfg.Port)
@@ -87,6 +88,7 @@ func setupRoutes(
 	notificationProxy *handlers.NotificationProxy,
 	reviewProxy *handlers.ReviewProxy,
 	adminProxy *handlers.AdminProxy,
+	articleProxy *handlers.ArticleProxy,
 	authMiddleware *middleware.AuthMiddleware,
 ) {
 	// ヘルスチェックルート
@@ -118,6 +120,9 @@ func setupRoutes(
 
 	// Admin Service ルート
 	routes.SetupAdminRoutes(r, adminProxy, authMiddleware)
+
+	// Article ルート
+	routes.SetupArticleRoutes(r, articleProxy, authMiddleware)
 
 	// 開発環境でのテストエンドポイント
 	if cfg.IsDevelopment() {

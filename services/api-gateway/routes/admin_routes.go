@@ -8,6 +8,13 @@ import (
 
 // SetupAdminRoutes sets up admin-related routes
 func SetupAdminRoutes(r *gin.Engine, proxy *handlers.AdminProxy, authMiddleware *middleware.AuthMiddleware) {
+	// User-facing reports routes (requires auth)
+	reports := r.Group("/api/v1/reports")
+	{
+		reports.Use(authMiddleware.RequireAuth())
+		reports.POST("", proxy.CreateReport)
+	}
+
 	admin := r.Group("/api/v1/admin")
 	{
 		// All admin routes require authentication and admin role
@@ -30,5 +37,9 @@ func SetupAdminRoutes(r *gin.Engine, proxy *handlers.AdminProxy, authMiddleware 
 
 		// Review management
 		admin.DELETE("/reviews/:id", proxy.DeleteReview)
+
+		// Report management
+		admin.GET("/reports", proxy.ListReports)
+		admin.PUT("/reports/:id/status", proxy.UpdateReportStatus)
 	}
 }

@@ -118,3 +118,104 @@ func (h *FavoritesHandler) RemoveFavorite(c *gin.Context) {
 		"message": "Favorite removed successfully",
 	})
 }
+
+// GetFavoritesCount handles GET /matches/favorites/count/:pet_id (public)
+func (h *FavoritesHandler) GetFavoritesCount(c *gin.Context) {
+	petID := c.Param("pet_id")
+	if petID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pet ID is required"})
+		return
+	}
+
+	count, err := h.matchService.GetPetFavoritesCount(c.Request.Context(), petID)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get favorites count", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"pet_id": petID,
+		"count":  count,
+	})
+}
+
+// GetFavoritesCounts handles POST /matches/favorites/counts (public)
+func (h *FavoritesHandler) GetFavoritesCounts(c *gin.Context) {
+	var req struct {
+		PetIDs []string `json:"pet_ids" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format", "details": err.Error()})
+		return
+	}
+
+	counts, err := h.matchService.GetPetsFavoritesCounts(c.Request.Context(), req.PetIDs)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get favorites counts", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"counts": counts,
+	})
+}
+
+// GetSimilarPets handles GET /matches/recommendations/similar/:pet_id (public)
+func (h *FavoritesHandler) GetSimilarPets(c *gin.Context) {
+	petID := c.Param("pet_id")
+	if petID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Pet ID is required"})
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "6")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 6
+	}
+	if limit > 20 {
+		limit = 20
+	}
+
+	pets, err := h.matchService.GetSimilarPets(c.Request.Context(), petID, limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get similar pets", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"pets":  pets,
+		"count": len(pets),
+	})
+}
+
+// GetRecommendedPets handles GET /matches/recommendations (requires auth)
+func (h *FavoritesHandler) GetRecommendedPets(c *gin.Context) {
+	// Get user ID from auth middleware
+	userID, exists := c.Get("user_id")
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
+		return
+	}
+
+	limitStr := c.DefaultQuery("limit", "10")
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		limit = 10
+	}
+	if limit > 50 {
+		limit = 50
+	}
+
+	pets, err := h.matchService.GetRecommendedPets(c.Request.Context(), userID.(string), limit)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to get recommendations", "details": err.Error()})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"pets":  pets,
+		"count": len(pets),
+	})
+}
